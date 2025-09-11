@@ -1,6 +1,0 @@
-- board: o tabuleiro, onde o jogo irá acontecer (a própria janela, no caso) - cor branca
-- node: serão pontos organizados de forma hexagonal preenchendo o tabuleiro - cor preta
-- unit: serão as peças do jogo que se moverão de ponto em ponto - cor depende do jogador
-- path: cada ponto possuirá seis caminhos, um para cada ponto adjacente. Controlaremos o movimento de certas peças através dessa entidade - cor: cinza claro
-- domain: domínio, será o conjunto de um ponto, todos os seis pontos adjacentes e os doze caminhos em comum, ou seja, um hexágono - cor depende do jogador
-- player: os usuários, que terão cada um controle sobre suas próprias peças e domínios - cor depende do jogador

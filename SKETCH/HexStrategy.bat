@@ -1,2 +1,0 @@
-@echo off
-"C:\Program Files\Godot\Godot_v4.4.1-stable_win64.exe" --path "C:\Users\agwar\Documents\Arquivos\Codes\-\AGOSTO\ZERO\HexStrategy"
