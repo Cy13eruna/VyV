@@ -1,0 +1,40 @@
+[gd_scene load_steps=2 format=3 uid="uid://maingd123"]
+
+[ext_resource type="Script" path="res://Client/Scripts/GameManager.gd" id="1_gd"]
+
+[node name="MainGD" type="Node2D"]
+
+[node name="GameManager" type="Node2D" parent="."]
+script = ExtResource("1_gd")
+board_width = 8
+board_height = 6
+hex_size = 35.0
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(400, 300)
+zoom = Vector2(0.8, 0.8)
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="InfoPanel" type="Panel" parent="UI"]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = -100.0
+offset_right = 300.0
+offset_bottom = -10.0
+
+[node name="TurnLabel" type="Label" parent="UI/InfoPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 10.0
+offset_top = 10.0
+offset_right = -10.0
+offset_bottom = -10.0
+text = "Turn: Player 1
+Click unit to select
+Click adjacent node to move"
+vertical_alignment = 1

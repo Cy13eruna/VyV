@@ -1,0 +1,92 @@
+
+♥K cabeça
+♥Q olho esquerdo
+♥2 face esquerda
+♥7 pescoço esquerdo
+♥6 cintura esquerda
+♥X ombro esquerdo
+♥3
+♥4
+♥9 ombro direito
+♥5 cintura direita
+♥8 pescoço direito
+♥J face direita
+♥A olho direito
+
+♣2 cabeça direita
+♣6 costela esquerda
+♣7
+♣3 mão esquerda 
+♣Q
+♣X cotovelo esquerdo
+♣K peito
+♣9 cotovelo direito
+♣A
+♣4 mão direita
+♣8
+♣5 costela direita
+♣J cabeça esquerda
+
+♠2
+♠7 pé esquerdo
+♠Q
+♠6 joelho esquerdo
+♠X bacia esquerda
+♠3
+♠K abdômen
+♠4
+♠9 bacia direita
+♠5 joelho direito
+♠A
+♠8 pé direito
+♠J
+
+♦Q
+
+♦2
+
+
+
+♦7
+
+
+
+♦6
+
+
+
+
+
+♦3
+
+
+
+
+♦X
+
+♦K ventre
+
+♦9
+
+
+
+
+♦4
+
+
+
+
+
+♦5
+
+
+
+♦8
+
+
+
+♦J
+
+♦A
+
+a

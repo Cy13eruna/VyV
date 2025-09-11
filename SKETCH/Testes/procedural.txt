@@ -1,0 +1,6 @@
+a totalidade dos losangos será preenchida com as seguintes cores...
+um terço dos losangos será 00FF00
+um sexto dos losangos será 007E00
+um sexto dos losangos será 00FFFF
+um sexto dos losangos será 666666
+preencha de forma aleatória, porém respeitando as proporções...

@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Rhombille Tiling - TRIÂNGULOS PRETOS</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: white;
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <!-- Carregar configurações com cache busting -->
+    <script src="rhombille_config.js?v=2"></script>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // CONFIGURAÇÕES FIXAS PARA GARANTIR VISIBILIDADE
+        const TRIANGLE_CONFIG = {
+            showTriangleNodes: true,
+            triangleNodeColor: '#000000',   // PRETO FORÇADO
+            triangleNodeSize: 16,           // MAIOR FORÇADO
+            triangleNodeSpacing: 4          // MAIOR FORÇADO
+        };
+        
+        // Array para armazenar cores dos losangos (preenchimento aleatório respeitando proporções)
+        let diamondColors = [];
+        let boardWidth, boardHeight;
+        let hexNodes = [];
+        let isInitialLoad = true;
+        
+        // Função para obter cores das configurações
+        function getColors() {
+            if (window.RHOMBILLE_CONFIG) {
+                return getColorsArray();
+            }
+            // Fallback se config não carregar
+            return ['#00FF00', '#007E00', '#666666', '#00FFFF'];
+        }
+        
+        // Função para obter proporções das configurações
+        function getProportions() {
+            if (window.RHOMBILLE_CONFIG) {
+                return getProportionsArray();
+            }
+            // Fallback se config não carregar
+            return [1/3, 1/6, 1/6, 1/6];
+        }
+        
+        // Função para obter tamanho do hex das configurações
+        function getHexSize() {
+            if (window.RHOMBILLE_CONFIG) {
+                return getEffectiveHexSize();
+            }
+            // Fallback se config não carregar
+            return 50;
+        }
+        
+        // Função para converter hex para rgba
+        function hexToRgba(hex, alpha = 1) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            if (result) {
+                const r = parseInt(result[1], 16);
+                const g = parseInt(result[2], 16);
+                const b = parseInt(result[3], 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+            return hex;
+        }
+        
+        // Função para desenhar nódulo triangular (dois triângulos sobrepostos) - FORÇADO PRETO
+        function drawTriangleNode(x, y, size, color, spacing) {
+            console.log(`🔺 TRIANGULO PRETO: Desenhando em (${x.toFixed(1)}, ${y.toFixed(1)}) tamanho ${size} cor ${color}`);
+            
+            ctx.save();
+            ctx.fillStyle = TRIANGLE_CONFIG.triangleNodeColor; // FORÇAR PRETO
+            
+            // Triângulo apontando para a direita
+            const rightTriangleX = x + spacing / 2;
+            ctx.beginPath();
+            ctx.moveTo(rightTriangleX - size/2, y - size/2);  // Ponto superior esquerdo
+            ctx.lineTo(rightTriangleX + size/2, y);           // Ponta direita
+            ctx.lineTo(rightTriangleX - size/2, y + size/2);  // Ponto inferior esquerdo
+            ctx.closePath();
+            ctx.fill();
+            
+            // Triângulo apontando para a esquerda
+            const leftTriangleX = x - spacing / 2;
+            ctx.beginPath();
+            ctx.moveTo(leftTriangleX + size/2, y - size/2);   // Ponto superior direito
+            ctx.lineTo(leftTriangleX - size/2, y);            // Ponta esquerda
+            ctx.lineTo(leftTriangleX + size/2, y + size/2);   // Ponto inferior direito
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+        }
+        
+        // Função para desenhar losango com APENAS as pontas agudas arredondadas
+        function drawRoundedDiamond(vertices, roundRadius) {
+            ctx.beginPath();
+            
+            // vertices[0] = from (ponta aguda)
+            // vertices[1] = lateral direita (obtuso)
+            // vertices[2] = to (ponta aguda)  
+            // vertices[3] = lateral esquerda (obtuso)
+            
+            // Começar do primeiro vértice lateral (obtuso)
+            ctx.moveTo(vertices[1].x, vertices[1].y);
+            
+            // Ir para a primeira ponta aguda (vertices[2] = to) com arredondamento
+            const toVertex = vertices[2];
+            const lateral1 = vertices[1];
+            const lateral2 = vertices[3];
+            
+            // Calcular vetores para a ponta aguda 'to'
+            const toVecPrev = {
+                x: lateral1.x - toVertex.x,
+                y: lateral1.y - toVertex.y
+            };
+            const toVecNext = {
+                x: lateral2.x - toVertex.x,
+                y: lateral2.y - toVertex.y
+            };
+            
+            // Normalizar
+            const toLenPrev = Math.sqrt(toVecPrev.x * toVecPrev.x + toVecPrev.y * toVecPrev.y);
+            const toLenNext = Math.sqrt(toVecNext.x * toVecNext.x + toVecNext.y * toVecNext.y);
+            
+            toVecPrev.x /= toLenPrev;
+            toVecPrev.y /= toLenPrev;
+            toVecNext.x /= toLenNext;
+            toVecNext.y /= toLenNext;
+            
+            // Pontos de controle para a ponta aguda 'to'
+            const toStartPoint = {
+                x: toVertex.x + toVecPrev.x * roundRadius,
+                y: toVertex.y + toVecPrev.y * roundRadius
+            };
+            const toEndPoint = {
+                x: toVertex.x + toVecNext.x * roundRadius,
+                y: toVertex.y + toVecNext.y * roundRadius
+            };
+            
+            // Desenhar linha até o início do arco da ponta 'to'
+            ctx.lineTo(toStartPoint.x, toStartPoint.y);
+            // Arco arredondado na ponta 'to'
+            ctx.arcTo(toVertex.x, toVertex.y, toEndPoint.x, toEndPoint.y, roundRadius);
+            
+            // Ir para o vértice lateral (obtuso) - sem arredondamento
+            ctx.lineTo(vertices[3].x, vertices[3].y);
+            
+            // Ir para a segunda ponta aguda (vertices[0] = from) com arredondamento
+            const fromVertex = vertices[0];
+            const lateral3 = vertices[3];
+            const lateral4 = vertices[1];
+            
+            // Calcular vetores para a ponta aguda 'from'
+            const fromVecPrev = {
+                x: lateral3.x - fromVertex.x,
+                y: lateral3.y - fromVertex.y
+            };
+            const fromVecNext = {
+                x: lateral4.x - fromVertex.x,
+                y: lateral4.y - fromVertex.y
+            };
+            
+            // Normalizar
+            const fromLenPrev = Math.sqrt(fromVecPrev.x * fromVecPrev.x + fromVecPrev.y * fromVecPrev.y);
+            const fromLenNext = Math.sqrt(fromVecNext.x * fromVecNext.x + fromVecNext.y * fromVecNext.y);
+            
+            fromVecPrev.x /= fromLenPrev;
+            fromVecPrev.y /= fromLenPrev;
+            fromVecNext.x /= fromLenNext;
+            fromVecNext.y /= fromLenNext;
+            
+            // Pontos de controle para a ponta aguda 'from'
+            const fromStartPoint = {
+                x: fromVertex.x + fromVecPrev.x * roundRadius,
+                y: fromVertex.y + fromVecPrev.y * roundRadius
+            };
+            const fromEndPoint = {
+                x: fromVertex.x + fromVecNext.x * roundRadius,
+                y: fromVertex.y + fromVecNext.y * roundRadius
+            };
+            
+            // Desenhar linha até o início do arco da ponta 'from'
+            ctx.lineTo(fromStartPoint.x, fromStartPoint.y);
+            // Arco arredondado na ponta 'from'
+            ctx.arcTo(fromVertex.x, fromVertex.y, fromEndPoint.x, fromEndPoint.y, roundRadius);
+            
+            ctx.closePath();
+        }
+        
+        // Função para auto-salvar imagem com verificações seguras
+        function autoSaveImage() {
+            // Verificações seguras para evitar erros
+            if (!window.RHOMBILLE_CONFIG) {
+                console.log('Configurações não carregadas, auto-save desabilitado');
+                return;
+            }
+            
+            if (!RHOMBILLE_CONFIG.autoSave) {
+                console.log('Seção autoSave não encontrada, auto-save desabilitado');
+                return;
+            }
+            
+            if (!RHOMBILLE_CONFIG.autoSave.enabled) {
+                console.log('Auto-save desabilitado nas configurações');
+                return;
+            }
+            
+            const config = RHOMBILLE_CONFIG.autoSave;
+            const timestamp = config.includeTimestamp ? 
+                '_' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5) : '';
+            const filename = config.filename + timestamp + '.' + config.format;
+            
+            // Aguardar um pouco para garantir que o desenho terminou
+            setTimeout(() => {
+                try {
+                    let dataURL;
+                    if (config.format === 'jpeg') {
+                        dataURL = canvas.toDataURL('image/jpeg', config.quality);
+                    } else if (config.format === 'png') {
+                        dataURL = canvas.toDataURL('image/png');
+                    } else if (config.format === 'webp') {
+                        dataURL = canvas.toDataURL('image/webp', config.quality);
+                    } else {
+                        dataURL = canvas.toDataURL('image/jpeg', config.quality);
+                    }
+                    
+                    // Criar link de download
+                    const link = document.createElement('a');
+                    link.download = filename;
+                    link.href = dataURL;
+                    
+                    // Simular clique para baixar
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    console.log('✅ Imagem auto-salva:', filename);
+                    
+                } catch (error) {
+                    console.error('❌ Erro ao auto-salvar imagem:', error);
+                }
+            }, config.delayAfterRender || 2000);
+        }
+        
+        // Ajustar canvas para tela cheia
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            
+            // Aplicar cor de fundo das configurações
+            if (window.RHOMBILLE_CONFIG) {
+                document.body.style.backgroundColor = RHOMBILLE_CONFIG.visual.backgroundColor;
+                canvas.style.backgroundColor = RHOMBILLE_CONFIG.visual.backgroundColor;
+            }
+            
+            generateHexGrid();
+            generateRandomColorDistribution();
+            drawRhombilleTiling();
+            
+            // Auto-salvar apenas no carregamento inicial
+            if (isInitialLoad) {
+                autoSaveImage();
+                isInitialLoad = false;
+            }
+        }
+        
+        // Gerar distribuição aleatória de cores respeitando as proporções
+        function generateRandomColorDistribution() {
+            diamondColors = [];
+            
+            // Contar total de losangos
+            let totalDiamonds = 0;
+            for (let i = 0; i < hexNodes.length; i++) {
+                const neighbors = getHexNeighbors(i);
+                for (const neighborIdx of neighbors) {
+                    if (neighborIdx > i && neighborIdx < hexNodes.length) {
+                        totalDiamonds++;
+                    }
+                }
+            }
+            
+            // Criar array com as cores nas proporções configuradas
+            const colorPool = [];
+            const proportions = getProportions();
+            
+            for (let colorIndex = 0; colorIndex < 4; colorIndex++) {
+                const count = Math.round(totalDiamonds * proportions[colorIndex]);
+                for (let i = 0; i < count; i++) {
+                    colorPool.push(colorIndex);
+                }
+            }
+            
+            // Preencher o restante com a cor principal se necessário
+            while (colorPool.length < totalDiamonds) {
+                colorPool.push(0);
+            }
+            
+            // Embaralhar o array para distribuição aleatória
+            for (let i = colorPool.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [colorPool[i], colorPool[j]] = [colorPool[j], colorPool[i]];
+            }
+            
+            // Atribuir cores aos losangos
+            let colorIndex = 0;
+            for (let i = 0; i < hexNodes.length; i++) {
+                const neighbors = getHexNeighbors(i);
+                for (const neighborIdx of neighbors) {
+                    if (neighborIdx > i && neighborIdx < hexNodes.length) {
+                        const key = `${i}-${neighborIdx}`;
+                        diamondColors[key] = colorPool[colorIndex % colorPool.length];
+                        colorIndex++;
+                    }
+                }
+            }
+        }
+        
+        // Implementação da função draw_diamond_path_simple com APENAS pontas agudas arredondadas
+        function drawDiamondPathSimple(from, to, colorIndex) {
+            const center = {
+                x: (from.x + to.x) / 2.0,
+                y: (from.y + to.y) / 2.0
+            };
+            
+            const direction = {
+                x: to.x - from.x,
+                y: to.y - from.y
+            };
+            const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+            const normalized = {
+                x: direction.x / length,
+                y: direction.y / length
+            };
+            
+            const perpendicular = {
+                x: -normalized.y,
+                y: normalized.x
+            };
+            
+            const distance = Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2);
+            
+            // Usar configurações para cálculo da largura
+            let diamondWidth;
+            if (window.RHOMBILLE_CONFIG && RHOMBILLE_CONFIG.math.useCustomFormula) {
+                diamondWidth = distance * RHOMBILLE_CONFIG.math.customWidthMultiplier;
+            } else {
+                diamondWidth = distance / (2.0 * Math.sqrt(3.0));
+            }
+            
+            const vertices = [
+                from,  // Ponta aguda
+                {
+                    x: center.x + perpendicular.x * diamondWidth,
+                    y: center.y + perpendicular.y * diamondWidth
+                },  // Lateral obtusa
+                to,    // Ponta aguda
+                {
+                    x: center.x - perpendicular.x * diamondWidth,
+                    y: center.y - perpendicular.y * diamondWidth
+                }   // Lateral obtusa
+            ];
+            
+            // FORÇAR ESFUMAÇAMENTO SEMPRE ATIVO (preservando suas configurações)
+            const enableBlur = window.RHOMBILLE_CONFIG ? RHOMBILLE_CONFIG.visual.enableBlur : true;
+            const colors = getColors();
+            const baseColor = colors[colorIndex];
+            
+            // Verificar se pontas arredondadas estão habilitadas
+            const roundVertices = (window.RHOMBILLE_CONFIG && RHOMBILLE_CONFIG.visual.roundVertices) || false;
+            const vertexRoundness = (window.RHOMBILLE_CONFIG && RHOMBILLE_CONFIG.visual.vertexRoundness) || 8;
+            
+            if (enableBlur) {
+                // ESFUMAÇAMENTO CORRETO - usando clipping com APENAS pontas agudas arredondadas
+                
+                // 1. Criar o path do losango (com ou sem pontas agudas arredondadas)
+                if (roundVertices) {
+                    drawRoundedDiamond(vertices, vertexRoundness);
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(vertices[0].x, vertices[0].y);
+                    for (let i = 1; i < vertices.length; i++) {
+                        ctx.lineTo(vertices[i].x, vertices[i].y);
+                    }
+                    ctx.closePath();
+                }
+                
+                // 2. Salvar estado e aplicar clipping
+                ctx.save();
+                ctx.clip();
+                
+                // 3. Configurações de esfumaçamento com fallbacks (preservando suas configurações)
+                const blurIntensity = (window.RHOMBILLE_CONFIG && RHOMBILLE_CONFIG.visual.blurIntensity) || 1;
+                const gradientRadius = (window.RHOMBILLE_CONFIG && RHOMBILLE_CONFIG.visual.gradientRadius) || 1.5;
+                
+                // 4. Criar gradiente radial DENTRO do losango
+                const radius = Math.max(diamondWidth, distance / 3) * gradientRadius;
+                const gradient = ctx.createRadialGradient(
+                    center.x, center.y, 0,
+                    center.x, center.y, radius
+                );
+                
+                gradient.addColorStop(0, baseColor);
+                gradient.addColorStop(0.5, hexToRgba(baseColor, 1 - blurIntensity * 0.3));
+                gradient.addColorStop(0.8, hexToRgba(baseColor, 1 - blurIntensity * 0.6));
+                gradient.addColorStop(1, hexToRgba(baseColor, 1 - blurIntensity));
+                
+                // 5. Preencher com gradiente (limitado pelo clipping)
+                ctx.fillStyle = gradient;
+                ctx.fillRect(
+                    center.x - radius, center.y - radius,
+                    radius * 2, radius * 2
+                );
+                
+                // 6. Restaurar estado (remove clipping)
+                ctx.restore();
+                
+            } else {
+                // VERSÃO NORMAL (sem esfumaçamento) com APENAS pontas agudas arredondadas
+                if (roundVertices) {
+                    drawRoundedDiamond(vertices, vertexRoundness);
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(vertices[0].x, vertices[0].y);
+                    for (let i = 1; i < vertices.length; i++) {
+                        ctx.lineTo(vertices[i].x, vertices[i].y);
+                    }
+                    ctx.closePath();
+                }
+                
+                ctx.fillStyle = baseColor;
+                ctx.fill();
+            }
+            
+            // Bordas opcionais das configurações
+            if (window.RHOMBILLE_CONFIG && RHOMBILLE_CONFIG.visual.showBorders) {
+                if (roundVertices) {
+                    drawRoundedDiamond(vertices, vertexRoundness);
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(vertices[0].x, vertices[0].y);
+                    for (let i = 1; i < vertices.length; i++) {
+                        ctx.lineTo(vertices[i].x, vertices[i].y);
+                    }
+                    ctx.closePath();
+                }
+                
+                ctx.strokeStyle = RHOMBILLE_CONFIG.visual.borderColor;
+                ctx.lineWidth = RHOMBILLE_CONFIG.visual.borderWidth;
+                ctx.stroke();
+            }
+        }
+        
+        // Gerar grade hexagonal
+        function generateHexGrid() {
+            const hexSize = getHexSize();
+            const extraCols = window.RHOMBILLE_CONFIG ? RHOMBILLE_CONFIG.grid.extraColumns : 2;
+            const extraRows = window.RHOMBILLE_CONFIG ? RHOMBILLE_CONFIG.grid.extraRows : 2;
+            const offsetX = window.RHOMBILLE_CONFIG ? RHOMBILLE_CONFIG.grid.offsetX : 0;
+            const offsetY = window.RHOMBILLE_CONFIG ? RHOMBILLE_CONFIG.grid.offsetY : 0;
+            
+            boardWidth = Math.ceil(window.innerWidth / (hexSize * Math.sqrt(3))) + extraCols;
+            boardHeight = Math.ceil(window.innerHeight / (hexSize * 1.5)) + extraRows;
+            hexNodes = [];
+            
+            for (let row = 0; row < boardHeight; row++) {
+                for (let col = 0; col < boardWidth; col++) {
+                    const x = hexSize * (Math.sqrt(3.0) * col + Math.sqrt(3.0)/2.0 * (row & 1)) + offsetX;
+                    const y = hexSize * (3.0/2.0 * row) + offsetY;
+                    hexNodes.push({ x, y, col, row, index: row * boardWidth + col });
+                }
+            }
+            
+            console.log(`🔷 Grade gerada: ${hexNodes.length} nós, ${boardWidth}x${boardHeight}`);
+        }
+        
+        // Obter vizinhos hexagonais
+        function getHexNeighbors(nodeIdx) {
+            const col = nodeIdx % boardWidth;
+            const row = Math.floor(nodeIdx / boardWidth);
+            const neighbors = [];
+            
+            let directions;
+            if (row % 2 === 0) {
+                directions = [[-1,-1], [0,-1], [-1,0], [1,0], [-1,1], [0,1]];
+            } else {
+                directions = [[0,-1], [1,-1], [-1,0], [1,0], [0,1], [1,1]];
+            }
+            
+            for (const [dx, dy] of directions) {
+                const newCol = col + dx;
+                const newRow = row + dy;
+                if (newCol >= 0 && newCol < boardWidth && newRow >= 0 && newRow < boardHeight) {
+                    neighbors.push(newRow * boardWidth + newCol);
+                }
+            }
+            
+            return neighbors;
+        }
+        
+        // Função principal de desenho
+        function drawRhombilleTiling() {
+            console.log('🎨 Iniciando desenho do Rhombille Tiling...');
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Fundo das configurações
+            const bgColor = window.RHOMBILLE_CONFIG ? RHOMBILLE_CONFIG.visual.backgroundColor : 'white';
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Preencher de forma aleatória, porém respeitando as proporções
+            for (let i = 0; i < hexNodes.length; i++) {
+                const pos = hexNodes[i];
+                const neighbors = getHexNeighbors(i);
+                
+                for (const neighborIdx of neighbors) {
+                    if (neighborIdx > i && neighborIdx < hexNodes.length) {
+                        const key = `${i}-${neighborIdx}`;
+                        const colorIndex = diamondColors[key] || 0;
+                        drawDiamondPathSimple(pos, hexNodes[neighborIdx], colorIndex);
+                    }
+                }
+            }
+            
+            console.log('🔷 Losangos desenhados');
+            
+            // Pontos nos vértices circulares (ocultos por enquanto)
+            const showVertexPoints = window.RHOMBILLE_CONFIG ? RHOMBILLE_CONFIG.visual.showVertexPoints : false;
+            if (showVertexPoints) {
+                const vertexColor = window.RHOMBILLE_CONFIG ? RHOMBILLE_CONFIG.visual.vertexPointColor : 'white';
+                const vertexRadius = window.RHOMBILLE_CONFIG ? RHOMBILLE_CONFIG.visual.vertexPointRadius : 6;
+                
+                ctx.fillStyle = vertexColor;
+                for (let i = 0; i < hexNodes.length; i++) {
+                    const pos = hexNodes[i];
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, vertexRadius, 0, 2 * Math.PI);
+                    ctx.fill();
+                }
+                console.log('⚪ Pontos circulares desenhados');
+            }
+            
+            // Nódulos triangulares (nova variação) - FORÇADO PRETO
+            console.log('🔺 Desenhando triângulos PRETOS...');
+            
+            for (let i = 0; i < hexNodes.length; i++) {
+                const pos = hexNodes[i];
+                drawTriangleNode(
+                    pos.x, 
+                    pos.y, 
+                    TRIANGLE_CONFIG.triangleNodeSize, 
+                    TRIANGLE_CONFIG.triangleNodeColor, 
+                    TRIANGLE_CONFIG.triangleNodeSpacing
+                );
+                
+                // Log apenas os primeiros 5 para não poluir o console
+                if (i < 5) {
+                    console.log(`🔺 Triângulo PRETO ${i} desenhado em (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`);
+                }
+            }
+            
+            console.log(`🔺 ${hexNodes.length} triângulos PRETOS desenhados!`);
+            console.log('✅ Desenho completo!');
+        }
+        
+        // Inicialização
+        // Aguardar carregamento das configurações
+        window.addEventListener('load', () => {
+            console.log('🚀 Carregando Rhombille com triângulos PRETOS...');
+            if (window.RHOMBILLE_CONFIG) {
+                validateConfig();
+                console.log('Configurações carregadas:', RHOMBILLE_CONFIG.visual.enableBlur);
+                console.log('Vértices arredondados:', RHOMBILLE_CONFIG.visual.roundVertices);
+                console.log('Triângulos FORÇADOS:', TRIANGLE_CONFIG);
+                
+                // Verificação segura para auto-save
+                if (RHOMBILLE_CONFIG.autoSave) {
+                    console.log('Auto-save habilitado:', RHOMBILLE_CONFIG.autoSave.enabled);
+                } else {
+                    console.log('Seção autoSave não encontrada');
+                }
+            } else {
+                console.log('Configurações não carregadas, usando fallbacks');
+            }
+            resizeCanvas();
+        });
+        
+        // Redimensionar quando a janela mudar
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Clique para randomizar (configurável) - preservando suas configurações
+        canvas.addEventListener('click', () => {
+            const clickToRandomize = window.RHOMBILLE_CONFIG ? RHOMBILLE_CONFIG.interaction.clickToRandomize : true;
+            if (clickToRandomize) {
+                generateRandomColorDistribution();
+                drawRhombilleTiling();
+            }
+        });
+        
+        // Função para recarregar configurações (útil para desenvolvimento)
+        window.reloadConfig = function() {
+            if (window.RHOMBILLE_CONFIG) {
+                validateConfig();
+                resizeCanvas();
+            }
+        };
+        
+        // Função manual para salvar imagem
+        window.saveImage = function() {
+            autoSaveImage();
+        };
+    </script>
+</body>
+</html>

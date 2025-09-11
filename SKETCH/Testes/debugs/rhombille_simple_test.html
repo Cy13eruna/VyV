@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Teste Simples - Esfumaçamento</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: white;
+            overflow: hidden;
+        }
+        
+        canvas {
+            display: block;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        
+        function hexToRgba(hex, alpha = 1) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            if (result) {
+                const r = parseInt(result[1], 16);
+                const g = parseInt(result[2], 16);
+                const b = parseInt(result[3], 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+            return hex;
+        }
+        
+        function drawBlurredShape(x, y, color) {
+            const radius = 80;
+            
+            // Criar gradiente radial
+            const gradient = ctx.createRadialGradient(
+                x, y, 0,
+                x, y, radius
+            );
+            
+            gradient.addColorStop(0, color);
+            gradient.addColorStop(0.3, hexToRgba(color, 0.8));
+            gradient.addColorStop(0.6, hexToRgba(color, 0.4));
+            gradient.addColorStop(0.8, hexToRgba(color, 0.1));
+            gradient.addColorStop(1, hexToRgba(color, 0));
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(x, y, radius, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+        
+        function drawTest() {
+            // Fundo branco
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Desenhar alguns círculos com gradiente para testar
+            drawBlurredShape(200, 200, '#FF0000');
+            drawBlurredShape(300, 200, '#00FF00');
+            drawBlurredShape(400, 200, '#0000FF');
+            
+            // Desenhar alguns sobrepostos
+            drawBlurredShape(250, 300, '#FFFF00');
+            drawBlurredShape(350, 300, '#FF00FF');
+            
+            // Teste com losango real
+            drawRealDiamond(200, 400, 300, 450, '#00FFFF');
+        }
+        
+        function drawRealDiamond(x1, y1, x2, y2, color) {
+            const center = {
+                x: (x1 + x2) / 2,
+                y: (y1 + y2) / 2
+            };
+            
+            const distance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+            const diamondWidth = distance / (2.0 * Math.sqrt(3.0));
+            
+            const direction = {
+                x: x2 - x1,
+                y: y2 - y1
+            };
+            const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+            const normalized = {
+                x: direction.x / length,
+                y: direction.y / length
+            };
+            
+            const perpendicular = {
+                x: -normalized.y,
+                y: normalized.x
+            };
+            
+            const vertices = [
+                {x: x1, y: y1},
+                {
+                    x: center.x + perpendicular.x * diamondWidth,
+                    y: center.y + perpendicular.y * diamondWidth
+                },
+                {x: x2, y: y2},
+                {
+                    x: center.x - perpendicular.x * diamondWidth,
+                    y: center.y - perpendicular.y * diamondWidth
+                }
+            ];
+            
+            // Primeiro desenhar o losango sólido
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            for (let i = 1; i < vertices.length; i++) {
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+            }
+            ctx.closePath();
+            ctx.fill();
+            
+            // Agora aplicar gradiente por cima
+            const maxRadius = Math.max(diamondWidth, distance / 3);
+            const gradient = ctx.createRadialGradient(
+                center.x, center.y, 0,
+                center.x, center.y, maxRadius * 2
+            );
+            
+            gradient.addColorStop(0, hexToRgba(color, 0));
+            gradient.addColorStop(0.5, hexToRgba(color, 0));
+            gradient.addColorStop(0.8, hexToRgba('#FFFFFF', 0.3));
+            gradient.addColorStop(1, '#FFFFFF');
+            
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.arc(center.x, center.y, maxRadius * 2, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+        
+        drawTest();
+        
+        // Clique para redesenhar
+        canvas.addEventListener('click', drawTest);
+    </script>
+</body>
+</html>
