@@ -6,13 +6,17 @@
 
 [node name="HexGrid" type="Node2D" parent="."]
 script = ExtResource("1_0x8vr")
-hex_size = 30.0
-grid_width = 25
-grid_height = 15
-hex_color = Color(0, 1, 1, 0.3)
-border_color = Color(0, 0, 1, 1)
-border_width = 1.5
+hex_size = 50.0
+grid_width = 15
+grid_height = 10
+hex_color = Color(1, 1, 1, 1)
+border_color = Color(0, 0, 0, 1)
+border_width = 2.0
+dot_radius = 6.0
+dot_color = Color(0, 0, 0, 1)
+line_width = 2.0
+line_color = Color(0, 0, 0, 1)
 
 [node name="Camera2D" type="Camera2D" parent="."]
-position = Vector2(600, 400)
-zoom = Vector2(0.5, 0.5)
+position = Vector2(400, 300)
+zoom = Vector2(1.0, 1.0)
