@@ -1,0 +1,76 @@
+{
+  "godot_specific": {
+    "gdscript_rules": {
+      "naming_conventions": {
+        "variables": "snake_case",
+        "functions": "snake_case", 
+        "constants": "UPPER_CASE",
+        "classes": "PascalCase",
+        "signals": "snake_case",
+        "nodes": "PascalCase"
+      },
+      
+      "performance_checks": {
+        "avoid_get_node_in_loops": true,
+        "cache_node_references": true,
+        "use_object_pools": true,
+        "optimize_ready_functions": true,
+        "check_delta_usage": true
+      },
+      
+      "best_practices": {
+        "use_typed_variables": true,
+        "proper_signal_connections": true,
+        "scene_organization": true,
+        "resource_preloading": true,
+        "memory_leak_prevention": true
+      }
+    },
+    
+    "csharp_integration": {
+      "when_to_use": [
+        "heavy_calculations",
+        "complex_algorithms", 
+        "performance_critical_code",
+        "external_library_integration"
+      ],
+      
+      "interop_rules": {
+        "gdscript_csharp_communication": true,
+        "proper_marshalling": true,
+        "memory_management": true
+      }
+    },
+    
+    "game_architecture": {
+      "turn_based_patterns": {
+        "state_machine": true,
+        "command_pattern": true,
+        "observer_pattern": true,
+        "strategy_pattern": true
+      },
+      
+      "performance_targets": {
+        "target_fps": 60,
+        "max_frame_time": "16ms",
+        "memory_budget": "reasonable_for_strategy_game"
+      }
+    }
+  },
+  
+  "ambiguity_triggers": [
+    "unclear_requirements",
+    "missing_specifications", 
+    "conflicting_information",
+    "assumption_needed",
+    "multiple_valid_approaches"
+  ],
+  
+  "stop_and_ask_scenarios": [
+    "game_design_decisions",
+    "ui_ux_choices",
+    "balancing_parameters",
+    "art_style_decisions",
+    "narrative_elements"
+  ]
+}
