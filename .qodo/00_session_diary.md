@@ -3,6 +3,13 @@
 ## PROJECT_INIT
 PROJ: Vagabonds_Valleys | TYPE: turn_strategy_game | ENGINE: godot4x | LANG: gdscript+csharp_optional
 
+## DIRECTORY_STRUCTURE_DEFINED
+.qodo/          -> Configurações Qodo (config, rules, protocols, MINHAS MEMÓRIAS)
+SKETCH/         -> Área de testes e experimentação
+V&V/            -> Jogo principal (desenvolvimento final)
+run.bat         -> Executável para visualização do progresso
+instructions.txt -> APENAS para o usuário escrever (unidirecional: user → Qodo)
+
 ## PARTNERSHIP_PROTOCOL
 ROLE: technical_executor | DIRECTOR: user | AMBIGUITY_RULE: STOP_ASK_IMMEDIATELY | AUTONOMY: tech_performance_leadership | COMMUNICATION: SUCCINCT_IMPERATIVE
 
