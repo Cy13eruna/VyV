@@ -26,7 +26,9 @@ var is_cache_built: bool = false
 
 func _ready():
 	generate_hex_grid()
-	# Forçar reconstrução do cache após reversão da rotação
+	# Aplicar rotação de 60 graus a TUDO
+	apply_global_rotation(60.0)
+	# Forçar reconstrução do cache após rotação global
 	is_cache_built = false
 	build_cache()
 
@@ -326,4 +328,42 @@ func calculate_star_geometry(center: Vector2, outer_radius: float, inner_radius:
 	
 	return points
 
-# Função de rotação removida - não é mais necessária após reversão
+func apply_global_rotation(degrees: float):
+	# Aplicar rotação global a todos os elementos do grid
+	var rotation_angle = deg_to_rad(degrees)
+	var grid_center = get_grid_center()
+	
+	# Rotacionar todas as posições dos hexágonos
+	for i in range(hex_positions.size()):
+		hex_positions[i] = rotate_point_around_center(hex_positions[i], grid_center, rotation_angle)
+	
+	# Rotacionar todas as posições dos pontos/estrelas
+	for i in range(all_dots.size()):
+		all_dots[i] = rotate_point_around_center(all_dots[i], grid_center, rotation_angle)
+
+func get_grid_center() -> Vector2:
+	# Calcular centro do grid para rotação
+	if hex_positions.is_empty():
+		return Vector2.ZERO
+	
+	var sum_pos = Vector2.ZERO
+	for pos in hex_positions:
+		sum_pos += pos
+	return sum_pos / hex_positions.size()
+
+func rotate_point_around_center(point: Vector2, center: Vector2, angle: float) -> Vector2:
+	# Rotacionar um ponto ao redor de um centro
+	var cos_angle = cos(angle)
+	var sin_angle = sin(angle)
+	
+	# Transladar para origem
+	var translated = point - center
+	
+	# Aplicar rotação
+	var rotated = Vector2(
+		translated.x * cos_angle - translated.y * sin_angle,
+		translated.x * sin_angle + translated.y * cos_angle
+	)
+	
+	# Transladar de volta
+	return rotated + center
