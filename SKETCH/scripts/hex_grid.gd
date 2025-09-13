@@ -26,8 +26,8 @@ var is_cache_built: bool = false
 
 func _ready():
 	generate_hex_grid()
-	# Aplicar rotação de 60 graus a TUDO
-	apply_global_rotation(60.0)
+	# Aplicar rotação de 30 graus a TUDO
+	apply_global_rotation(30.0)
 	# Forçar reconstrução do cache após rotação global
 	is_cache_built = false
 	build_cache()
