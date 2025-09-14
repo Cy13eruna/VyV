@@ -76,11 +76,151 @@ ENH3: lod_system_implemented | STATUS: complete | IMPACT: distance_based_optimiz
 ENH4: interactive_controller_added | STATUS: complete | IMPACT: full_demo_capabilities
 ENH5: performance_monitoring_enhanced | STATUS: complete | IMPACT: real_time_stats
 
+## GAME_DESIGN_ROADMAP
+GAME_ENTITIES:
+- UNIDADES: move estrela->estrela, estados BEM/MAL, tipos variados(futuro)
+- DOMÍNIOS: 12_losangos_que_compõem_hexágono, geram_poder_por_turno
+- ESTRUTURAS: instaladas_nos_losangos_via_domínios
+- TERRENOS: verde_claro(campo), verde_escuro(floresta), cinza(montanha_bloqueia), azul(água_bloqueia)
+
+GAME_MECHANICS:
+- MOVIMENTO: estrela->estrela, respeitando_terreno
+- COMBATE: ataque=tornar_MAL, adjacente, nem_todas_atacam
+- ECONOMIA: poder_por_domínio_por_turno, separado_por_domínio
+- OBJETIVO: atingir_111_poder_total
+- JOGADORES: 2-6, mapa_escala_com_quantidade
+- INTERAÇÃO: via_domínios(hexágonos), não_losangos_individuais
+- FOG_OF_WAR: sistema_de_visibilidade_limitada
+
+ARCHITECTURE_NOTES:
+- sistema_extensível_para_exceções ("há muitas exceções, desenvolver com espaço")
+- separação_clara_entidades
+- estados_bem_definidos
+- sistema_poder_por_domínio
+- desenvolvimento_passo_a_passo ("não ponha o carro na frente dos bois")
+- roteiro_longo_prazo_não_diretriz_imediata
+
+DETALHES_ESPECÍFICOS:
+- domínio_não_pode_compartilhar_losango_com_outro_domínio
+- nem_toda_unidade_pode_atacar
+- ataques_contra_unidades_adjacentes
+- tipos_unidade_futuros_podem_atravessar_terrenos_bloqueados
+- cores_losango_afetam_deslocamento_e_economia
+
+## CURRENT_DEVELOPMENT_STATUS
+SKETCH_STATUS: grid_hexagonal_funcional_com_performance_otimizada
+CURRENT_PHASE: implementar_sistema_unidades_vagabond
+NEXT_PHASE: sistema_movimento_estrela_para_estrela
+VERSÃO_ATUAL: hex_grid.gd_funcionando_100%
+
+## UNIT_SYSTEM_SPECIFICATIONS
+UNIT_TYPE_INICIAL: Vagabond (única unidade inicial)
+UNIT_ATTRIBUTES:
+- estado: BEM/MAL (sem HP)
+- movimento: 1_estrela_por_turno
+- combate: não_implementado_ainda
+- dominio_origem: centro_do_dominio_spawn
+- habilidades: sistema_extensivel_futuro
+
+UNIT_MECHANICS:
+- spawn: centro_dos_dominios
+- limite: sem_limite_inicial
+- custo: upar_dominio (implementar_depois)
+- terreno: campos_livres, outros_bloqueiam_visibilidade
+- visual_mal: sugestao_pendente
+
+COMBAT_SYSTEM_FUTURE:
+- BEM + atacado = MAL
+- MAL + atacado = removido_tabuleiro
+- sistema_detalhado_implementar_depois
+
+ARCHITECTURE_APPROVED:
+Unidade:
+├── estado: Bem/Mal
+├── dominio_origem: referencia_spawn
+└── habilidades: array_extensivel (ataque, movimento_extra, atravessar_terreno, etc)
+
 ## QUICK_RELOAD_CHECKLIST
 1. Read partnership_protocol.md
 2. Check godot_rules.json  
 3. Verify config.yaml
 4. Ready for technical execution
 
+## SESSION_LOG_CONTINUED
+S33: unit_system_specifications_received | RESULT: specifications_documented | NEXT_ACTION: implement_vagabond_unit_system
+S34: version_structure_organized | RESULT: ZERO_and_UM_folders_created | NEXT_ACTION: implement_units_in_UM_folder
+S35: unit_system_implemented | RESULT: complete_vagabond_system_functional | NEXT_ACTION: test_and_refine_units
+
+## VERSION_STRUCTURE_IMPLEMENTED
+SKETCH/ZERO/    -> Versão estável do grid hexagonal (backup)
+SKETCH/UM/      -> Versão de desenvolvimento com sistema de unidades
+
+VISUAL_EFFECT_APPROVED: particulas_escuras + cor_alterada (opção 3)
+DEVELOPMENT_FOLDER: SKETCH/UM/ (implementação de unidades)
+BACKUP_FOLDER: SKETCH/ZERO/ (versão estável preservada)
+
+## UNIT_SYSTEM_V1_IMPLEMENTED
+COMPONENTS_CREATED:
+- vagabond.gd: classe principal da unidade
+- unit_manager.gd: gerenciador central de unidades
+- hex_grid_game_manager.gd: integração com sistema existente
+- hex_grid_units_demo.tscn: cena de demonstração
+- UNIT_SYSTEM_V1.md: documentação completa
+
+FUNCTIONALITIES_IMPLEMENTED:
+- spawn_unidades: centro dos domínios ou posições específicas
+- movimento_estrela_para_estrela: 1 movimento por turno
+- estados_bem_mal: visual diferenciado com partículas
+- sistema_turnos: integrado com game manager
+- tracking_posicoes: validação e prevenção sobreposicao
+- visual_feedback: círculos coloridos + partículas escuras
+
+CONTROLS_AVAILABLE:
+- U: spawn teste, T: movimento teste, C: clear units
+- SPACE: next turn, I: game info, Click+ENTER: spawn em domínio
+
+RUN_BAT_UPDATED: menu de seleção entre versões ZERO e UM
+
+## SESSION_LOG_CONTINUED
+S36: input_system_corrected | RESULT: run_bat_fixed_0_1_mapping | NEXT_ACTION: system_ready_for_testing
+S37: script_errors_fixed | RESULT: both_versions_working | NEXT_ACTION: final_testing
+
+INPUT_MAPPING_CORRECTED:
+- 0 = ZERO (Grid Hexagonal Estável)
+- 1 = UM (Sistema de Unidades - ATUAL)
+- default = 1 (UM)
+
+SCRIPT_ERRORS_FIXED:
+- global_rotation_degrees -> grid_rotation_degrees (conflito Node2D resolvido)
+- get_camera_transform() removido (função inexistente)
+- Classes faltantes criadas: HexGridConfig, HexGridGeometry, HexGridCache, HexGridRendererEnhanced
+- ZERO: hex_grid_simple.gd criado para compatibilidade
+- UM: dependências completas implementadas
+
+VERSION_STATUS:
+- ZERO: hex_grid_simple_demo.tscn (funcional e estável)
+- UM: hex_grid_units_demo.tscn (sistema completo de unidades)
+
+## SESSION_LOG_CONTINUED
+S38: git_reset_to_performance | RESULT: stable_version_restored | NEXT_ACTION: rebuild_from_stable_base
+
+GIT_RESET_PERFORMED:
+- Target: commit f0cd235146689cccd8551c1991e6c3cf1d06f330 ("performance")
+- .qodo folder preserved (backup/restore)
+- SKETCH restored to stable state
+- UM and ZERO folders removed (broken implementations)
+- run.bat updated to use stable version
+
+CURRENT_STATE:
+- SKETCH: versão estável do commit "performance"
+- Grid hexagonal funcionando 100%
+- Performance otimizada
+- Sem erros de script
+
+NEXT_STEPS:
+- Rebuild sistema de unidades a partir da base estável
+- Implementar versionamento correto
+- Evitar conflitos de nomenclatura
+
 ---
-LAST_UPDATE: session_2_error_fix_complete
+LAST_UPDATE: session_38_git_reset_to_performance_complete

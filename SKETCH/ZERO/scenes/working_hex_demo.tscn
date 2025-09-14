@@ -1,0 +1,32 @@
+[gd_scene load_steps=3 format=3 uid="uid://working_hex"]
+
+[ext_resource type="Script" path="res://scripts/hex_grid_v2.gd" id="1_original"]
+[ext_resource type="Script" path="res://scripts/hex_selection_working.gd" id="2_working"]
+
+[node name="WorkingHexDemo" type="Node2D"]
+script = ExtResource("2_working")
+
+[node name="HexGridV2" type="Node2D" parent="."]
+script = ExtResource("1_original")
+grid_width = 15
+grid_height = 12
+hex_size = 35.0
+hex_color = Color(1, 1, 1, 1)
+border_color = Color(0, 0, 0, 1)
+border_width = 1.0
+dot_radius = 4.0
+dot_color = Color(1, 1, 1, 1)
+dot_star_size = 2.0
+diamond_width = 35.0
+diamond_height = 60.0
+diamond_color = Color(0, 1, 0, 1)
+global_rotation_degrees = 30.0
+enable_culling = true
+culling_margin = 100.0
+max_cache_size = 10000
+show_debug_info = false
+auto_optimize_performance = true
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(400, 300)
+zoom = Vector2(1.5, 1.5)

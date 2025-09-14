@@ -1,0 +1,10 @@
+ea4bc82a6ad023ab7ee23ee620429895
+::res://::1757705498
+AVANTE.txt::TextFile/TextFile::-1::1757625699::0::1::::<><><>0<>0<><>::
+export_presets.cfg::TextFile/TextFile::-1::1757705488::0::1::::<><><>0<>0<><>::
+::res://build/::1757705498
+::res://scenes/::1757704034
+hex_grid_scene.tscn::PackedScene/PackedScene::3558242021963599861::1757705359::0::1::::<><><>0<>0<><>::res://scripts/hex_grid.gd
+::res://scripts/::1757705247
+hex_grid.gd::GDScript/GDScript::2785460235974392569::1757705343::0::1::::HexGrid<>Node2D<><>0<>0<><>::
+::res://V&V/::1757617871
