@@ -1,7 +1,0 @@
-Em SKETCH/UM, crie a entidade Unit que terá as seguitnes características:
-- render: esse emoji 🚶🏻‍♀️
-- estrela que ocupa (por enquanto será a estrela central do mapa)
-- estado Bem/Mal
-- quantidade de ações restantes (uma ação)
-- Skills: nenhuma por enquanto
-Vamos ver se consegues implementar isso
