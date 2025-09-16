@@ -1,3 +1,3 @@
-Excelente. Primeiro: eu removi essa coisa de "ZERO e UM" a partir de agora é apenas SKETCH.
-Como tu pode imaginar esse emoji é a unidade e as estrelas magentas são as estrelas para qual ele pode se locomover. Então o que faremos o seguinte:
-A partir de agora a unidade terá uma posição fixa
+Não funcionou! Houveram várias infrações das regras que estabeleci.
+Tu precisa encontrar uma forma de detectar qual tipo de terreno está entre duas estrelas e assim determinar se o movimento é valido.
+Não precisa fazer isso para todas as estrelas e terrenos do mapa, apenas para as que estão adjacentes a unidade e atualizar sempre que ela se mover

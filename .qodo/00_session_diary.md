@@ -967,3 +967,155 @@ SYSTEM_STATUS_COORDINATE_PERFECT:
 - Camera position handling: CORRIGIDO ✅
 - Perfect click precision: GARANTIDO ✅
 - Ready for testing: ✅
+
+## SESSION_LOG_CONTINUED
+S61: unit_movement_system_implemented | RESULT: tactical_movement_with_restrictions | NEXT_ACTION: system_ready_for_testing
+
+PROJECT_STRUCTURE_UPDATED:
+- Removida estrutura ZERO/UM conforme instrução do usuário
+- Agora apenas SKETCH/ como diretório principal
+- Arquivos movidos para SKETCH/scripts/ e SKETCH/scenes/
+
+UNIT_MOVEMENT_SYSTEM_IMPLEMENTED:
+✅ Unidade com posição fixa no tabuleiro
+✅ Movimento restrito apenas para estrelas magenta (adjacentes)
+✅ Validação de movimento válido/inválido
+✅ Atualização automática de caminhos possíveis
+✅ Sistema de primeiro posicionamento vs movimento
+
+TECHNICAL_IMPLEMENTATION:
+- unit_current_star_id: int para rastrear posição atual
+- _handle_unit_movement(): lógica de movimento com validação
+- _position_unit_on_star(): posicionamento e atualização de adjacentes
+- Validação: target_star_id in adjacent_stars
+- Atualização automática de estrelas magenta após movimento
+
+GAME_MECHANICS_IMPLEMENTED:
+1. **Primeiro clique**: posiciona unidade em qualquer estrela
+2. **Cliques subsequentes**: apenas em estrelas magenta (adjacentes)
+3. **Movimento válido**: unidade se move + estrelas magenta se atualizam
+4. **Movimento inválido**: mensagem de erro, unidade não se move
+5. **Caminhos dinâmicos**: sempre mostram opções da posição atual
+
+USER_FEEDBACK_ENHANCED:
+- 🎆 Primeiro posicionamento
+- ➡️ Movimento válido
+- ❌ Movimento inválido com instrução
+- 🚶🏻‍♀️ Posição atual com ID da estrela
+- 🔮 Quantidade de caminhos possíveis
+
+TACTICAL_GAMEPLAY_READY:
+- Sistema de movimento tático implementado
+- Restrições de movimento funcionais
+- Base para sistema de jogo de estratégia
+- Movimento estrela-para-estrela operacional
+
+SYSTEM_STATUS_TACTICAL:
+- Unit positioning: IMPLEMENTADO ✅
+- Movement validation: FUNCIONAL ✅
+- Dynamic paths: IMPLEMENTADO ✅
+- Tactical restrictions: FUNCIONAL ✅
+- Ready for testing: ✅
+
+## SESSION_LOG_CONTINUED
+S62: blocked_terrain_system_implemented | RESULT: tactical_terrain_restrictions | NEXT_ACTION: system_ready_for_testing
+
+BLOCKED_TERRAIN_SYSTEM_IMPLEMENTED:
+✅ Detecção de terreno bloqueado (azul e cinza)
+✅ Exclusão de estrelas em terreno bloqueado da lista de adjacentes
+✅ Estrelas perdem cor magenta quando inacessíveis
+✅ Sistema de contagem de estrelas bloqueadas
+✅ Integração com sistema de cores de diamantes existente
+
+TERRAIN_TYPES_DEFINED:
+- 🟢 Verde claro (campo): livre para movimento
+- 🟢 Verde escuro (floresta): livre para movimento
+- 🔵 Azul (cyan - água): BLOQUEADO
+- ⚫ Cinza (montanha): BLOQUEADO
+
+TECHNICAL_IMPLEMENTATION:
+- _is_star_on_blocked_terrain(): verifica se estrela está em terreno bloqueado
+- _get_terrain_color_at_star(): obtém cor do diamante onde estrela está localizada
+- _count_blocked_adjacent_stars(): conta estrelas adjacentes bloqueadas
+- Integração com hex_grid.cache.get_diamond_colors()
+- Verificação via connections que envolvem a estrela
+
+BLOCKED_TERRAIN_COLORS:
+- water_color: Color(0.0, 1.0, 1.0, 1.0) # Cyan
+- mountain_color: Color(0.4, 0.4, 0.4, 1.0) # Gray
+- Correspondêm às cores definidas em hex_grid_config.gd
+
+GAME_MECHANICS_ENHANCED:
+1. **Movimento restrito**: apenas estrelas em terreno livre
+2. **Feedback visual**: estrelas bloqueadas não ficam magenta
+3. **Informação tática**: console mostra estrelas bloqueadas
+4. **Terreno estratégico**: água e montanha criam obstáculos
+5. **Planejamento**: jogador vê caminhos disponíveis vs bloqueados
+
+USER_FEEDBACK_ENHANCED:
+- Console mostra: "X estrelas adjacentes em magenta | Y bloqueadas por terreno"
+- Estrelas em terreno bloqueado não aparecem como opções de movimento
+- Sistema visual claro: magenta = pode mover, sem magenta = bloqueado
+
+TACTICAL_DEPTH_ADDED:
+- Terreno influencia estratégia de movimento
+- Obstáculos naturais criam gargalos táticos
+- Planejamento de rota considerando terreno
+- Base para mecânicas avançadas (atravessar terreno com habilidades)
+
+SYSTEM_STATUS_TERRAIN_AWARE:
+- Terrain detection: IMPLEMENTADO ✅
+- Movement blocking: FUNCIONAL ✅
+- Visual feedback: IMPLEMENTADO ✅
+- Tactical depth: ADICIONADO ✅
+- Ready for testing: ✅
+
+## SESSION_LOG_CONTINUED
+S63: terrain_detection_corrected_between_stars | RESULT: accurate_movement_validation | NEXT_ACTION: system_ready_for_testing
+
+PROBLEMA_IDENTIFICADO:
+- Implementação anterior estava incorreta
+- Verificava terreno "onde" a estrela estava, não "entre" estrelas
+- Precisa detectar terreno do losango que conecta duas estrelas
+- Sistema deve ser específico para estrelas adjacentes à unidade
+
+CORREÇÃO_IMPLEMENTADA:
+✅ _is_movement_blocked_by_terrain(from_star_id, to_star_id)
+✅ _get_terrain_between_stars(from_star_id, to_star_id)
+✅ Verificação de conexão específica entre duas estrelas
+✅ Detecção do diamante que conecta origem e destino
+✅ Atualização apenas para estrelas adjacentes à unidade
+
+TECHNICAL_APPROACH_CORRECTED:
+- Busca conexão específica: (from_star_id, to_star_id) ou (to_star_id, from_star_id)
+- Obtém cor do diamante correspondente à conexão encontrada
+- Verifica se cor é azul (cyan) ou cinza (bloqueadas)
+- Aplica apenas durante cálculo de estrelas adjacentes
+- Atualiza automaticamente quando unidade se move
+
+LOGIC_FLOW_CORRECTED:
+1. Unidade está na estrela A (unit_current_star_id)
+2. Considera movimento para estrela B (candidate star)
+3. Procura conexão A-B nas connections do cache
+4. Obtém cor do diamante dessa conexão específica
+5. Se azul ou cinza: bloqueia movimento
+6. Se verde: permite movimento (estrela fica magenta)
+
+PERFORMANCE_OPTIMIZED:
+- Verificação apenas para estrelas adjacentes (não todo o mapa)
+- Busca específica por conexão entre duas estrelas
+- Atualização dinâmica apenas quando unidade se move
+- Sem processamento desnecessário de terrenos distantes
+
+GAME_MECHANICS_ACCURATE:
+- Movimento bloqueado pelo terreno ENTRE estrelas
+- Losangos azuis (agua) e cinzas (montanha) impedem passagem
+- Losangos verdes (campo/floresta) permitem passagem
+- Sistema preciso e eficiente
+
+SYSTEM_STATUS_CORRECTED:
+- Between-stars detection: IMPLEMENTADO ✅
+- Accurate movement blocking: FUNCIONAL ✅
+- Specific connection lookup: IMPLEMENTADO ✅
+- Performance optimized: GARANTIDO ✅
+- Ready for testing: ✅

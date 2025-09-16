@@ -8,6 +8,7 @@ var star_mapper = null
 var unit_emoji: Label = null
 var adjacent_stars: Array[int] = []  # IDs das estrelas adjacentes
 var magenta_stars: Array[Node2D] = []  # Estrelas magenta customizadas
+var unit_current_star_id: int = -1  # ID da estrela onde a unidade está posicionada
 
 func _ready() -> void:
 	print("StarClickDemo: Inicializando...")
@@ -75,7 +76,7 @@ func _handle_star_click(global_pos: Vector2) -> void:
 		
 		if distance <= click_tolerance:
 			print("✅ Estrela clicada: ID %d" % star_id)
-			_position_unit_on_star(star_pos)
+			_handle_unit_movement(star_id, star_pos)
 		else:
 			print("❌ Clique fora das estrelas (dist: %.1f)" % distance)
 
@@ -92,9 +93,26 @@ func _create_unit_emoji() -> void:
 	
 	print("🚶🏻‍♀️ Emoji criado e pronto para posicionamento (tamanho 18)")
 
-func _position_unit_on_star(star_position: Vector2) -> void:
+func _handle_unit_movement(target_star_id: int, target_star_position: Vector2) -> void:
+	# Se é o primeiro posicionamento
+	if unit_current_star_id == -1:
+		_position_unit_on_star(target_star_id, target_star_position)
+		print("🎆 Unidade posicionada inicialmente na estrela %d" % target_star_id)
+		return
+	
+	# Verificar se o movimento é válido (estrela magenta)
+	if target_star_id in adjacent_stars:
+		_position_unit_on_star(target_star_id, target_star_position)
+		print("➡️ Unidade movida para estrela %d" % target_star_id)
+	else:
+		print("❌ Movimento inválido! Clique apenas nas estrelas magenta")
+
+func _position_unit_on_star(star_id: int, star_position: Vector2) -> void:
 	if not unit_emoji:
 		return
+	
+	# Atualizar posição atual da unidade
+	unit_current_star_id = star_id
 	
 	# Converter posição da estrela (local do HexGrid) para posição global
 	var global_star_pos = hex_grid.to_global(star_position)
@@ -106,10 +124,10 @@ func _position_unit_on_star(star_position: Vector2) -> void:
 	unit_emoji.global_position.y -= 9   # Metade da altura aproximada do emoji menor
 	unit_emoji.visible = true
 	
-	# Destacar estrelas adjacentes em magenta
+	# Atualizar estrelas adjacentes (caminhos possíveis)
 	_highlight_adjacent_stars(star_position)
 	
-	print("🚶🏻‍♀️ Unidade posicionada em %s (global: %s)" % [star_position, global_star_pos])
+	print("🚶🏻‍♀️ Unidade na estrela %d | Posição: %s" % [star_id, star_position])
 
 func _highlight_adjacent_stars(unit_star_position: Vector2) -> void:
 	# Limpar destaques anteriores
@@ -131,12 +149,15 @@ func _highlight_adjacent_stars(unit_star_position: Vector2) -> void:
 		
 		# Apenas estrelas dentro do raio máximo (evitando a própria estrela)
 		if distance > 5.0 and distance <= max_adjacent_distance:
-			adjacent_stars.append(i)
+			# Verificar se o movimento não é bloqueado pelo terreno
+			if not _is_movement_blocked_by_terrain(unit_current_star_id, i):
+				adjacent_stars.append(i)
 	
 	# Mudar cor das estrelas para magenta
 	_set_stars_color_magenta()
 	
-	print("🔮 %d estrelas adjacentes em magenta" % adjacent_stars.size())
+	var blocked_count = _count_blocked_adjacent_stars(unit_star_position)
+	print("🔮 %d estrelas adjacentes em magenta | %d bloqueadas por terreno" % [adjacent_stars.size(), blocked_count])
 
 func _set_stars_color_magenta() -> void:
 	# Criar estrelas magenta customizadas nas posições adjacentes
@@ -189,3 +210,50 @@ func _draw_magenta_star(node: Node2D) -> void:
 	
 	# Desenhar a estrela magenta
 	node.draw_colored_polygon(PackedVector2Array(points), Color.MAGENTA)
+
+func _is_movement_blocked_by_terrain(from_star_id: int, to_star_id: int) -> bool:
+	# Verificar se o movimento entre duas estrelas é bloqueado pelo terreno
+	var terrain_color = _get_terrain_between_stars(from_star_id, to_star_id)
+	
+	# Cores de terreno bloqueado: azul (água) e cinza (montanha)
+	var water_color = Color(0.0, 1.0, 1.0, 1.0)  # Cyan
+	var mountain_color = Color(0.4, 0.4, 0.4, 1.0)  # Gray
+	
+	return terrain_color == water_color or terrain_color == mountain_color
+
+func _get_terrain_between_stars(from_star_id: int, to_star_id: int) -> Color:
+	# Obter a cor do terreno (diamante) que conecta duas estrelas
+	if not hex_grid or not hex_grid.cache:
+		return Color.WHITE  # Padrão se não conseguir acessar
+	
+	var diamond_colors = hex_grid.cache.get_diamond_colors()
+	var connections = hex_grid.cache.get_connections()
+	
+	# Procurar pela conexão específica entre essas duas estrelas
+	for i in range(connections.size()):
+		var connection = connections[i]
+		# Verificar se esta conexão liga exatamente essas duas estrelas
+		if (connection.index_a == from_star_id and connection.index_b == to_star_id) or \
+		   (connection.index_a == to_star_id and connection.index_b == from_star_id):
+			# Encontrou a conexão, retornar a cor do diamante correspondente
+			if i < diamond_colors.size():
+				return diamond_colors[i]
+	
+	# Se não encontrou conexão direta, assumir terreno livre (verde)
+	return Color(0.0, 1.0, 0.0, 1.0)  # Light green
+
+func _count_blocked_adjacent_stars(unit_star_position: Vector2) -> int:
+	# Contar quantas estrelas adjacentes estão bloqueadas por terreno
+	var dot_positions = hex_grid.get_dot_positions()
+	var max_adjacent_distance = 38.0
+	var blocked_count = 0
+	
+	for i in range(dot_positions.size()):
+		var star_pos = dot_positions[i]
+		var distance = unit_star_position.distance_to(star_pos)
+		
+		if distance > 5.0 and distance <= max_adjacent_distance:
+			if _is_movement_blocked_by_terrain(unit_current_star_id, i):
+				blocked_count += 1
+	
+	return blocked_count
