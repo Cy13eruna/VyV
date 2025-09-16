@@ -57,6 +57,13 @@ Quando encontrar qualquer ambiguidade, o Qodo deve:
 - **Documentação**: Automática e contínua
 - **Relatórios**: Performance e otimizações
 
+## Estrutura de Arquivos
+
+- **.qodo/**: Configurações e memórias do Qodo
+- **SKETCH/ZERO/**: Projeto principal de desenvolvimento
+- **run.bat**: Executável do jogo
+- **i.txt**: Arquivo de instruções do usuário (unidirecional: user → Qodo)
+
 ## Objetivo
 
 Criar o melhor jogo de estratégia por turnos possível através de uma parceria eficiente entre criatividade e execução técnica.
