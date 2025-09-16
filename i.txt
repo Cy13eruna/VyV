@@ -1,0 +1,1 @@
+O espaçamento deve ser o seguinte: arestas não podem ser compartilhadas, mas vértices sim
