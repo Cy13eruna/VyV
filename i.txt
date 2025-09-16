@@ -1,3 +1,0 @@
-Não funcionou! Houveram várias infrações das regras que estabeleci.
-Tu precisa encontrar uma forma de detectar qual tipo de terreno está entre duas estrelas e assim determinar se o movimento é valido.
-Não precisa fazer isso para todas as estrelas e terrenos do mapa, apenas para as que estão adjacentes a unidade e atualizar sempre que ela se mover
