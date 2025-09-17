@@ -1,10 +1,5 @@
-## Domain - Entidade de Domínio do Jogo
-##
-## Representa um domínio hexagonal no tabuleiro.
-## Responsável por criação, validação e visualização de domínios.
-##
-## @author: V&V Game Studio
-## @version: 1.0
+## Domain - Entidade de Domínio do Jogo V&V
+## Representa um domínio hexagonal no tabuleiro
 
 class_name Domain
 extends RefCounted

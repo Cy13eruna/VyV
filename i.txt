@@ -1,8 +1,2 @@
-Domínios serão cada um de uma cor e os emojis serão também dessas cores:
-- azul rgb
-- laranja
-- vermelho rgb
-- roxo
-- amarelo
-- ciano
-Randomize essas cores entre os dominios criados
+Muito bem. Agora iremos fazer uma boa limpeza nesse código todo. Implementamos várias coisas e é necessári deixar tudo bem arrumado para continuarmos o jogo.
+Avalie SKETCH e faça as correções / limpezas que julgares necessárias. Pode meter bala, pois já fiz commit dessa versão

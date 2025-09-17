@@ -1,10 +1,5 @@
-## GameManager - Gerenciador Central do Jogo
-##
-## Coordena todas as entidades do jogo (Units e Domains).
-## Responsável por validações, regras de negócio e estado do jogo.
-##
-## @author: V&V Game Studio
-## @version: 1.0
+## GameManager - Gerenciador Central do Jogo V&V
+## Coordena entidades (Units e Domains) e regras de negócio
 
 class_name GameManager
 extends RefCounted
@@ -228,65 +223,7 @@ func clear_all_entities() -> void:
 	
 	print("🧹 GameManager: todas as entidades limpas")
 
-## Encontrar os 6 cantos do tabuleiro hexagonal
-func find_corner_stars() -> Array:
-	if not hex_grid_ref or not star_mapper_ref:
-		return []
-	
-	var dot_positions = hex_grid_ref.get_dot_positions()
-	var corners = []
-	
-	# Encontrar centro do tabuleiro
-	var center = Vector2.ZERO
-	for pos in dot_positions:
-		center += pos
-	center /= dot_positions.size()
-	
-	# Encontrar a estrela mais distante do centro (para determinar o raio)
-	var max_distance = 0.0
-	for pos in dot_positions:
-		var distance = center.distance_to(pos)
-		if distance > max_distance:
-			max_distance = distance
-	
-	# Procurar por estrelas nos 6 cantos (ângulos de 0°, 60°, 120°, 180°, 240°, 300°)
-	var corner_angles = [0.0, PI/3.0, 2*PI/3.0, PI, 4*PI/3.0, 5*PI/3.0]
-	var tolerance_angle = PI/6.0  # 30 graus de tolerância
-	var min_distance_from_center = max_distance * 0.7  # Pelo menos 70% da distância máxima
-	
-	for angle in corner_angles:
-		var best_star_id = -1
-		var best_distance = 0.0
-		
-		for i in range(dot_positions.size()):
-			var pos = dot_positions[i]
-			var distance_from_center = center.distance_to(pos)
-			
-			# Verificar se está longe o suficiente do centro
-			if distance_from_center < min_distance_from_center:
-				continue
-			
-			# Calcular ângulo da posição em relação ao centro
-			var star_angle = center.angle_to_point(pos)
-			if star_angle < 0:
-				star_angle += 2 * PI
-			
-			# Verificar se está próximo do ângulo do canto
-			var angle_diff = abs(star_angle - angle)
-			if angle_diff > PI:
-				angle_diff = 2 * PI - angle_diff
-			
-			if angle_diff <= tolerance_angle:
-				# Escolher a estrela mais distante do centro neste ângulo
-				if distance_from_center > best_distance:
-					best_distance = distance_from_center
-					best_star_id = i
-		
-		if best_star_id >= 0:
-			corners.append(best_star_id)
-	
-	print("🎯 GameManager: encontrados %d cantos do tabuleiro: %s" % [corners.size(), corners])
-	return corners
+# Função removida - algoritmo movido para star_click_demo.gd
 
 ## Verificar se movimento é bloqueado por terreno
 func _is_movement_blocked_by_terrain(from_star_id: int, to_star_id: int) -> bool:

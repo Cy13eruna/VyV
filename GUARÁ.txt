@@ -3,7 +3,7 @@ Qodo, ignore esse aqrquivo. Ele serve apenas para eu me guiar.
 - spawn dos dominios
 - spawn randomico
 - cor diferente para cada domínio e unidade
-- clicar na unidade revela estrelas magentas
+- clicar na unidade revela para onde mover
 - sistema de turnos: ações de unidade
 - domínios com número ++ por turno
 - clicar no domínio permite gastar número:
@@ -17,4 +17,3 @@ Qodo, ignore esse aqrquivo. Ele serve apenas para eu me guiar.
     - unidades: seis estrelas adjacentes e seus caminhos são reveladas
         - montanhas e florestas deixam a estrela detrás preta
     - domínios: seis estrelas e doze losangos que o compõem são visíveis independente do terreno
-    

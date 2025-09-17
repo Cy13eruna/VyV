@@ -1,10 +1,5 @@
-## Unit - Entidade de Unidade do Jogo
-##
-## Representa uma unidade no tabuleiro hexagonal.
-## Responsável por posicionamento, movimento e estado da unidade.
-##
-## @author: V&V Game Studio
-## @version: 1.0
+## Unit - Entidade de Unidade do Jogo V&V
+## Representa uma unidade no tabuleiro hexagonal
 
 class_name Unit
 extends RefCounted
