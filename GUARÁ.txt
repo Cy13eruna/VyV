@@ -1,0 +1,20 @@
+Qodo, ignore esse aqrquivo. Ele serve apenas para eu me guiar.
+
+- spawn dos dominios
+- spawn randomico
+- cor diferente para cada domínio e unidade
+- clicar na unidade revela estrelas magentas
+- sistema de turnos: ações de unidade
+- domínios com número ++ por turno
+- clicar no domínio permite gastar número:
+    - não pode ter unidade em cima
+    - nível do domínio
+    - custo de upgrade
+    - quando upgrade pode escolher entre vagabond novo e placeholder
+- quando unidade de cor diferente em cima de domínio, domínio não gera poder
+- fog of war:
+    - por padrão tudo preto
+    - unidades: seis estrelas adjacentes e seus caminhos são reveladas
+        - montanhas e florestas deixam a estrela detrás preta
+    - domínios: seis estrelas e doze losangos que o compõem são visíveis independente do terreno
+    

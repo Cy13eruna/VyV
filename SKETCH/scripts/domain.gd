@@ -59,7 +59,8 @@ func create_at_star(star_id: int, parent_node: Node) -> bool:
 	
 	if vertices.size() < 6:
 		print("⚠️ Domínio %d: não foi possível encontrar 6 vértices adjacentes (apenas %d)" % [domain_id, vertices.size()])
-		return false
+		# Temporariamente permitir domínios com menos vértices para debug
+		# return false
 	
 	# Criar visualização
 	if not _create_visual(parent_node):
@@ -133,6 +134,13 @@ func set_owner(new_owner_id: int) -> void:
 		owner_id = new_owner_id
 		_update_visual_for_owner()
 		print("👑 Domínio %d: proprietário alterado de %d para %d" % [domain_id, old_owner, new_owner_id])
+
+## Definir cor do domínio
+func set_color(new_color: Color) -> void:
+	line_color = new_color
+	if visual_node:
+		visual_node.queue_redraw()
+	print("🎨 Domínio %d: cor alterada para %s" % [domain_id, new_color])
 
 ## Obter informações do domínio
 func get_info() -> Dictionary:

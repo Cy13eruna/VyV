@@ -1,1 +1,8 @@
-O espaçamento deve ser o seguinte: arestas não podem ser compartilhadas, mas vértices sim
+Domínios serão cada um de uma cor e os emojis serão também dessas cores:
+- azul rgb
+- laranja
+- vermelho rgb
+- roxo
+- amarelo
+- ciano
+Randomize essas cores entre os dominios criados

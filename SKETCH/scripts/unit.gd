@@ -134,6 +134,12 @@ func set_state(new_state: int) -> void:
 		_update_visual_for_state()
 		print("🔄 Unidade %d: estado alterado de %s para %s" % [unit_id, _state_to_string(old_state), _state_to_string(new_state)])
 
+## Definir cor da unidade
+func set_color(new_color: Color) -> void:
+	if visual_node:
+		visual_node.modulate = new_color
+	print("🎨 Unidade %d: cor alterada para %s" % [unit_id, new_color])
+
 ## Obter informações da unidade
 func get_info() -> Dictionary:
 	return {

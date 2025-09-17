@@ -1,4 +1,5 @@
-## Demo de Click em Estrelas - Refatorado com Classes
+## Demo de Spawn de Domínios - Sistema de Spawn nos VÉRTICES (ATUALIZADO)
+## VERSÃO: Vértices do hexágono (pontas agudas) - NÃO lados
 extends Node2D
 
 const StarMapper = preload("res://scripts/star_mapper.gd")
@@ -15,6 +16,19 @@ var adjacent_stars = []  # IDs das estrelas adjacentes
 var domains = []  # Lista de domínios (compatibilidade)
 var domain_nodes = []  # Nodes visuais dos domínios
 var unit_current_star_id: int = -1  # ID da estrela atual da unidade
+var domain_count_selected: int = 6  # Quantidade de domínios selecionada
+var waiting_for_input: bool = false  # Flag para aguardar input
+
+# Cores disponíveis para domínios
+var domain_colors = [
+	Color(0, 0, 1),      # Azul RGB
+	Color(1, 0.5, 0),    # Laranja
+	Color(1, 0, 0),      # Vermelho RGB
+	Color(0.5, 0, 1),    # Roxo
+	Color(1, 1, 0),      # Amarelo
+	Color(0, 1, 1)       # Ciano
+]
+var available_colors = []  # Cores disponíveis para randomização
 
 func _ready() -> void:
 	print("StarClickDemo: Inicializando sistema refatorado...")
@@ -28,7 +42,8 @@ func _ready() -> void:
 	else:
 		hex_grid.grid_initialized.connect(_setup_system)
 	
-	set_process_unhandled_input(true)
+	# Input removido - sistema agora é automático
+	# set_process_unhandled_input(true)
 
 func _setup_system() -> void:
 	if not hex_grid or not hex_grid.is_grid_ready():
@@ -45,52 +60,369 @@ func _setup_system() -> void:
 	game_manager.unit_created.connect(_on_unit_created)
 	game_manager.domain_created.connect(_on_domain_created)
 	
-	print("StarClickDemo: Sistema refatorado pronto!")
-	print("  - Botão esquerdo: mover/posicionar unidade")
-	print("  - Botão direito: criar domínio")
+	# Inicializar sistema de spawn
+	_initialize_spawn_system()
+	
+	print("StarClickDemo: Sistema de spawn pronto!")
+	print("  - Domínios spawnam automaticamente nos 6 cantos")
+	print("  - Cada domínio spawn com uma unidade no centro")
+
+## Inicializar sistema de spawn nos cantos
+func _initialize_spawn_system() -> void:
+	print("🚀 INICIANDO SISTEMA DE SPAWN...")
+	
+	# Verificar se game_manager está configurado
+	if not game_manager:
+		print("❌ GameManager não está configurado!")
+		return
+	
+	# Pedir quantidade de domínios ao usuário
+	var num_domains = _ask_for_domain_count()
+	print("📊 Quantidade de domínios solicitada: " + str(num_domains))
+	
+	# Encontrar os vértices disponíveis
+	print("🔍 Procurando vértices disponíveis...")
+	var available_vertices = _find_corner_stars_improved()
+	print("📍 Vértices disponíveis: " + str(available_vertices.size()))
+	
+	if available_vertices.size() == 0:
+		print("❌ Nenhum vértice encontrado!")
+		return
+	
+	# Selecionar vértices aleatórios
+	var selected_vertices = _select_random_vertices(available_vertices, num_domains)
+	print("🎲 Vértices selecionados aleatoriamente: " + str(selected_vertices))
+	
+	# Preparar cores aleatórias
+	_prepare_random_colors(num_domains)
+	
+	# Spawnar domínios com unidades nos vértices selecionados
+	print("🎯 Iniciando spawns...")
+	for i in range(selected_vertices.size()):
+		var vertex_star_id = selected_vertices[i]
+		var domain_color = available_colors[i] if i < available_colors.size() else Color.WHITE
+		print("🎯 Spawn " + str(i + 1) + ": tentando na estrela " + str(vertex_star_id) + " com cor " + str(domain_color))
+		
+		var spawn_result = game_manager.spawn_domain_with_unit_colored(vertex_star_id, domain_color)
+		
+		if spawn_result:
+			print("✅ Spawn " + str(i + 1) + ": Domínio e unidade criados (estrela " + str(vertex_star_id) + ")")
+		else:
+			print("❌ Falha no spawn " + str(i + 1) + " (estrela " + str(vertex_star_id) + ")")
+	
+	print("🎮 Sistema de spawn concluído: " + str(selected_vertices.size()) + " spawns realizados")
+
+## Algoritmo correto: 12 estrelas -> 6 duplas -> 6 centros
+func _find_corner_stars_improved() -> Array:
+	if not hex_grid or not star_mapper:
+		return []
+	
+	var dot_positions = hex_grid.get_dot_positions()
+	var domain_centers = []
+	
+	# 1. Encontrar centro do tabuleiro
+	var center = Vector2.ZERO
+	for pos in dot_positions:
+		center += pos
+	center /= dot_positions.size()
+	print("Centro: " + str(center.x) + ", " + str(center.y))
+	
+	# 2. Encontrar as 12 estrelas mais distantes do centro
+	var star_distances = []
+	for i in range(dot_positions.size()):
+		var pos = dot_positions[i]
+		var distance = center.distance_to(pos)
+		star_distances.append({"id": i, "distance": distance, "pos": pos})
+	
+	star_distances.sort_custom(func(a, b): return a.distance > b.distance)
+	var twelve_farthest = []
+	for i in range(min(12, star_distances.size())):
+		twelve_farthest.append(star_distances[i])
+		print("Estrela distante " + str(i + 1) + ": ID " + str(star_distances[i].id))
+	
+	# 3. Agrupar em 6 duplas por proximidade
+	var pairs = []
+	var used_stars = []
+	
+	for star_a in twelve_farthest:
+		if star_a.id in used_stars or pairs.size() >= 6:
+			continue
+		
+		var closest_star = null
+		var closest_distance = 999999.0
+		
+		for star_b in twelve_farthest:
+			if star_b.id == star_a.id or star_b.id in used_stars:
+				continue
+			
+			var distance = star_a.pos.distance_to(star_b.pos)
+			if distance < closest_distance:
+				closest_distance = distance
+				closest_star = star_b
+		
+		if closest_star:
+			pairs.append([star_a, closest_star])
+			used_stars.append(star_a.id)
+			used_stars.append(closest_star.id)
+			print("Dupla " + str(pairs.size()) + ": estrelas " + str(star_a.id) + " e " + str(closest_star.id))
+	
+	# 4. Para cada dupla, encontrar estrela adjacente comum (centro do domínio)
+	for i in range(pairs.size()):
+		var pair = pairs[i]
+		var star_a_id = pair[0].id
+		var star_b_id = pair[1].id
+		
+		# Encontrar estrela adjacente a ambas
+		var common_adjacent = _find_common_adjacent_star(star_a_id, star_b_id, dot_positions)
+		if common_adjacent >= 0:
+			domain_centers.append(common_adjacent)
+			print("Centro do dominio " + str(i + 1) + ": estrela " + str(common_adjacent))
+		else:
+			print("Nenhuma estrela adjacente comum encontrada para dupla " + str(i + 1))
+	
+	return domain_centers
+
+func _unhandled_input_old(event: InputEvent) -> void:
+	# Sistema de cliques removido - agora usa spawn automático
+	pass
+
+## Encontrar estrela adjacente comum a duas estrelas
+func _find_common_adjacent_star(star_a_id: int, star_b_id: int, dot_positions: Array) -> int:
+	var max_adjacent_distance = 38.0  # Distância máxima para considerar adjacente
+	
+	# Encontrar estrelas adjacentes à estrela A
+	var adjacent_to_a = []
+	var star_a_pos = dot_positions[star_a_id]
+	
+	for i in range(dot_positions.size()):
+		if i == star_a_id:
+			continue
+		var distance = star_a_pos.distance_to(dot_positions[i])
+		if distance <= max_adjacent_distance:
+			adjacent_to_a.append(i)
+	
+	# Encontrar estrelas adjacentes à estrela B
+	var adjacent_to_b = []
+	var star_b_pos = dot_positions[star_b_id]
+	
+	for i in range(dot_positions.size()):
+		if i == star_b_id:
+			continue
+		var distance = star_b_pos.distance_to(dot_positions[i])
+		if distance <= max_adjacent_distance:
+			adjacent_to_b.append(i)
+	
+	# Encontrar estrela comum (adjacente a ambas)
+	for star_id in adjacent_to_a:
+		if star_id in adjacent_to_b:
+			print("Estrela comum encontrada: " + str(star_id) + " (adjacente a " + str(star_a_id) + " e " + str(star_b_id) + ")")
+			return star_id
+	
+	return -1  # Nenhuma estrela comum encontrada
+
+## Obter quantidade de domínios dos argumentos da linha de comando
+func _ask_for_domain_count() -> int:
+	var args = OS.get_cmdline_args()
+	var domain_count = 6  # Padrão
+	
+	# Procurar pelo parâmetro --domain-count
+	for i in range(args.size()):
+		if args[i].begins_with("--domain-count="):
+			var count_str = args[i].split("=")[1]
+			domain_count = int(count_str)
+			break
+	
+	# Validar entrada
+	if domain_count < 1:
+		domain_count = 1
+	elif domain_count > 6:
+		domain_count = 6
+	
+	print("")
+	print("=== CONFIGURAÇÃO DE SPAWN ===")
+	print("Quantidade de domínios selecionada: " + str(domain_count))
+	print("")
+	
+	return domain_count
+
+## Selecionar vértices aleatórios
+func _select_random_vertices(available_vertices: Array, count: int) -> Array:
+	if available_vertices.size() == 0:
+		return []
+	
+	# Limitar count ao número disponível
+	var max_count = min(count, available_vertices.size())
+	
+	# Criar cópia para não modificar o original
+	var vertices_copy = available_vertices.duplicate()
+	var selected = []
+	
+	# Selecionar aleatoriamente
+	for i in range(max_count):
+		var random_index = randi() % vertices_copy.size()
+		selected.append(vertices_copy[random_index])
+		vertices_copy.remove_at(random_index)
+	
+	return selected
+
+## Preparar cores aleatórias para os domínios
+func _prepare_random_colors(count: int) -> void:
+	available_colors.clear()
+	
+	# Criar cópia das cores para randomização
+	var colors_copy = domain_colors.duplicate()
+	
+	# Selecionar cores aleatórias sem repetição
+	for i in range(min(count, colors_copy.size())):
+		var random_index = randi() % colors_copy.size()
+		available_colors.append(colors_copy[random_index])
+		colors_copy.remove_at(random_index)
+	
+	print("🎨 Cores preparadas para " + str(count) + " domínios")
+
+## Aguardar input numérico do usuário
+func _wait_for_number_input():
+	# Aguardar até o usuário pressionar uma tecla
+	while waiting_for_input:
+		await get_tree().process_frame
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventMouseButton:
-		var mouse_event = event as InputEventMouseButton
-		if mouse_event.pressed:
-			if mouse_event.button_index == MOUSE_BUTTON_LEFT:
-				_handle_star_click(mouse_event.global_position)
-			elif mouse_event.button_index == MOUSE_BUTTON_RIGHT:
-				_handle_domain_creation(mouse_event.global_position)
-
-func _handle_star_click(global_pos: Vector2) -> void:
-	var star_id = _get_star_id_from_mouse_position(global_pos)
+	print("DEBUG: Input recebido, waiting_for_input = " + str(waiting_for_input))
 	
-	if star_id >= 0:
-		print("✅ Estrela clicada: ID %d" % star_id)
-		_handle_unit_action(star_id)
-	else:
-		print("❌ Clique fora das estrelas")
-
-# Função removida - agora gerenciada pela classe Unit
-
-func _handle_unit_action(star_id: int) -> void:
-	# Se não há unidade, criar uma
-	if not current_unit:
-		current_unit = game_manager.create_unit(star_id)
-		_update_adjacent_stars_display()
+	if not waiting_for_input:
 		return
 	
-	# Se unidade não está posicionada, posicionar
-	if not current_unit.is_positioned():
-		game_manager.position_unit_at_star(current_unit, star_id)
-		_update_adjacent_stars_display()
-		return
+	if event is InputEventKey and event.pressed:
+		var key_code = event.keycode
+		print("DEBUG: Tecla pressionada: " + str(key_code))
+		
+		# Verificar teclas numéricas 1-6
+		if key_code >= KEY_1 and key_code <= KEY_6:
+			domain_count_selected = key_code - KEY_0
+			print("Quantidade selecionada: " + str(domain_count_selected))
+			print("")
+			waiting_for_input = false
+		
+		# Verificar tecla ESPAÇO (usar padrão)
+		elif key_code == KEY_SPACE:
+			domain_count_selected = 6
+			print("Quantidade selecionada: 6 (padrão)")
+			print("")
+			waiting_for_input = false
+		
+		# Qualquer outra tecla para debug
+		else:
+			print("DEBUG: Tecla não reconhecida: " + str(key_code))
+
+## Algoritmo para encontrar os 6 vértices de um hexágono central
+func _find_hexagon_vertices() -> Array:
+	if not hex_grid or not star_mapper:
+		return []
 	
-	# Verificar se é movimento válido
-	var valid_stars = game_manager.get_valid_adjacent_stars(current_unit)
-	if star_id in valid_stars:
-		# Resetar ações antes do movimento para permitir movimento contínuo
-		current_unit.reset_actions()
-		game_manager.move_unit_to_star(current_unit, star_id)
-		_update_adjacent_stars_display()
-	else:
-		print("❌ Movimento inválido! Clique apenas nas estrelas magenta")
+	var dot_positions = hex_grid.get_dot_positions()
+	var vertices = []
+	
+	# Encontrar centro do tabuleiro
+	var center = Vector2.ZERO
+	for pos in dot_positions:
+		center += pos
+	center /= dot_positions.size()
+	print("📍 Centro do tabuleiro: (%.3f, %.3f)" % [center.x, center.y])
+	
+	# Encontrar o raio real do tabuleiro (distância máxima do centro)
+	var max_distance = 0.0
+	for pos in dot_positions:
+		var distance = center.distance_to(pos)
+		if distance > max_distance:
+			max_distance = distance
+	
+	# Usar 85% da distância máxima para encontrar os vértices do tabuleiro
+	var hex_radius = max_distance * 0.85
+	print("Distancia maxima do centro: " + str(max_distance) + " pixels")
+	print("Usando raio hexagonal: " + str(hex_radius) + " pixels")
+	
+	# Calcular posições dos 6 vértices do hexágono
+	var vertex_angles = [0.0, PI/3.0, 2*PI/3.0, PI, 4*PI/3.0, 5*PI/3.0]  # 0°, 60°, 120°, 180°, 240°, 300°
+	
+	for i in range(vertex_angles.size()):
+		var angle = vertex_angles[i]
+		# Calcular posição teórica do vértice
+		var target_pos = center + Vector2(cos(angle), sin(angle)) * hex_radius
+		print("Procurando vertice %d: posicao teorica (%.1f, %.1f) (angulo %.0f graus)" % [i + 1, target_pos.x, target_pos.y, rad_to_deg(angle)])
+		
+		# Encontrar a estrela mais próxima dessa posição
+		var best_star_id = -1
+		var best_distance = 999999.0  # Valor grande mas não infinito
+		
+		for j in range(dot_positions.size()):
+			var star_pos = dot_positions[j]
+			var distance_to_target = star_pos.distance_to(target_pos)
+			
+			if distance_to_target < best_distance:
+				best_distance = distance_to_target
+				best_star_id = j
+		
+		if best_star_id >= 0:
+			vertices.append(best_star_id)
+			var actual_pos = dot_positions[best_star_id]
+			var distance_from_center = actual_pos.distance_to(center)
+			print("Vertice " + str(i + 1) + ": estrela " + str(best_star_id) + " encontrada")
+		else:
+			print("Vertice " + str(i + 1) + ": nenhuma estrela encontrada")
+	
+	return vertices
+
+## Algoritmo para encontrar os 6 vértices nas pontas de um hexágono intermediário
+func _find_hexagon_vertices_at_tips() -> Array:
+	if not hex_grid or not star_mapper:
+		return []
+	
+	var dot_positions = hex_grid.get_dot_positions()
+	var vertices = []
+	
+	# Encontrar centro do tabuleiro
+	var center = Vector2.ZERO
+	for pos in dot_positions:
+		center += pos
+	center /= dot_positions.size()
+	print("Centro do tabuleiro: " + str(center.x) + ", " + str(center.y))
+	
+	# Usar um raio fixo para hexágono intermediário (nas pontas, não nos cantos extremos)
+	var hex_radius = 200.0  # Raio intermediário para as pontas
+	print("Usando raio para pontas: " + str(hex_radius) + " pixels")
+	
+	# Calcular posições exatas dos 6 vértices do hexágono
+	var vertex_angles = [0.0, PI/3.0, 2*PI/3.0, PI, 4*PI/3.0, 5*PI/3.0]  # 0°, 60°, 120°, 180°, 240°, 300°
+	
+	for i in range(vertex_angles.size()):
+		var angle = vertex_angles[i]
+		# Calcular posição exata do vértice (ponta)
+		var target_pos = center + Vector2(cos(angle), sin(angle)) * hex_radius
+		print("Procurando ponta " + str(i + 1) + " em posicao: " + str(target_pos.x) + ", " + str(target_pos.y))
+		
+		# Encontrar a estrela mais próxima dessa posição
+		var best_star_id = -1
+		var best_distance = 999999.0
+		
+		for j in range(dot_positions.size()):
+			var star_pos = dot_positions[j]
+			var distance_to_target = star_pos.distance_to(target_pos)
+			
+			if distance_to_target < best_distance:
+				best_distance = distance_to_target
+				best_star_id = j
+		
+		if best_star_id >= 0:
+			vertices.append(best_star_id)
+			print("Ponta " + str(i + 1) + ": estrela " + str(best_star_id) + " encontrada")
+		else:
+			print("Ponta " + str(i + 1) + ": nenhuma estrela encontrada")
+	
+	return vertices
+
+# Função removida - conflito resolvido
+
+# Funções de clique removidas - sistema agora usa spawn automático
 
 # Função removida - agora gerenciada pela classe Unit
 
@@ -188,14 +520,7 @@ func _count_blocked_adjacent_stars(unit_star_position: Vector2) -> int:
 	
 	return blocked_count
 
-func _handle_domain_creation(global_pos: Vector2) -> void:
-	var star_id = _get_star_id_from_mouse_position(global_pos)
-	
-	if star_id >= 0:
-		print("🏠 Criando domínio na estrela %d" % star_id)
-		game_manager.create_domain(star_id)
-	else:
-		print("❌ Clique direito fora das estrelas")
+# Função de criação de domínio por clique removida - agora usa spawn automático
 
 # Função removida - agora gerenciada pelo GameManager
 
