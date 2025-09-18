@@ -11,8 +11,12 @@ config_version=5
 [application]
 
 config/name="Vagabonds & Valleys"
-run/main_scene="res://scenes/star_click_demo.tscn"
+run/main_scene="res://scenes/game_controller.tscn"
 config/features=PackedStringArray("4.4", "Forward Plus")
+
+[autoload]
+
+EventBus="*res://scripts/systems/event_bus.gd"
 
 [rendering]
 

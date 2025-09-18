@@ -1,4 +1,0 @@
-As unidades estão perfeitas, mas as estrelas continuam mal encaixadas
-Vamos lá:
-- remova bordas das estrelas se houver
-- busque as medidas exatas das estrelas debaixo para se basear
