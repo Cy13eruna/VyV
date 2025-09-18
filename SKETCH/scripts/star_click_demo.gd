@@ -22,6 +22,12 @@ var domain_colors = [
 ]
 var available_colors = []
 
+# Sistema de movimentação de unidades
+var selected_unit = null
+var movement_mode_active: bool = false
+var highlighted_stars = []
+var valid_movement_stars = []
+
 func _ready() -> void:
 	print("V&V: Inicializando sistema...")
 	
@@ -51,6 +57,13 @@ func _setup_system() -> void:
 	_initialize_spawn_system()
 	
 	print("V&V: Sistema pronto!")
+
+## Handle input events
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton:
+		var mouse_event = event as InputEventMouseButton
+		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
+			_handle_left_click(mouse_event.global_position)
 
 ## Sistema principal de spawn
 func _initialize_spawn_system() -> void:
@@ -226,3 +239,221 @@ func _on_unit_created(unit) -> void:
 
 func _on_domain_created(domain) -> void:
 	print("🏠 Domínio criado: " + str(domain.get_domain_id()))
+
+## Handle left click for unit selection and movement
+func _handle_left_click(global_pos: Vector2) -> void:
+	# Convert mouse position to hex grid coordinates with proper camera transformation
+	var camera = get_viewport().get_camera_2d()
+	var zoom_factor = camera.zoom.x if camera else 1.0
+	var camera_pos = camera.global_position if camera else Vector2.ZERO
+	
+	# Calculate world position from screen coordinates
+	var viewport_size = get_viewport().get_visible_rect().size
+	var screen_center = viewport_size / 2.0
+	var mouse_offset = global_pos - screen_center
+	var world_offset = mouse_offset / zoom_factor
+	var world_pos = camera_pos + world_offset
+	
+	# Convert to hex grid local coordinates
+	var hex_grid_pos = hex_grid.to_local(world_pos)
+	
+	# If in movement mode, prioritize checking for valid movement stars
+	if movement_mode_active and selected_unit:
+		var clicked_star_id = _get_star_at_position(hex_grid_pos)
+		
+		if clicked_star_id >= 0 and clicked_star_id in valid_movement_stars:
+			# Check if target star is already occupied by another unit
+			var occupying_unit = game_manager.get_unit_at_star(clicked_star_id)
+			if occupying_unit and occupying_unit != selected_unit:
+				print("❌ Movimento bloqueado: estrela %d já ocupada por unidade %d" % [clicked_star_id, occupying_unit.get_info().unit_id])
+				return
+			
+			print("✅ Movimento válido: movendo unidade para estrela %d" % clicked_star_id)
+			_move_selected_unit_to_star(clicked_star_id)
+			return
+		else:
+			# Clique fora das estrelas válidas - desativar movimento
+			print("❌ Clique fora das estrelas válidas - desativando movimento")
+			_deactivate_movement_mode()
+			return
+	
+	# Check if clicked on a unit
+	var clicked_unit = _get_unit_at_position(hex_grid_pos)
+	if clicked_unit:
+		print("🎯 Unidade clicada: %d" % clicked_unit.get_info().unit_id)
+		_handle_unit_click(clicked_unit)
+		return
+	
+	# If movement mode is active and clicked elsewhere, deactivate
+	if movement_mode_active:
+		print("❌ Clique fora - desativando movimento")
+		_deactivate_movement_mode()
+
+## Handle unit click (selection/deselection)
+func _handle_unit_click(unit) -> void:
+	if selected_unit == unit:
+		# Clicking same unit - deactivate movement mode
+		_deactivate_movement_mode()
+		print("🔄 Mesmo unidade clicada - desativando movimento")
+	else:
+		# Clicking different unit - activate movement mode
+		_activate_movement_mode(unit)
+		print("🎯 Nova unidade selecionada - ativando movimento")
+
+## Activate movement mode for unit
+func _activate_movement_mode(unit) -> void:
+	# Deactivate previous mode if active
+	if movement_mode_active:
+		_deactivate_movement_mode()
+	
+	selected_unit = unit
+	movement_mode_active = true
+	
+	print("🎮 Ativando movimento para unidade %d na estrela %d" % [unit.get_info().unit_id, unit.get_current_star_id()])
+	
+	# Get valid adjacent stars
+	var adjacent_stars = game_manager.get_valid_adjacent_stars(unit)
+	
+	# Filter out occupied stars
+	valid_movement_stars = []
+	for star_id in adjacent_stars:
+		var occupying_unit = game_manager.get_unit_at_star(star_id)
+		if not occupying_unit or occupying_unit == unit:
+			valid_movement_stars.append(star_id)
+	
+	print("🔮 Estrelas adjacentes válidas: %s (filtradas: %d ocupadas)" % [str(valid_movement_stars), adjacent_stars.size() - valid_movement_stars.size()])
+	
+	# Highlight valid movement stars with unit color
+	_highlight_movement_stars(unit.visual_node.modulate)
+	
+	print("✨ %d estrelas destacadas para movimento" % valid_movement_stars.size())
+
+## Deactivate movement mode
+func _deactivate_movement_mode() -> void:
+	selected_unit = null
+	movement_mode_active = false
+	valid_movement_stars.clear()
+	
+	# Clear star highlights
+	_clear_star_highlights()
+	print("🔄 Modo movimento desativado")
+
+## Highlight valid movement stars with unit color
+func _highlight_movement_stars(unit_color: Color) -> void:
+	_clear_star_highlights()
+	
+	var dot_positions = hex_grid.get_dot_positions()
+	
+	for star_id in valid_movement_stars:
+		if star_id < dot_positions.size():
+			var star_pos = dot_positions[star_id]
+			_create_colored_star_highlight(star_pos, unit_color)
+
+## Create colored star highlight
+func _create_colored_star_highlight(position: Vector2, color: Color) -> void:
+	var highlight_node = Node2D.new()
+	highlight_node.position = position
+	highlight_node.z_index = 60
+	highlight_node.visible = true
+	
+	# Connect draw signal
+	highlight_node.draw.connect(_draw_colored_star.bind(highlight_node, color))
+	
+	hex_grid.add_child(highlight_node)
+	highlighted_stars.append(highlight_node)
+	
+	# Force redraw
+	highlight_node.queue_redraw()
+
+## Draw colored star highlight
+func _draw_colored_star(canvas_item: CanvasItem, color: Color) -> void:
+	# Usar EXATAMENTE as mesmas medidas das estrelas fixas
+	var outer_radius = 6.0  # dot_radius das estrelas fixas
+	var inner_radius = 3.0  # dot_star_size das estrelas fixas
+	var points = PackedVector2Array()
+	
+	# Usar EXATAMENTE o mesmo algoritmo do HexGridGeometry.calculate_star_geometry
+	for i in range(12):  # 6 outer + 6 inner points
+		var angle_deg = 30.0 * i  # 30 degrees between each point
+		var angle_rad = deg_to_rad(angle_deg)
+		var radius = outer_radius if i % 2 == 0 else inner_radius
+		var point = Vector2(cos(angle_rad), sin(angle_rad)) * radius
+		points.append(point)
+	
+	# Desenhar estrela preenchida com medidas exatas das estrelas fixas
+	canvas_item.draw_colored_polygon(points, color)
+
+## Clear all star highlights
+func _clear_star_highlights() -> void:
+	for highlight in highlighted_stars:
+		if is_instance_valid(highlight):
+			highlight.queue_free()
+	highlighted_stars.clear()
+
+## Move selected unit to star
+func _move_selected_unit_to_star(target_star_id: int) -> void:
+	if not selected_unit:
+		return
+	
+	# Reset actions to allow movement
+	selected_unit.reset_actions()
+	
+	# Attempt movement
+	if game_manager.move_unit_to_star(selected_unit, target_star_id):
+		print("✅ Unidade movida para estrela %d" % target_star_id)
+		
+		# Update movement options for new position
+		var adjacent_stars = game_manager.get_valid_adjacent_stars(selected_unit)
+		
+		# Filter out occupied stars
+		valid_movement_stars = []
+		for star_id in adjacent_stars:
+			var occupying_unit = game_manager.get_unit_at_star(star_id)
+			if not occupying_unit or occupying_unit == selected_unit:
+				valid_movement_stars.append(star_id)
+		
+		_highlight_movement_stars(selected_unit.visual_node.modulate)
+		
+		print("🔮 Novas opções de movimento: %d estrelas" % valid_movement_stars.size())
+	else:
+		print("❌ Falha no movimento")
+
+## Get unit at position
+func _get_unit_at_position(position: Vector2):
+	# Rectangular click area for emoji (vertical rectangle like 3 stacked stars)
+	var click_width = 24.0   # Width equivalent to ~1.5 stars
+	var click_height = 54.0  # Height equivalent to ~3 stacked stars
+	
+	for unit in game_manager.get_all_units():
+		if unit.is_positioned():
+			var unit_world_pos = unit.get_world_position()
+			var unit_local_pos = hex_grid.to_local(unit_world_pos)
+			
+			# Check if click is within rectangular bounds
+			var dx = abs(position.x - unit_local_pos.x)
+			var dy = abs(position.y - unit_local_pos.y)
+			
+			var within_bounds = (dx <= click_width / 2.0) and (dy <= click_height / 2.0)
+			
+			if within_bounds:
+				return unit
+	
+	return null
+
+## Get star at position
+func _get_star_at_position(position: Vector2) -> int:
+	var click_tolerance = 30.0
+	var dot_positions = hex_grid.get_dot_positions()
+	
+	var closest_star = -1
+	var closest_distance = 999999.0
+	
+	for i in range(dot_positions.size()):
+		var star_pos = dot_positions[i]
+		var distance = position.distance_to(star_pos)
+		
+		if distance <= click_tolerance and distance < closest_distance:
+			closest_distance = distance
+			closest_star = i
+	
+	return closest_star

@@ -22,7 +22,7 @@ var max_actions: int = 1
 ## Referências visuais
 var visual_node: Label = null
 var emoji_text: String = "🚶🏻‍♀️"
-var font_size: int = 18
+var font_size: int = 14
 
 ## Referências do sistema
 var hex_grid_ref = null
@@ -59,11 +59,12 @@ func position_at_star(star_id: int) -> bool:
 	var star_position = star_mapper_ref.get_star_position(star_id)
 	var global_position = hex_grid_ref.to_global(star_position)
 	
-	# Atualizar posição visual
+	# Atualizar posição visual - CENTRALIZAÇÃO PRECISA
 	if visual_node:
 		visual_node.global_position = global_position
-		visual_node.global_position.x -= font_size / 2
-		visual_node.global_position.y -= font_size / 2
+		# Posicionamento da unidade: centralizada horizontalmente, ainda mais para cima
+		visual_node.global_position.x -= font_size * 0.5  # Centralização horizontal
+		visual_node.global_position.y -= font_size * 1.1  # Ainda mais para cima no eixo Y
 		visual_node.visible = true
 	
 	# Atualizar estado

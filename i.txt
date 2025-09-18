@@ -1,2 +1,4 @@
-Muito bem. Agora iremos fazer uma boa limpeza nesse código todo. Implementamos várias coisas e é necessári deixar tudo bem arrumado para continuarmos o jogo.
-Avalie SKETCH e faça as correções / limpezas que julgares necessárias. Pode meter bala, pois já fiz commit dessa versão
+As unidades estão perfeitas, mas as estrelas continuam mal encaixadas
+Vamos lá:
+- remova bordas das estrelas se houver
+- busque as medidas exatas das estrelas debaixo para se basear
