@@ -28,6 +28,16 @@ var movement_mode_active: bool = false
 var highlighted_stars = []
 var valid_movement_stars = []
 
+# Sistema de zoom em duas etapas
+var current_centered_star_id: int = -1
+var zoom_mode_active: bool = false
+
+# Zoom system constants
+const ZOOM_FACTOR: float = 1.3
+const MIN_ZOOM: float = 0.3
+const MAX_ZOOM: float = 5.0
+const INVALID_STAR_ID: int = -1
+
 func _ready() -> void:
 	print("V&V: Inicializando sistema...")
 	
@@ -64,6 +74,10 @@ func _unhandled_input(event: InputEvent) -> void:
 		var mouse_event = event as InputEventMouseButton
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
 			_handle_left_click(mouse_event.global_position)
+		elif mouse_event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			_handle_zoom_in()
+		elif mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			_handle_zoom_out()
 
 ## Sistema principal de spawn
 func _initialize_spawn_system() -> void:
@@ -240,8 +254,38 @@ func _on_unit_created(unit) -> void:
 func _on_domain_created(domain) -> void:
 	print("🏠 Domínio criado: " + str(domain.get_domain_id()))
 
+## Reset zoom mode when user clicks (allows centering new star)
+func _reset_zoom_mode() -> void:
+	if zoom_mode_active:
+		zoom_mode_active = false
+		current_centered_star_id = INVALID_STAR_ID
+		print("🔄 Zoom mode reset - next scroll will center new star")
+
+## Get current zoom state for debugging
+func _get_zoom_state() -> Dictionary:
+	return {
+		"zoom_mode_active": zoom_mode_active,
+		"current_centered_star_id": current_centered_star_id,
+		"camera_zoom": get_viewport().get_camera_2d().zoom.x if get_viewport().get_camera_2d() else 0.0
+	}
+
+## Validate zoom system state
+func _validate_zoom_system() -> bool:
+	if not star_mapper:
+		print("⚠️ Zoom validation: StarMapper not available")
+		return false
+	if not hex_grid:
+		print("⚠️ Zoom validation: HexGrid not available")
+		return false
+	if not get_viewport().get_camera_2d():
+		print("⚠️ Zoom validation: Camera2D not available")
+		return false
+	return true
+
 ## Handle left click for unit selection and movement
 func _handle_left_click(global_pos: Vector2) -> void:
+	# Reset zoom mode on any click
+	_reset_zoom_mode()
 	# Convert mouse position to hex grid coordinates with proper camera transformation
 	var camera = get_viewport().get_camera_2d()
 	var zoom_factor = camera.zoom.x if camera else 1.0
@@ -457,3 +501,105 @@ func _get_star_at_position(position: Vector2) -> int:
 			closest_star = i
 	
 	return closest_star
+
+## Handle zoom in with two-stage system
+func _handle_zoom_in() -> void:
+	_handle_zoom(true)
+
+## Handle zoom out with two-stage system
+func _handle_zoom_out() -> void:
+	_handle_zoom(false)
+
+## Unified zoom handler with two-stage system: center first, then zoom
+func _handle_zoom(zoom_in: bool) -> void:
+	# Validate system state
+	if not _validate_zoom_system():
+		return
+	
+	var camera = get_viewport().get_camera_2d()
+	
+	# Get nearest star under cursor
+	var nearest_star_data = _get_nearest_star_under_cursor(camera)
+	if nearest_star_data.star_id == INVALID_STAR_ID:
+		print("⚠️ Zoom: No star found under cursor")
+		return
+	
+	# Two-stage zoom system
+	if _should_center_star(nearest_star_data.star_id):
+		_center_star(camera, nearest_star_data)
+	else:
+		_apply_zoom(camera, nearest_star_data, zoom_in)
+
+## Check if we should center the star (stage 1) or zoom (stage 2)
+func _should_center_star(star_id: int) -> bool:
+	return not zoom_mode_active or current_centered_star_id != star_id
+
+## Stage 1: Center star without zooming
+func _center_star(camera: Camera2D, star_data: Dictionary) -> void:
+	current_centered_star_id = star_data.star_id
+	zoom_mode_active = true
+	
+	# Center camera and cursor without zoom
+	camera.global_position = star_data.world_pos
+	get_viewport().warp_mouse(star_data.screen_center)
+	
+	print("⭐ Stage 1: Star %d centered (next scroll will zoom)" % star_data.star_id)
+
+## Stage 2: Apply zoom while maintaining centering
+func _apply_zoom(camera: Camera2D, star_data: Dictionary, zoom_in: bool) -> void:
+	# Check zoom limits
+	var current_zoom = camera.zoom.x
+	if zoom_in and current_zoom >= MAX_ZOOM:
+		print("🚫 Maximum zoom reached")
+		return
+	elif not zoom_in and current_zoom <= MIN_ZOOM:
+		print("🚫 Minimum zoom reached")
+		return
+	
+	# Apply zoom
+	var old_zoom = current_zoom
+	var zoom_factor = ZOOM_FACTOR if zoom_in else (1.0 / ZOOM_FACTOR)
+	camera.zoom *= zoom_factor
+	camera.zoom = camera.zoom.clamp(Vector2(MIN_ZOOM, MIN_ZOOM), Vector2(MAX_ZOOM, MAX_ZOOM))
+	
+	# Maintain centering
+	camera.global_position = star_data.world_pos
+	get_viewport().warp_mouse(star_data.screen_center)
+	
+	var zoom_direction = "IN" if zoom_in else "OUT"
+	var zoom_icon = "🔍" if zoom_in else "🔎"
+	print("%s Stage 2: ZOOM %s %.1fx→%.1fx (star %d centered)" % [zoom_icon, zoom_direction, old_zoom, camera.zoom.x, star_data.star_id])
+
+## Get nearest star under cursor with all required data
+func _get_nearest_star_under_cursor(camera: Camera2D) -> Dictionary:
+	# Calculate world position under cursor
+	var mouse_screen = get_viewport().get_mouse_position()
+	var viewport_size = get_viewport().get_visible_rect().size
+	var screen_center = viewport_size / 2.0
+	var mouse_offset = mouse_screen - screen_center
+	var world_point = camera.global_position + mouse_offset / camera.zoom.x
+	
+	# Find nearest star
+	var star_id = INVALID_STAR_ID
+	var star_world_pos = Vector2.ZERO
+	
+	if star_mapper and hex_grid:
+		var hex_grid_pos = hex_grid.to_local(world_point)
+		star_id = star_mapper.get_nearest_star_id(hex_grid_pos)
+		
+		if star_id != INVALID_STAR_ID:
+			var star_local_pos = star_mapper.get_star_position(star_id)
+			star_world_pos = hex_grid.to_global(star_local_pos)
+		else:
+			# Fallback to cursor position
+			star_world_pos = world_point
+	else:
+		# Fallback when systems not ready
+		star_world_pos = world_point
+	
+	return {
+		"star_id": star_id,
+		"world_pos": star_world_pos,
+		"screen_center": screen_center
+	}
+

@@ -27,6 +27,7 @@ set choice=6
 
 :start
 echo.
+echo *** ZOOM DEFINITIVO - DUAS ETAPAS: CENTRALIZAR + ZOOM ***
 echo Iniciando jogo com %choice% dominios...
 echo.
 cd /d "%~dp0\SKETCH"

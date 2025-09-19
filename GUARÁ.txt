@@ -17,3 +17,11 @@ Qodo, ignore esse aqrquivo. Ele serve apenas para eu me guiar.
     - unidades: seis estrelas adjacentes e seus caminhos são reveladas
         - montanhas e florestas deixam a estrela detrás preta
     - domínios: seis estrelas e doze losangos que o compõem são visíveis independente do terreno
+
+Agora a segunda funcionalidade. Dependendo da quantidade de domínios escolhidos, o tamanho do mapa irá mudar.
+Eis a razão número de domínios --> largura do mapa em estrelas:
+6 --> 19
+5 --> 15
+4 --> 13
+3 --> 9
+2 --> 7

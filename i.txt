@@ -1,0 +1,7 @@
+Ok, agora o seguinte. Dependendo da quantidade de domínios escolhidos, o tamanho do mapa irá mudar.
+Eis a razão número de domínios --> largura do mapa em estrelas:
+6 --> 19
+5 --> 15
+4 --> 13
+3 --> 9
+2 --> 7
