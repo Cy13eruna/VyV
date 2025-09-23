@@ -5,3 +5,10 @@ Eis a razão número de domínios --> largura do mapa em estrelas:
 4 --> 13
 3 --> 9
 2 --> 7
+
+Para que isso funcione, faremos o seguinte:
+0. através do console informarei a quantidade de domínios
+1. renderize o tabuleiro com a devida largura baseado na quantidade de dominios
+2. mapeie as estrelas desse tabuleiro para maior precisão nos próximos passos
+3. posicione os domínios utilizando o mapeamento
+4. ajuste o zoom ao novo mapeamentovo mapeamento

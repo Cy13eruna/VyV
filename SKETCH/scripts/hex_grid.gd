@@ -595,6 +595,22 @@ func get_hex_positions() -> Array[Vector2]:
 func is_grid_ready() -> bool:
 	return is_initialized and cache != null and cache.is_valid()
 
+## Rebuild the entire grid (for dynamic map system)
+func rebuild_grid() -> void:
+	print("HexGrid: Rebuilding grid...")
+	
+	# Rebuild cache with new configuration
+	if cache:
+		cache.build_cache(true)  # Force rebuild
+	
+	# Redraw the grid
+	redraw_grid()
+	
+	# Update camera to fit new size
+	_center_grid_on_screen()
+	
+	print("HexGrid: Grid rebuild complete")
+
 ## Clean up resources
 func _exit_tree() -> void:
 	if config:

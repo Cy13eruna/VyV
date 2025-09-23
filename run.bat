@@ -3,20 +3,18 @@ echo ===============================================
 echo           VAGABONDS ^& VALLEYS
 echo ===============================================
 echo.
-echo === CONFIGURACAO DE SPAWN ===
-echo Quantos dominios voce deseja spawnar?
+echo === SISTEMA DE MAPA BASEADO EM DOMINIOS ===
+echo Quantos dominios voce deseja?
 echo.
-echo [1] - 1 dominio
-echo [2] - 2 dominios  
-echo [3] - 3 dominios
-echo [4] - 4 dominios
-echo [5] - 5 dominios
-echo [6] - 6 dominios (padrao)
+echo [2] - 2 dominios (mapa 7x7)
+echo [3] - 3 dominios (mapa 9x9)
+echo [4] - 4 dominios (mapa 13x13)
+echo [5] - 5 dominios (mapa 15x15)
+echo [6] - 6 dominios (mapa 19x19) [PADRAO]
 echo.
-set /p choice="Digite sua escolha (1-6) ou pressione Enter para padrao: "
+set /p choice="Digite sua escolha (2-6) ou pressione Enter para padrao: "
 
 if "%choice%"=="" set choice=6
-if "%choice%"=="1" goto start
 if "%choice%"=="2" goto start
 if "%choice%"=="3" goto start
 if "%choice%"=="4" goto start
@@ -27,8 +25,12 @@ set choice=6
 
 :start
 echo.
-echo *** ZOOM DEFINITIVO - DUAS ETAPAS: CENTRALIZAR + ZOOM ***
-echo Iniciando jogo com %choice% dominios...
+echo Executando 5 passos do sistema...
+echo 0. Input via console: %choice% dominios
+echo 1. Renderizar tabuleiro
+echo 2. Mapear estrelas
+echo 3. Posicionar dominios
+echo 4. Ajustar zoom
 echo.
 cd /d "%~dp0\SKETCH"
 "C:\Program Files\Godot\Godot_v4.4.1-stable_win64.exe" --path . scenes\star_click_demo.tscn --domain-count=%choice%

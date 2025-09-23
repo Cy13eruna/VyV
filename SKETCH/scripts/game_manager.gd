@@ -61,6 +61,11 @@ func create_unit(star_id: int = -1):
 
 ## Criar novo domínio
 func create_domain(center_star_id: int):
+	# Verificar se referências estão configuradas
+	if not hex_grid_ref or not star_mapper_ref:
+		print("❌ GameManager: referências não configuradas (hex_grid: %s, star_mapper: %s)" % [hex_grid_ref != null, star_mapper_ref != null])
+		return null
+	
 	# Verificar se já existe domínio na estrela
 	for domain in domains:
 		if domain.is_at_star(center_star_id):
@@ -68,6 +73,7 @@ func create_domain(center_star_id: int):
 			return null
 	
 	var domain = Domain.new()
+	print("🔧 GameManager: configurando referências para domínio %d" % domain.get_domain_id())
 	domain.setup_references(hex_grid_ref, star_mapper_ref)
 	
 	# Criar domínio primeiro
@@ -222,6 +228,20 @@ func clear_all_entities() -> void:
 	domains.clear()
 	
 	print("🧹 GameManager: todas as entidades limpas")
+
+## Limpar apenas unidades
+func clear_all_units() -> void:
+	for unit in units:
+		unit.cleanup()
+	units.clear()
+	print("🧹 GameManager: todas as unidades limpas")
+
+## Limpar apenas domínios
+func clear_all_domains() -> void:
+	for domain in domains:
+		domain.cleanup()
+	domains.clear()
+	print("🧹 GameManager: todos os domínios limpos")
 
 # Função removida - algoritmo movido para star_click_demo.gd
 

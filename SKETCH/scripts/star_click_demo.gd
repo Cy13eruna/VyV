@@ -1,5 +1,5 @@
-## Demo de Spawn de Domínios - Sistema de Spawn Colorido
-## Sistema principal do jogo V&V
+## Demo de Spawn de Domínios - Sistema de Mapa Dinâmico
+## Sistema principal do jogo V&V com mapas adaptativos
 extends Node2D
 
 const StarMapper = preload("res://scripts/star_mapper.gd")
@@ -10,6 +10,17 @@ const GameManager = preload("res://scripts/game_manager.gd")
 @onready var hex_grid = $HexGrid
 var star_mapper = null
 var game_manager = null
+
+# Sistema de mapa dinâmico
+var domain_count_to_map_width = {
+	6: 19,
+	5: 15,
+	4: 13,
+	3: 9,
+	2: 7
+}
+var current_domain_count: int = 6
+var map_initialized: bool = false
 
 # Cores disponíveis para domínios
 var domain_colors = [
@@ -41,35 +52,29 @@ const INVALID_STAR_ID: int = -1
 func _ready() -> void:
 	print("V&V: Inicializando sistema...")
 	
-	# Inicializar componentes
-	star_mapper = StarMapper.new()
-	game_manager = GameManager.new()
+	# Passo 0: Aguardar input via console para quantidade de domínios
+	_step_0_console_input()
 	
-	if hex_grid.is_initialized:
-		_setup_system()
-	else:
-		hex_grid.grid_initialized.connect(_setup_system)
+	# Inicializar componentes apenas se não existirem
+	if not star_mapper:
+		star_mapper = StarMapper.new()
+		print("🔧 StarMapper criado no _ready()")
+	if not game_manager:
+		game_manager = GameManager.new()
+		print("🔧 GameManager criado no _ready()")
 
 func _setup_system() -> void:
-	if not hex_grid or not hex_grid.is_grid_ready():
-		return
-	
-	# Configurar componentes
-	var dot_positions = hex_grid.get_dot_positions()
-	star_mapper.map_stars(dot_positions)
-	game_manager.setup_references(hex_grid, star_mapper, self)
-	
-	# Conectar sinais
-	game_manager.unit_created.connect(_on_unit_created)
-	game_manager.domain_created.connect(_on_domain_created)
-	
-	# Inicializar sistema de spawn
+	# Sistema já foi configurado nos 5 passos
+	# Apenas inicializar sistema de spawn
 	_initialize_spawn_system()
-	
-	print("V&V: Sistema pronto!")
+	print("V&V: Sistema de jogo ativado!")
 
 ## Handle input events
 func _unhandled_input(event: InputEvent) -> void:
+	# Input de mouse apenas se mapa estiver inicializado
+	if not map_initialized:
+		return
+	
 	if event is InputEventMouseButton:
 		var mouse_event = event as InputEventMouseButton
 		if mouse_event.pressed and mouse_event.button_index == MOUSE_BUTTON_LEFT:
@@ -79,39 +84,246 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif mouse_event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			_handle_zoom_out()
 
-## Sistema principal de spawn
-func _initialize_spawn_system() -> void:
-	print("🚀 Iniciando sistema de spawn...")
+## Passo 0: Aguardar input via console para quantidade de domínios
+func _step_0_console_input() -> void:
+	print("\n=== PASSO 0: INPUT VIA CONSOLE ===")
+	print("Aguardando quantidade de domínios via console...")
 	
-	if not game_manager:
-		print("❌ GameManager não configurado!")
+	# Obter quantidade de domínios dos argumentos da linha de comando
+	var domain_count = _get_domain_count_from_console()
+	print("Domínios informados via console: " + str(domain_count))
+	
+	# Executar os 4 passos seguintes
+	_execute_map_creation_steps(domain_count)
+
+## Obter quantidade de domínios via console (argumentos)
+func _get_domain_count_from_console() -> int:
+	var args = OS.get_cmdline_args()
+	var domain_count = 6  # Padrão
+	
+	# Procurar argumento --domain-count=X
+	for arg in args:
+		if arg.begins_with("--domain-count="):
+			domain_count = int(arg.split("=")[1])
+			break
+	
+	# Validar range 2-6
+	domain_count = clamp(domain_count, 2, 6)
+	return domain_count
+
+## Executar os 4 passos de criação do mapa
+func _execute_map_creation_steps(domain_count: int) -> void:
+	current_domain_count = domain_count
+	var map_width = domain_count_to_map_width[domain_count]
+	
+	print("\n=== EXECUTANDO 4 PASSOS ===")
+	print("Domínios: " + str(domain_count) + " -> Largura: " + str(map_width) + " estrelas")
+	
+	# Passo 1: Renderizar tabuleiro
+	_step_1_render_board(map_width)
+	
+	# Aguardar grid estar pronto para continuar
+	if hex_grid.is_initialized:
+		_continue_remaining_steps()
+	else:
+		hex_grid.grid_initialized.connect(_continue_remaining_steps, CONNECT_ONE_SHOT)
+
+
+
+## Passo 1: Renderizar tabuleiro com a devida largura baseado na quantidade de domínios
+func _step_1_render_board(width: int) -> void:
+	print("=== PASSO 1: RENDERIZAR TABULEIRO ===")
+	print("Renderizando tabuleiro com largura: " + str(width) + " estrelas")
+	
+	# Converter largura em estrelas para raio hexagonal
+	# Fórmula: raio = (largura + 1) / 2
+	var hex_radius = (width + 1) / 2
+	print("Convertendo largura " + str(width) + " estrelas para raio hexagonal: " + str(hex_radius))
+	
+	# Configurar novo tamanho do grid
+	hex_grid.config.set_grid_width(hex_radius)
+	hex_grid.config.set_grid_height(hex_radius)
+	
+	# Forçar reconstrução do grid
+	hex_grid.rebuild_grid()
+	print("Tabuleiro renderizado com raio " + str(hex_radius) + " (largura ~" + str(width) + " estrelas)")
+
+## Continuar com os passos restantes após renderização
+func _continue_remaining_steps() -> void:
+	# Aguardar o grid estar pronto com mais tempo
+	if not hex_grid.is_grid_ready():
+		print("Aguardando grid estar pronto...")
+		# Aguardar mais tempo para grid estar 100% pronto
+		get_tree().create_timer(0.5).timeout.connect(_continue_remaining_steps, CONNECT_ONE_SHOT)
 		return
 	
-	# Obter quantidade de domínios
-	var num_domains = _get_domain_count_from_args()
-	print("📊 Domínios solicitados: " + str(num_domains))
+	print("Grid confirmado como pronto, continuando passos...")
 	
-	# Encontrar vértices disponíveis
+	# Passo 2: Mapear estrelas
+	_step_2_map_stars()
+	
+	# Verificar se StarMapper manteve os dados
+	print("🔍 Pós-passo 2: StarMapper tem " + str(star_mapper.get_star_count() if star_mapper else 0) + " estrelas")
+	
+	# Passo 3: Posicionar domínios
+	_step_3_position_domains()
+	
+	# Passo 4: Ajustar zoom
+	_step_4_adjust_zoom()
+	
+	print("\n=== TODOS OS 5 PASSOS CONCLUÍDOS ===")
+	print("✅ Sistema pronto para uso!\n")
+	
+	# Marcar sistema como inicializado
+	map_initialized = true
+	
+	# Configurar sistema de jogo
+	_setup_system()
+
+## Passo 2: Mapear estrelas desse tabuleiro para maior precisão nos próximos passos
+func _step_2_map_stars() -> void:
+	print("=== PASSO 2: MAPEAR ESTRELAS ===")
+	print("Mapeando estrelas do tabuleiro para maior precisão...")
+	
+	if not hex_grid or not hex_grid.is_grid_ready():
+		print("Erro: Grid não está pronto para mapeamento")
+		return
+	
+	# Garantir que star_mapper não seja recriado (preservar dados)
+	if not star_mapper:
+		print("🔧 Criando novo StarMapper...")
+		star_mapper = StarMapper.new()
+	else:
+		print("🔍 Usando StarMapper existente com " + str(star_mapper.get_star_count()) + " estrelas")
+	
+	# Obter posições das estrelas do tabuleiro
+	var dot_positions = hex_grid.get_dot_positions()
+	print("Total de estrelas encontradas: " + str(dot_positions.size()))
+	
+	# Mapear estrelas com StarMapper
+	star_mapper.map_stars(dot_positions)
+	print("Estrelas mapeadas com precisão para os próximos passos")
+	
+	# Verificar se mapeamento funcionou
+	var mapped_count = star_mapper.get_star_count()
+	print("🔍 Verificação: StarMapper tem " + str(mapped_count) + " estrelas mapeadas")
+	
+	# Configurar GameManager com o mapeamento
+	if not game_manager:
+		game_manager = GameManager.new()
+	
+	game_manager.setup_references(hex_grid, star_mapper, self)
+	
+	# Conectar sinais se necessário
+	if not game_manager.unit_created.is_connected(_on_unit_created):
+		game_manager.unit_created.connect(_on_unit_created)
+	if not game_manager.domain_created.is_connected(_on_domain_created):
+		game_manager.domain_created.connect(_on_domain_created)
+
+## Passo 3: Posicionar os domínios utilizando o mapeamento
+func _step_3_position_domains() -> void:
+	print("=== PASSO 3: POSICIONAR DOMÍNIOS ===")
+	print("Posicionando " + str(current_domain_count) + " domínios utilizando o mapeamento...")
+	
+	# Verificar se game_manager está disponível
+	if not game_manager:
+		print("Erro: GameManager não disponível")
+		return
+	
+	# Verificar estado do StarMapper antes de reconfigurar
+	print("🔍 Estado do StarMapper: " + str(star_mapper.get_star_count() if star_mapper else 0) + " estrelas")
+	
+	# Reconfigurar referências antes de usar (garantir que não foram perdidas)
+	print("🔧 Reconfigurando referências do GameManager antes do spawn...")
+	game_manager.setup_references(hex_grid, star_mapper, self)
+	
+	# Verificar novamente após reconfigurar
+	print("🔍 Estado pós-reconfigurar: " + str(star_mapper.get_star_count() if star_mapper else 0) + " estrelas")
+	
+	# Limpar domínios e unidades existentes
+	game_manager.clear_all_units()
+	game_manager.clear_all_domains()
+	
+	# Encontrar posições utilizando o mapeamento
 	var available_vertices = _find_spawn_vertices()
 	if available_vertices.size() == 0:
-		print("❌ Nenhum vértice encontrado!")
+		print("Erro: Nenhuma posição encontrada no mapeamento")
 		return
 	
-	# Selecionar vértices e cores aleatórias
-	var selected_vertices = _select_random_vertices(available_vertices, num_domains)
-	_prepare_random_colors(num_domains)
+	print("Posições encontradas no mapeamento: " + str(available_vertices.size()))
 	
-	# Spawnar domínios coloridos
+	# Selecionar posições e cores para os domínios
+	var selected_vertices = _select_random_vertices(available_vertices, current_domain_count)
+	_prepare_random_colors(current_domain_count)
+	
+	# Posicionar domínios nas posições mapeadas
 	_spawn_colored_domains(selected_vertices)
+	print("Domínios posicionados utilizando o mapeamento")
+
+## Passo 4: Ajustar o zoom ao novo mapeamento
+func _step_4_adjust_zoom() -> void:
+	print("=== PASSO 4: AJUSTAR ZOOM ===")
+	print("Ajustando zoom ao novo mapeamento...")
 	
-	print("🎮 Sistema de spawn concluído!")
+	var camera = get_viewport().get_camera_2d()
+	if not camera:
+		print("Erro: Câmera não encontrada")
+		return
+	
+	# Calcular zoom baseado no mapeamento
+	var map_width = domain_count_to_map_width[current_domain_count]
+	var base_zoom = 1.0
+	
+	# Ajustar zoom conforme o tamanho do mapeamento
+	if map_width <= 7:
+		base_zoom = 1.8  # Mapas pequenos: zoom maior
+	elif map_width <= 9:
+		base_zoom = 1.5
+	elif map_width <= 13:
+		base_zoom = 1.2
+	elif map_width <= 15:
+		base_zoom = 1.0
+	else:
+		base_zoom = 0.8  # Mapas grandes: zoom menor
+	
+	# Aplicar zoom inicial
+	camera.zoom = Vector2(base_zoom, base_zoom)
+	
+	# Centralizar câmera no centro do mapeamento
+	var dot_positions = hex_grid.get_dot_positions()
+	if dot_positions.size() > 0:
+		var center = Vector2.ZERO
+		for pos in dot_positions:
+			center += pos
+		center /= dot_positions.size()
+		camera.global_position = hex_grid.to_global(center)
+	
+	# Resetar sistema de zoom dinâmico para manter funcionalidade completa
+	zoom_mode_active = false
+	current_centered_star_id = INVALID_STAR_ID
+	
+	# Verificar se StarMapper está funcionando para o zoom
+	if star_mapper and star_mapper.get_star_count() > 0:
+		print("Sistema de zoom dinâmico (duas etapas) ativado com " + str(star_mapper.get_star_count()) + " estrelas")
+	else:
+		print("⚠️ Sistema de zoom dinâmico limitado - StarMapper não disponível")
+	
+	print("Zoom ajustado ao novo mapeamento: " + str(base_zoom) + "x")
+
+## Sistema principal de spawn
+func _initialize_spawn_system() -> void:
+	print("🚀 Sistema de spawn ativado - domínios já posicionados!")
 
 ## Algoritmo de detecção de vértices: 12 estrelas -> 6 duplas -> 6 centros
 func _find_spawn_vertices() -> Array:
 	if not hex_grid or not star_mapper:
+		print("❌ _find_spawn_vertices: hex_grid ou star_mapper não disponíveis")
 		return []
 	
 	var dot_positions = hex_grid.get_dot_positions()
+	var total_stars = star_mapper.get_star_count()
+	print("🔍 _find_spawn_vertices: " + str(dot_positions.size()) + " posições, " + str(total_stars) + " estrelas mapeadas")
+	
 	var domain_centers = []
 	
 	# 1. Encontrar centro do tabuleiro
@@ -128,7 +340,8 @@ func _find_spawn_vertices() -> Array:
 		star_distances.append({"id": i, "distance": distance, "pos": pos})
 	
 	star_distances.sort_custom(func(a, b): return a.distance > b.distance)
-	var twelve_farthest = star_distances.slice(0, 12)
+	var twelve_farthest = star_distances.slice(0, min(12, star_distances.size()))
+	print("🔍 Encontradas " + str(twelve_farthest.size()) + " estrelas mais distantes")
 	
 	# 3. Agrupar em duplas por proximidade
 	var pairs = []
@@ -154,12 +367,18 @@ func _find_spawn_vertices() -> Array:
 			pairs.append([star_a, closest_star])
 			used_stars.append_array([star_a.id, closest_star.id])
 	
+	print("🔍 Formados " + str(pairs.size()) + " pares de estrelas")
+	
 	# 4. Encontrar centros das duplas
 	for pair in pairs:
 		var center_star = _find_common_adjacent_star(pair[0].id, pair[1].id, dot_positions)
-		if center_star >= 0:
+		if center_star >= 0 and center_star < total_stars:
 			domain_centers.append(center_star)
+			print("✅ Centro válido encontrado: estrela " + str(center_star))
+		else:
+			print("❌ Centro inválido: " + str(center_star) + " (total: " + str(total_stars) + ")")
 	
+	print("🔍 Total de centros válidos: " + str(domain_centers.size()))
 	return domain_centers
 
 ## Encontrar estrela adjacente comum a duas estrelas
@@ -187,24 +406,14 @@ func _find_common_adjacent_star(star_a_id: int, star_b_id: int, dot_positions: A
 	
 	return -1
 
-## Obter quantidade de domínios dos argumentos
-func _get_domain_count_from_args() -> int:
-	var args = OS.get_cmdline_args()
-	var domain_count = 6  # Padrão
-	
-	for arg in args:
-		if arg.begins_with("--domain-count="):
-			domain_count = int(arg.split("=")[1])
-			break
-	
-	# Validar
-	domain_count = clamp(domain_count, 1, 6)
-	
-	print("=== CONFIGURAÇÃO DE SPAWN ===")
-	print("Quantidade selecionada: " + str(domain_count))
-	print("")
-	
-	return domain_count
+## Obter informações do mapa atual
+func _get_current_map_info() -> Dictionary:
+	return {
+		"domain_count": current_domain_count,
+		"map_width": domain_count_to_map_width[current_domain_count],
+		"total_stars": hex_grid.get_dot_positions().size() if hex_grid and hex_grid.is_grid_ready() else 0,
+		"camera_zoom": get_viewport().get_camera_2d().zoom.x if get_viewport().get_camera_2d() else 1.0
+	}
 
 ## Selecionar vértices aleatórios
 func _select_random_vertices(available_vertices: Array, count: int) -> Array:
@@ -235,17 +444,25 @@ func _prepare_random_colors(count: int) -> void:
 ## Spawnar domínios com cores
 func _spawn_colored_domains(selected_vertices: Array) -> void:
 	print("🎯 Spawnando domínios coloridos...")
+	print("Vértices selecionados: " + str(selected_vertices))
+	print("Cores disponíveis: " + str(available_colors.size()))
 	
+	var spawned_count = 0
 	for i in range(selected_vertices.size()):
 		var vertex_star_id = selected_vertices[i]
 		var domain_color = available_colors[i] if i < available_colors.size() else Color.WHITE
+		
+		print("Tentando spawn domínio " + str(i + 1) + " na estrela " + str(vertex_star_id) + " com cor " + str(domain_color))
 		
 		var spawn_result = game_manager.spawn_domain_with_unit_colored(vertex_star_id, domain_color)
 		
 		if spawn_result:
 			print("✅ Domínio " + str(i + 1) + " criado na estrela " + str(vertex_star_id))
+			spawned_count += 1
 		else:
-			print("❌ Falha no spawn " + str(i + 1))
+			print("❌ Falha no spawn " + str(i + 1) + " na estrela " + str(vertex_star_id))
+	
+	print("Spawn concluído: " + str(spawned_count) + "/" + str(selected_vertices.size()) + " domínios criados")
 
 ## Callbacks
 func _on_unit_created(unit) -> void:
