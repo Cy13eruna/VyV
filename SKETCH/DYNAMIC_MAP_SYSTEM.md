@@ -8,11 +8,11 @@ Sistema implementado conforme especificação do usuário que permite mapas adap
 
 | Domínios | Largura do Mapa | Tecla |
 |----------|-----------------|-------|
-| 2        | 7x7 estrelas   | [2]   |
-| 3        | 9x9 estrelas   | [3]   |
-| 4        | 13x13 estrelas | [4]   |
-| 5        | 15x15 estrelas | [5]   |
-| 6        | 19x19 estrelas | [6]   |
+| 2        | 5x5 estrelas   | [2]   |
+| 3        | 7x7 estrelas   | [3]   |
+| 4        | 9x9 estrelas   | [4]   |
+| 5        | 11x11 estrelas | [5]   |
+| 6        | 13x13 estrelas | [6]   |
 
 ## Fluxo de Implementação (4 Passos)
 
@@ -45,11 +45,11 @@ Sistema implementado conforme especificação do usuário que permite mapas adap
 ### 4. Ajustar Zoom
 - **Função**: `_adjust_zoom_to_new_mapping()`
 - **Zoom adaptativo**: Inversamente proporcional ao tamanho
-  - 7x7: 1.8x (mapas pequenos)
-  - 9x9: 1.5x
-  - 13x13: 1.2x
-  - 15x15: 1.0x
-  - 19x19: 0.8x (mapas grandes)
+  - 5x5: 2.0x (mapas muito pequenos)
+  - 7x7: 1.6x (mapas pequenos)
+  - 9x9: 1.3x (mapas médios)
+  - 11x11: 1.1x (mapas grandes)
+  - 13x13: 0.9x (mapas muito grandes)
 - **Centralização**: Câmera automaticamente centralizada
 
 ## Implementação Técnica
@@ -57,7 +57,7 @@ Sistema implementado conforme especificação do usuário que permite mapas adap
 ### Variáveis de Estado
 ```gdscript
 var domain_count_to_map_width = {
-    6: 19, 5: 15, 4: 13, 3: 9, 2: 7
+    6: 13, 5: 11, 4: 9, 3: 7, 2: 5
 }
 var current_domain_count: int = 6
 var map_initialized: bool = false
@@ -92,11 +92,11 @@ var map_initialized: bool = false
 ```
 === SISTEMA DE MAPA DINÂMICO ===
 Pressione uma tecla para definir quantidade de domínios:
-[2] = 2 domínios (mapa 7x7)
-[3] = 3 domínios (mapa 9x9)
-[4] = 4 domínios (mapa 13x13)
-[5] = 5 domínios (mapa 15x15)
-[6] = 6 domínios (mapa 19x19) [PADRÃO]
+[2] = 2 domínios (mapa 5x5)
+[3] = 3 domínios (mapa 7x7)
+[4] = 4 domínios (mapa 9x9)
+[5] = 5 domínios (mapa 11x11)
+[6] = 6 domínios (mapa 13x13) [PADRÃO]
 ================================
 ```
 
@@ -104,14 +104,14 @@ Pressione uma tecla para definir quantidade de domínios:
 ```
 🔄 ALTERANDO CONFIGURAÇÃO:
 📊 Domínios: 4
-🗺️ Largura do mapa: 13 estrelas
-🎨 Passo 1: Renderizando tabuleiro 13x13
+🗺️ Largura do mapa: 9 estrelas
+🎨 Passo 1: Renderizando tabuleiro 9x9
 🗺️ Passo 2: Mapeando estrelas para precisão
-📍 Total de estrelas mapeadas: 547
+📍 Total de estrelas mapeadas: 217
 🏠 Passo 3: Posicionando 4 domínios
 📍 Vértices disponíveis: 12
-🔍 Passo 4: Ajustando zoom para mapa 13x13
-🎯 Zoom ajustado para: 1.2x
+🔍 Passo 4: Ajustando zoom para mapa 9x9
+🎯 Zoom ajustado para: 1.3x
 ✅ Mapa dinâmico configurado com sucesso!
 ```
 

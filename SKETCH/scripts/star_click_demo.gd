@@ -13,11 +13,11 @@ var game_manager = null
 
 # Sistema de mapa dinâmico
 var domain_count_to_map_width = {
-	6: 19,
-	5: 15,
-	4: 13,
-	3: 9,
-	2: 7
+	6: 13,
+	5: 11,
+	4: 9,
+	3: 7,
+	2: 5
 }
 var current_domain_count: int = 6
 var map_initialized: bool = false
@@ -275,16 +275,16 @@ func _step_4_adjust_zoom() -> void:
 	var base_zoom = 1.0
 	
 	# Ajustar zoom conforme o tamanho do mapeamento
-	if map_width <= 7:
-		base_zoom = 1.8  # Mapas pequenos: zoom maior
+	if map_width <= 5:
+		base_zoom = 2.0  # Mapas muito pequenos: zoom maior
+	elif map_width <= 7:
+		base_zoom = 1.6  # Mapas pequenos: zoom moderado
 	elif map_width <= 9:
-		base_zoom = 1.5
-	elif map_width <= 13:
-		base_zoom = 1.2
-	elif map_width <= 15:
-		base_zoom = 1.0
+		base_zoom = 1.3  # Mapas médios: zoom leve
+	elif map_width <= 11:
+		base_zoom = 1.1  # Mapas grandes: zoom mínimo
 	else:
-		base_zoom = 0.8  # Mapas grandes: zoom menor
+		base_zoom = 0.9  # Mapas muito grandes: zoom reduzido
 	
 	# Aplicar zoom inicial
 	camera.zoom = Vector2(base_zoom, base_zoom)
