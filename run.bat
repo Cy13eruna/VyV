@@ -28,5 +28,5 @@ echo.
 echo Iniciando jogo com %choice% jogadores...
 echo.
 cd /d "%~dp0\SKETCH"
-"C:\Program Files\Godot\Godot_v4.4.1-stable_win64.exe" --path . scenes\star_click_demo_with_turns.tscn --domain-count=%choice%
+"C:\Program Files\Godot\Godot_v4.4.1-stable_win64.exe" --path . scenes\main_game.tscn --domain-count=%choice%
 pause
