@@ -1,0 +1,36 @@
+🚨🚨🚨 CRITICAL REFACTORING IN PROGRESS 🚨🚨🚨
+
+⚠️  URGENT: ALL DEVELOPMENT MUST FOLLOW REFACTOR ROADMAP
+📋 PRIMARY DOCUMENT: CRITICAL_REFACTOR_ROADMAP.md
+
+🔴 BLOCKING ISSUES:
+- Monolithic 700+ line main_game.gd file
+- 25+ memory leaks from direct new() calls  
+- Orphaned systems (EventBus, Config, Components)
+- Zero test coverage
+- Broken project configuration
+
+🎯 MISSION: Transform prototype → production-ready system
+⏰ TIMELINE: 2-3 weeks maximum
+🚀 STATUS: Revolution initiated - execution phase active
+
+⚡ NEXT ACTIONS:
+1. READ: CRITICAL_REFACTOR_ROADMAP.md
+2. EXTRACT: TurnManager from main_game.gd
+3. IMPLEMENT: ObjectPool integration
+4. MIGRATE: Communication to EventBus
+
+❌ DO NOT:
+- Add code to main_game.gd
+- Create objects with new() directly
+- Ignore the roadmap
+- Work without tests
+
+✅ DO:
+- Follow the roadmap strictly
+- Use existing systems (Logger, Config, ObjectPool)
+- Write tests for all new code
+- Document architectural decisions
+
+🎯 GOAL: Enterprise-grade game engine architecture
+🔥 URGENCY: MAXIMUM - ALL HANDS ON DECK

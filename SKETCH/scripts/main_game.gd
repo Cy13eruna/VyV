@@ -1,5 +1,20 @@
 ## V&V Game - Sistema de Turnos Implementado
 ## Sistema multi-instâncias com turnos por time/cor
+##
+## 🚨 ATENÇÃO: ARQUIVO EM REFATORAÇÃO CRÍTICA!
+## ⚠️  Este arquivo tem 700+ linhas e viola princípios SOLID
+## 📋 Roteiro de refatoração: ../.qodo/CRITICAL_REFACTOR_ROADMAP.md
+## 🎯 Meta: Dividir em TurnManager, InputHandler, UIManager, GameController
+## ❌ NÃO ADICIONE MAIS CÓDIGO AQUI - Use os sistemas modulares!
+##
+## TODO CRÍTICO:
+## - [ ] Extrair TurnManager (linhas 95-250)
+## - [ ] Extrair InputHandler (linhas 290-450)
+## - [ ] Extrair UIManager (linhas 155-190)
+## - [ ] Manter apenas orquestração aqui
+## - [ ] Usar EventBus em vez de acoplamento direto
+## - [ ] Substituir new() por ObjectPool
+## - [ ] Usar Config em vez de magic numbers
 
 extends Node2D
 
