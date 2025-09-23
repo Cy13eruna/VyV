@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3 uid="uid://star_click_demo_v2"]
+
+[ext_resource type="Script" path="res://scripts/star_click_demo_v2.gd" id="1_click_v2"]
+[ext_resource type="Script" path="res://scripts/hex_grid.gd" id="2_hex"]
+
+[node name="StarClickDemoV2" type="Node2D"]
+script = ExtResource("1_click_v2")
+
+[node name="HexGrid" type="Node2D" parent="."]
+script = ExtResource("2_hex")
+hex_size = 25.0
+grid_width = 8
+grid_height = 8
+
+[node name="Camera2D" type="Camera2D" parent="."]
+zoom = Vector2(1, 1)

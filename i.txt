@@ -1,6 +1,0 @@
-Eis a nova razão domínios --> largura diagonal em estrelas
-6 --> 13
-5 --> 11
-4 --> 9
-3 --> 7
-2 --> 5
