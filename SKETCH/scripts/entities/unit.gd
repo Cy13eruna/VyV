@@ -6,6 +6,8 @@ extends RefCounted
 
 # Importar sistema de logging
 const Logger = preload("res://scripts/core/logger.gd")
+const ObjectPool = preload("res://scripts/core/object_pool.gd")
+const ObjectFactories = preload("res://scripts/core/object_factories.gd")
 
 ## Sinais da unidade
 signal unit_moved(from_star_id: int, to_star_id: int)
@@ -45,7 +47,8 @@ func create_visual(parent_node: Node) -> void:
 	if visual_node:
 		return  # Já criada
 	
-	visual_node = Label.new()
+	# Criar visual da unidade usando ObjectPool
+	visual_node = ObjectPool.get_object("UnitLabel", ObjectFactories.create_unit_label)
 	visual_node.text = emoji_text
 	visual_node.add_theme_font_size_override("font_size", font_size)
 	visual_node.z_index = 100  # Acima de tudo
@@ -150,13 +153,18 @@ func get_info() -> Dictionary:
 		"is_positioned": is_positioned()
 	}
 
-## Limpar recursos da unidade
+## Limpar recursos
 func cleanup() -> void:
 	if visual_node and is_instance_valid(visual_node):
-		visual_node.queue_free()
+		# Remover do parent
+		if visual_node.get_parent():
+			visual_node.get_parent().remove_child(visual_node)
+		
+		# Retornar ao pool
+		ObjectPool.return_object("UnitLabel", visual_node)
 		visual_node = null
 	
-	Logger.debug("Unidade %d: recursos limpos" % unit_id, "Unit")
+	Logger.debug("Unidade %d: recursos limpos e retornados ao ObjectPool" % unit_id, "Unit")
 
 ## Validar ID de estrela
 func _validate_star_id(star_id: int) -> bool:

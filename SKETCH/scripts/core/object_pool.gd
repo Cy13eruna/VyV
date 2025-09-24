@@ -1,5 +1,6 @@
 ## ObjectPool - Sistema de Pool de Objetos para Performance
 ## Reutiliza objetos em vez de criar/destruir constantemente
+## NOTA: Não usa Logger para evitar dependência circular
 
 class_name ObjectPool
 extends RefCounted
@@ -27,16 +28,17 @@ static func get_object(type: String, factory_callable: Callable = Callable()) ->
 		if obj and is_instance_valid(obj):
 			if obj.has_method("reset"):
 				obj.reset()
-			Logger.debug("Object reused from pool", "ObjectPool")
+			# Debug: Object reused from pool
 			return obj
 	
 	# Criar novo objeto se pool vazio
 	if factory_callable.is_valid():
 		var new_obj = factory_callable.call()
-		Logger.debug("New object created", "ObjectPool")
+		# Debug: New object created
 		return new_obj
 	
-	Logger.warning("No factory provided for type: " + type, "ObjectPool")
+	# Warning: No factory provided for type
+	print("ObjectPool WARNING: No factory provided for type: " + type)
 	return null
 
 ## Retornar objeto para o pool
@@ -51,33 +53,32 @@ static func return_object(type: String, obj: Variant) -> void:
 	
 	# Limitar tamanho do pool para evitar vazamentos
 	if pool.size() >= 50:
-		if obj.has_method("cleanup"):
-			obj.cleanup()
-		Logger.debug("Pool full, object destroyed", "ObjectPool")
+		_destroy_object_safely(obj)
+		# Debug: Pool full, object destroyed
 		return
 	
-	if obj.has_method("cleanup"):
-		obj.cleanup()
+	# Resetar objeto antes de retornar ao pool
+	if obj.has_method("reset"):
+		obj.reset()
 	
 	pool.append(obj)
-	Logger.debug("Object returned to pool", "ObjectPool")
+	# Debug: Object returned to pool
 
 ## Limpar pool específico
 static func clear_pool(type: String) -> void:
 	if pools.has(type):
 		var pool = pools[type]
 		for obj in pool:
-			if obj and is_instance_valid(obj) and obj.has_method("cleanup"):
-				obj.cleanup()
+			_destroy_object_safely(obj)
 		pool.clear()
-		Logger.debug("Pool cleared: " + type, "ObjectPool")
+		# Debug: Pool cleared: + type
 
 ## Limpar todos os pools
 static func clear_all_pools() -> void:
 	for type in pools.keys():
 		clear_pool(type)
 	pools.clear()
-	Logger.debug("All pools cleared", "ObjectPool")
+	# Debug: All pools cleared
 
 ## Obter estatísticas dos pools
 static func get_pool_stats() -> Dictionary:
@@ -89,7 +90,7 @@ static func get_pool_stats() -> Dictionary:
 ## Pré-aquecer pool com objetos
 static func warm_pool(type: String, count: int, factory_callable: Callable) -> void:
 	if not factory_callable.is_valid():
-		Logger.warning("Invalid factory for warming pool: " + type, "ObjectPool")
+		print("ObjectPool WARNING: Invalid factory for warming pool: " + type)
 		return
 	
 	if not pools.has(type):
@@ -99,8 +100,41 @@ static func warm_pool(type: String, count: int, factory_callable: Callable) -> v
 	for i in range(count):
 		var obj = factory_callable.call()
 		if obj:
-			if obj.has_method("cleanup"):
-				obj.cleanup()
+			# Resetar objeto antes de adicionar ao pool
+			if obj.has_method("reset"):
+				obj.reset()
 			pool.append(obj)
 	
-	Logger.debug("Pool warmed: %s with %d objects" % [type, count], "ObjectPool")
+	# Debug: Pool warmed with objects
+	print("ObjectPool: Pool warmed - %s with %d objects" % [type, count])
+
+## Destruir objeto de forma segura
+static func _destroy_object_safely(obj: Variant) -> void:
+	if not obj or not is_instance_valid(obj):
+		return
+	
+	# Chamar cleanup se disponível
+	if obj.has_method("cleanup"):
+		obj.cleanup()
+	
+	# Se for um Node, usar queue_free para evitar memory leaks
+	if obj is Node:
+		# Remover do parent se tiver
+		if obj.get_parent():
+			obj.get_parent().remove_child(obj)
+		obj.queue_free()
+	else:
+		# Para outros objetos, apenas limpar referências
+		obj = null
+
+## Cleanup completo do sistema
+static func cleanup_system() -> void:
+	print("ObjectPool: Iniciando cleanup completo do sistema...")
+	
+	# Limpar todos os pools
+	clear_all_pools()
+	
+	# Forçar garbage collection (não disponível em GDScript)
+	# Em Godot, o garbage collection é automático
+	
+	print("ObjectPool: Cleanup completo finalizado")

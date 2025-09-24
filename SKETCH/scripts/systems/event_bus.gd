@@ -49,6 +49,12 @@ static func emit_unit_created(unit_data: Dictionary):
 static func emit_unit_moved(unit_id: int, from_star: int, to_star: int):
 	if instance: instance.unit_moved.emit(unit_id, from_star, to_star)
 
+static func emit_unit_selected(unit_id: int):
+	if instance: instance.unit_selected.emit(unit_id)
+
+static func emit_unit_deselected(unit_id: int):
+	if instance: instance.unit_deselected.emit(unit_id)
+
 ## Emit domain events
 static func emit_domain_created(domain_data: Dictionary):
 	if instance: instance.domain_created.emit(domain_data)
@@ -56,6 +62,15 @@ static func emit_domain_created(domain_data: Dictionary):
 ## Emit game events
 static func emit_game_state_changed(new_state: String):
 	if instance: instance.game_state_changed.emit(new_state)
+
+static func emit_turn_started(player_id: int):
+	if instance: instance.turn_started.emit(player_id)
+
+static func emit_turn_ended(player_id: int):
+	if instance: instance.turn_ended.emit(player_id)
+
+static func emit_star_clicked(star_id: int, button: int):
+	if instance: instance.star_clicked.emit(star_id, button)
 
 ## Emit system messages
 static func emit_error(message: String):

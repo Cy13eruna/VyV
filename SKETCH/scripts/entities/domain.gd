@@ -6,6 +6,8 @@ extends RefCounted
 
 # Importar sistema de logging
 const Logger = preload("res://scripts/core/logger.gd")
+const ObjectPool = preload("res://scripts/core/object_pool.gd")
+const ObjectFactories = preload("res://scripts/core/object_factories.gd")
 
 ## Sinais do domínio
 signal domain_created(domain_id: int, center_star_id: int)
@@ -159,9 +161,22 @@ func destroy() -> void:
 	domain_destroyed.emit(domain_id)
 	print("💥 Domínio %d destruído" % domain_id)
 
-## Limpar recursos do domínio
+## Limpar recursos
 func cleanup() -> void:
-	destroy()
+	if visual_node and is_instance_valid(visual_node):
+		# Desconectar sinais
+		if visual_node.draw.is_connected(_draw_domain_hexagon):
+			visual_node.draw.disconnect(_draw_domain_hexagon)
+		
+		# Remover do parent
+		if visual_node.get_parent():
+			visual_node.get_parent().remove_child(visual_node)
+		
+		# Retornar ao pool
+		ObjectPool.return_object("DomainNode", visual_node)
+		visual_node = null
+	
+	Logger.debug("Domínio %d: recursos limpos e retornados ao ObjectPool" % domain_id, "Domain")
 
 ## Encontrar vértices do domínio
 func _find_domain_vertices():
@@ -198,7 +213,8 @@ func _create_visual(parent_node: Node) -> bool:
 	if visual_node:
 		return true  # Já criada
 	
-	visual_node = Node2D.new()
+	# Criar visual do domínio usando ObjectPool
+	visual_node = ObjectPool.get_object("DomainNode", ObjectFactories.create_domain_node)
 	visual_node.z_index = z_index
 	
 	# Adicionar ao hex_grid em vez do parent_node para usar coordenadas locais

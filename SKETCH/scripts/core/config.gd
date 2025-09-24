@@ -4,6 +4,9 @@
 class_name Config
 extends RefCounted
 
+# Importar sistema de logging
+const Logger = preload("res://scripts/core/logger.gd")
+
 ## Configurações de Performance
 static var performance_settings: Dictionary = {
 	"max_fps": 60,
