@@ -1,13 +1,15 @@
 ## Unit - Entidade de Unidade do Jogo V&V
 ## Representa uma unidade no tabuleiro hexagonal
+## Implementa interfaces IGameEntity, IMovable, ICombatable, IOwnable
 
 class_name Unit
 extends RefCounted
 
-# Importar sistema de logging
+# Importar sistema de logging e interfaces
 const Logger = preload("res://scripts/core/logger.gd")
 const ObjectPool = preload("res://scripts/core/object_pool.gd")
 const ObjectFactories = preload("res://scripts/core/object_factories.gd")
+const Interfaces = preload("res://scripts/core/interfaces.gd")
 
 ## Sinais da unidade
 signal unit_moved(from_star_id: int, to_star_id: int)
@@ -17,7 +19,31 @@ signal unit_positioned(star_id: int)
 const BEM = 0
 const MAL = 1
 
-## Propriedades da unidade
+## Implementação das interfaces
+# IGameEntity
+var entity_id: String = ""
+var entity_type: String = "unit"
+var is_active: bool = true
+var world_position: Vector2 = Vector2.ZERO
+var metadata: Dictionary = {}
+
+# IMovable
+var movement_speed: float = 1.0
+var target_position: Vector2 = Vector2.ZERO
+var is_moving: bool = false
+
+# ICombatable
+var health: int = 100
+var max_health: int = 100
+var can_attack: bool = true
+var can_be_attacked: bool = true
+var attack_damage: int = 25
+
+# IOwnable
+var owner_id: String = ""
+var owner_color: Color = Color.WHITE
+
+## Propriedades específicas da unidade
 var unit_id: int = -1
 var current_star_id: int = -1
 var state: int = BEM
@@ -36,6 +62,16 @@ var star_mapper_ref = null
 ## Inicializar unidade
 func _init(id: int = -1):
 	unit_id = id if id >= 0 else randi()
+	entity_id = "unit_" + str(unit_id)
+	entity_type = "unit"
+	is_active = true
+	
+	# Configurar propriedades de combate baseadas no estado
+	health = 100
+	max_health = 100
+	attack_damage = 25
+	
+	Logger.debug("Unidade %s inicializada" % entity_id, "Unit")
 
 ## Configurar referências do sistema
 func setup_references(hex_grid, star_mapper) -> void:
@@ -198,3 +234,169 @@ func _state_to_string(unit_state: int) -> String:
 			return "MAL"
 		_:
 			return "UNKNOWN"
+
+# ================================================================
+# IMPLEMENTAÇÃO DAS INTERFACES
+# ================================================================
+
+## IGameEntity - Inicializar entidade com dados básicos
+func initialize(id: String, type: String, position: Vector2) -> bool:
+	entity_id = id
+	entity_type = type
+	world_position = position
+	is_active = true
+	Logger.debug("Entidade %s (%s) inicializada em %s" % [id, type, position], "Unit")
+	return true
+
+## IGameEntity - Atualizar entidade
+func update(delta: float) -> void:
+	if not is_active:
+		return
+	
+	# Atualizar movimento se necessário
+	update_movement(delta)
+	
+	# Atualizar posição mundial baseada na estrela atual
+	if current_star_id >= 0 and star_mapper_ref:
+		var star_pos = star_mapper_ref.get_star_position(current_star_id)
+		world_position = hex_grid_ref.to_global(star_pos)
+
+## IGameEntity - Validar estado da entidade
+func validate() -> bool:
+	if entity_id.is_empty():
+		Logger.error("Unidade sem ID válido", "Unit")
+		return false
+	if entity_type.is_empty():
+		Logger.error("Unidade sem tipo válido", "Unit")
+		return false
+	return true
+
+## IGameEntity - Serializar entidade
+func serialize() -> Dictionary:
+	return {
+		"entity_id": entity_id,
+		"entity_type": entity_type,
+		"is_active": is_active,
+		"world_position": world_position,
+		"metadata": metadata,
+		"unit_id": unit_id,
+		"current_star_id": current_star_id,
+		"state": state,
+		"actions_remaining": actions_remaining,
+		"health": health,
+		"owner_id": owner_id,
+		"owner_color": var_to_str(owner_color)
+	}
+
+## IGameEntity - Deserializar entidade
+func deserialize(data: Dictionary) -> bool:
+	if not data.has("entity_id") or not data.has("entity_type"):
+		Logger.error("Dados de deserialização inválidos", "Unit")
+		return false
+	
+	entity_id = data.get("entity_id", "")
+	entity_type = data.get("entity_type", "")
+	is_active = data.get("is_active", true)
+	world_position = data.get("world_position", Vector2.ZERO)
+	metadata = data.get("metadata", {})
+	unit_id = data.get("unit_id", -1)
+	current_star_id = data.get("current_star_id", -1)
+	state = data.get("state", BEM)
+	actions_remaining = data.get("actions_remaining", 1)
+	health = data.get("health", 100)
+	owner_id = data.get("owner_id", "")
+	
+	if data.has("owner_color"):
+		owner_color = str_to_var(data.get("owner_color"))
+	
+	return validate()
+
+## IMovable - Mover para posição específica
+func move_to(position: Vector2) -> bool:
+	if not is_active:
+		return false
+	
+	target_position = position
+	is_moving = true
+	Logger.debug("Unidade %s movendo para %s" % [entity_id, position], "Unit")
+	return true
+
+## IMovable - Parar movimento
+func stop_movement() -> void:
+	is_moving = false
+	target_position = world_position
+	Logger.debug("Unidade %s parou movimento" % entity_id, "Unit")
+
+## IMovable - Verificar se pode mover para posição
+func can_move_to(position: Vector2) -> bool:
+	return is_active and actions_remaining > 0
+
+## IMovable - Atualizar movimento
+func update_movement(delta: float) -> void:
+	if not is_moving:
+		return
+	
+	var distance = world_position.distance_to(target_position)
+	if distance < 1.0:  # Chegou ao destino
+		world_position = target_position
+		stop_movement()
+		return
+	
+	# Mover em direção ao alvo
+	var direction = (target_position - world_position).normalized()
+	world_position += direction * movement_speed * delta
+
+## ICombatable - Receber dano
+func take_damage(damage: int, attacker_id: String = "") -> bool:
+	if not can_be_attacked or not is_active:
+		return false
+	
+	health = max(0, health - damage)
+	Logger.debug("Unidade %s recebeu %d de dano de %s (HP: %d/%d)" % [entity_id, damage, attacker_id, health, max_health], "Unit")
+	
+	if health <= 0:
+		_on_death()
+	
+	return true
+
+## ICombatable - Atacar outra entidade
+func attack(target) -> bool:
+	if not can_attack or not is_active:
+		return false
+	
+	if not target or not target.has_method("take_damage"):
+		return false
+	
+	Logger.debug("Unidade %s atacando %s" % [entity_id, target.entity_id], "Unit")
+	return target.take_damage(attack_damage, entity_id)
+
+## ICombatable - Curar entidade
+func heal(amount: int) -> void:
+	health = min(max_health, health + amount)
+	Logger.debug("Unidade %s curada em %d (HP: %d/%d)" % [entity_id, amount, health, max_health], "Unit")
+
+## ICombatable - Verificar se está viva
+func is_alive() -> bool:
+	return health > 0 and is_active
+
+## ICombatable - Callback quando morre
+func _on_death() -> void:
+	is_active = false
+	state = MAL  # Unidade morta fica em estado MAL
+	_update_visual_for_state()
+	Logger.info("Unidade %s morreu" % entity_id, "Unit")
+
+## IOwnable - Definir proprietário
+func set_owner(player_id: String, color: Color = Color.WHITE) -> void:
+	owner_id = player_id
+	owner_color = color
+	set_color(color)  # Atualizar cor visual
+	Logger.debug("Unidade %s agora pertence ao jogador %s" % [entity_id, player_id], "Unit")
+
+## IOwnable - Verificar se pertence a um jogador
+func belongs_to(player_id: String) -> bool:
+	return owner_id == player_id
+
+## IOwnable - Verificar se tem proprietário
+func has_owner() -> bool:
+	return not owner_id.is_empty()

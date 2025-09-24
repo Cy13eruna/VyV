@@ -1,3 +1,1 @@
-Pode refatorar agressivamente, pois já salvei tudo no repositório.
-Cumpra todos os passos de CRITICAL_REFACTOR_ROADMAP e vá marcando o que já concluiu
-Avante!
+Onde raios está o arquivo com o roteiro de refatoração profunda?? Ele é essencial para tu manter o fluxo de trabalho!

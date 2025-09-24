@@ -62,7 +62,11 @@ func _ready() -> void:
 	
 	# Configurar cleanup automático no exit
 	get_tree().auto_accept_quit = false
-	get_tree().quit_request.connect(_on_quit_request)
+	if get_tree().has_signal("quit_request"):
+		get_tree().quit_request.connect(_on_quit_request)
+	else:
+		# Fallback para versões mais antigas do Godot
+		get_tree().set_quit_on_go_back(false)
 
 ## Inicializar sistemas principais
 func _initialize_core_systems() -> void:
@@ -81,18 +85,28 @@ func _setup_complete_system() -> void:
 	await get_tree().process_frame
 	
 	# Inicializar GameController com todas as referências
-	game_controller.initialize(self, hex_grid, star_mapper, game_manager)
+	if game_controller:
+		game_controller.initialize(self, hex_grid, star_mapper, game_manager)
+		
+		# Aguardar mais um frame para garantir que hex_grid está completamente pronto
+		await get_tree().process_frame
+		
+		# Configurar zoom inicial baseado no número de domínios
+		game_controller.setup_initial_zoom(current_domain_count)
+		Logger.info("Zoom de mapeamento de estrelas configurado pelo GameController", "MainGame")
 	
 	# Configurar sistema de turnos
-	var all_domains = game_manager.get_all_domains()
-	var all_units = game_manager.get_all_units()
-	game_controller.setup_turn_system(all_units, all_domains)
+	if game_manager and game_controller:
+		var all_domains = game_manager.get_all_domains()
+		var all_units = game_manager.get_all_units()
+		game_controller.setup_turn_system(all_units, all_domains)
 	
 	# Aguardar outro frame para interface estar pronta
 	await get_tree().process_frame
 	
 	# Iniciar jogo
-	game_controller.start_game()
+	if game_controller:
+		game_controller.start_game()
 	map_initialized = true
 	
 	Logger.info("Sistema completo configurado e jogo iniciado!", "MainGame")
@@ -148,7 +162,7 @@ func _continue_remaining_steps() -> void:
 	
 	_step_2_map_stars()
 	_step_3_position_domains()
-	_step_4_adjust_zoom()
+	# Zoom será configurado pelo GameController em _setup_complete_system()
 	
 	_setup_complete_system()
 
@@ -159,12 +173,14 @@ func _step_2_map_stars() -> void:
 	var dot_positions = hex_grid.get_dot_positions()
 	star_mapper.map_stars(dot_positions)
 	
-	game_manager.setup_references(hex_grid, star_mapper, self)
+	if game_manager:
+		game_manager.setup_references(hex_grid, star_mapper, self)
 	
-	if not game_manager.unit_created.is_connected(_on_unit_created):
-		game_manager.unit_created.connect(_on_unit_created)
-	if not game_manager.domain_created.is_connected(_on_domain_created):
-		game_manager.domain_created.connect(_on_domain_created)
+	if game_manager:
+		if not game_manager.unit_created.is_connected(_on_unit_created):
+			game_manager.unit_created.connect(_on_unit_created)
+		if not game_manager.domain_created.is_connected(_on_domain_created):
+			game_manager.domain_created.connect(_on_domain_created)
 
 func _step_3_position_domains() -> void:
 	if not game_manager:

@@ -42,6 +42,14 @@ var movement_mode_active: bool = false
 var highlighted_stars: Array = []
 var valid_movement_stars: Array = []
 
+## Sistema de zoom de duas etapas
+var current_centered_star_id: int = -1
+var zoom_mode_active: bool = false
+const ZOOM_FACTOR: float = 1.3
+const MIN_ZOOM: float = 0.3
+const MAX_ZOOM: float = 5.0
+const INVALID_STAR_ID: int = -1
+
 ## Inicializar controlador
 func initialize(parent_node: Node2D, hex_grid: Node2D, star_mapper, game_manager) -> void:
 	parent_node_ref = parent_node
@@ -197,6 +205,8 @@ func _on_star_clicked(star_id: int, world_position: Vector2) -> void:
 func _on_empty_space_clicked(world_position: Vector2) -> void:
 	if movement_mode_active:
 		_deactivate_movement_mode()
+	# Reset do modo zoom quando clicar em espaço vazio
+	_reset_zoom_mode()
 
 func _on_zoom_in_requested(world_position: Vector2) -> void:
 	_handle_zoom(true, world_position)
@@ -359,10 +369,127 @@ func _clear_star_highlights() -> void:
 	highlighted_stars.clear()
 	Logger.debug("Highlights limpos e retornados ao ObjectPool", "GameController")
 
-## Sistema de zoom (placeholder)
+## Sistema de zoom de duas etapas
 func _handle_zoom(zoom_in: bool, world_position: Vector2) -> void:
-	# TODO: Implementar sistema de zoom otimizado
-	Logger.debug("Zoom %s solicitado" % ("in" if zoom_in else "out"), "GameController")
+	var camera = parent_node_ref.get_viewport().get_camera_2d()
+	if not camera:
+		Logger.warning("Câmera não encontrada para zoom", "GameController")
+		return
+	
+	# Obter estrela mais próxima do cursor
+	var nearest_star_data = _get_nearest_star_under_cursor(camera, world_position)
+	
+	if _should_center_star(nearest_star_data.star_id):
+		_center_star(camera, nearest_star_data)  # Etapa 1: Centralizar
+	else:
+		_apply_zoom(camera, nearest_star_data, zoom_in)  # Etapa 2: Zoom
+
+## Verificar se deve centralizar estrela (Etapa 1)
+func _should_center_star(star_id: int) -> bool:
+	return not zoom_mode_active or current_centered_star_id != star_id
+
+## Etapa 1: Centralizar na estrela
+func _center_star(camera: Camera2D, star_data: Dictionary) -> void:
+	current_centered_star_id = star_data.star_id
+	zoom_mode_active = true
+	camera.global_position = star_data.world_pos
+	
+	# Centralizar cursor na estrela
+	var viewport = parent_node_ref.get_viewport()
+	var screen_center = viewport.get_visible_rect().size / 2
+	viewport.warp_mouse(screen_center)
+	
+	Logger.debug("Estrela %d centralizada" % star_data.star_id, "GameController")
+
+## Etapa 2: Aplicar zoom mantendo centralização
+func _apply_zoom(camera: Camera2D, star_data: Dictionary, zoom_in: bool) -> void:
+	var zoom_factor = ZOOM_FACTOR if zoom_in else (1.0 / ZOOM_FACTOR)
+	var new_zoom = camera.zoom * zoom_factor
+	new_zoom = new_zoom.clamp(Vector2(MIN_ZOOM, MIN_ZOOM), Vector2(MAX_ZOOM, MAX_ZOOM))
+	
+	camera.zoom = new_zoom
+	# Manter centralização na estrela
+	camera.global_position = star_data.world_pos
+	
+	Logger.debug("Zoom aplicado: %.2f (estrela %d)" % [new_zoom.x, star_data.star_id], "GameController")
+
+## Obter estrela mais próxima do cursor
+func _get_nearest_star_under_cursor(camera: Camera2D, world_position: Vector2) -> Dictionary:
+	if not hex_grid_ref:
+		return {"star_id": INVALID_STAR_ID, "world_pos": world_position}
+	
+	var dot_positions = hex_grid_ref.get_dot_positions()
+	var hex_grid_position = hex_grid_ref.to_local(world_position)
+	
+	var closest_star = INVALID_STAR_ID
+	var closest_distance = 999999.0
+	
+	for i in range(dot_positions.size()):
+		var star_pos = dot_positions[i]
+		var distance = hex_grid_position.distance_to(star_pos)
+		
+		if distance < closest_distance:
+			closest_distance = distance
+			closest_star = i
+	
+	var star_world_pos = hex_grid_ref.to_global(dot_positions[closest_star]) if closest_star != INVALID_STAR_ID else world_position
+	
+	return {
+		"star_id": closest_star,
+		"world_pos": star_world_pos
+	}
+
+## Reset do modo zoom
+func _reset_zoom_mode() -> void:
+	zoom_mode_active = false
+	current_centered_star_id = INVALID_STAR_ID
+	Logger.debug("Modo zoom resetado", "GameController")
+
+## Configurar zoom inicial baseado no mapeamento de estrelas
+func setup_initial_zoom(domain_count: int) -> void:
+	var camera = parent_node_ref.get_viewport().get_camera_2d()
+	if not camera:
+		Logger.warning("Câmera não encontrada para zoom inicial", "GameController")
+		return
+	
+	# Mapeamento de domínios para largura do mapa
+	var domain_count_to_map_width = {
+		6: 13,
+		5: 11,
+		4: 9,
+		3: 7,
+		2: 5
+	}
+	
+	var map_width = domain_count_to_map_width.get(domain_count, 13)
+	var base_zoom = 1.0
+	
+	# Calcular zoom baseado na largura do mapa
+	if map_width <= 5:
+		base_zoom = 2.0
+	elif map_width <= 7:
+		base_zoom = 1.6
+	elif map_width <= 9:
+		base_zoom = 1.3
+	elif map_width <= 11:
+		base_zoom = 1.1
+	else:
+		base_zoom = 0.9
+	
+	# Aplicar zoom inicial
+	camera.zoom = Vector2(base_zoom, base_zoom)
+	
+	# Centralizar câmera no mapa
+	if hex_grid_ref:
+		var dot_positions = hex_grid_ref.get_dot_positions()
+		if dot_positions.size() > 0:
+			var center = Vector2.ZERO
+			for pos in dot_positions:
+				center += pos
+			center /= dot_positions.size()
+			camera.global_position = hex_grid_ref.to_global(center)
+	
+	Logger.info("Zoom inicial configurado: %.2f para %d domínios (largura: %d)" % [base_zoom, domain_count, map_width], "GameController")
 
 ## Obter informações do estado atual
 func get_game_state() -> Dictionary:

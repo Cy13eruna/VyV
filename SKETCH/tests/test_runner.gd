@@ -5,6 +5,7 @@ const TestFramework = preload("res://tests/test_framework.gd")
 const TestObjectPool = preload("res://tests/unit/test_object_pool.gd")
 const TestEventBus = preload("res://tests/unit/test_event_bus_simple.gd")
 const TestMemoryLeaks = preload("res://tests/unit/test_memory_leaks.gd")
+const TestInterfaces = preload("res://tests/unit/test_interfaces.gd")
 const MemoryMonitor = preload("res://scripts/core/memory_monitor.gd")
 const ResourceCleanup = preload("res://scripts/core/resource_cleanup.gd")
 
@@ -25,6 +26,9 @@ func _ready() -> void:
 	
 	# Executar testes unitários
 	await run_unit_tests()
+	
+	# Executar testes de interfaces
+	await run_interface_tests()
 	
 	# Executar testes de integração
 	await run_integration_tests()
@@ -60,7 +64,7 @@ func _ready() -> void:
 
 ## Executar testes unitários
 func run_unit_tests() -> void:
-	print("\\n--- EXECUTANDO TESTES UNITÁRIOS ---")
+	print("\n--- EXECUTANDO TESTES UNITÁRIOS ---")
 	
 	# Testes do ObjectPool
 	TestObjectPool.run_all_tests()
@@ -72,6 +76,14 @@ func run_unit_tests() -> void:
 	
 	# Testes de Memory Leaks
 	TestMemoryLeaks.run_all_tests()
+	await get_tree().process_frame
+
+## Executar testes de interfaces
+func run_interface_tests() -> void:
+	print("\n--- EXECUTANDO TESTES DE INTERFACES ---")
+	
+	# Testes de Interfaces
+	TestInterfaces.run_tests()
 	await get_tree().process_frame
 
 ## Executar testes de integração

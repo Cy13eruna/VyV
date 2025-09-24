@@ -7,7 +7,7 @@ extends RefCounted
 # Preload classes
 const Logger = preload("res://scripts/core/logger.gd")
 const Unit = preload("res://scripts/entities/unit.gd")
-const Domain = preload("res://scripts/entities/domain.gd")
+# Domain será carregado dinamicamente para evitar dependência circular
 
 ## Sinais do gerenciador
 signal unit_created(unit)
@@ -73,7 +73,9 @@ func create_domain(center_star_id: int):
 			Logger.warning("Domínio já existe na estrela %d" % center_star_id, "GameManager")
 			return null
 	
-	var domain = Domain.new()
+	# Carregar Domain dinamicamente
+	var DomainClass = load("res://scripts/entities/domain.gd")
+	var domain = DomainClass.new()
 	Logger.debug("Configurando referências para domínio %d" % domain.get_domain_id(), "GameManager")
 	domain.setup_references(hex_grid_ref, star_mapper_ref)
 	
@@ -94,7 +96,7 @@ func create_domain(center_star_id: int):
 	domain.domain_destroyed.connect(_on_domain_destroyed)
 	
 	# Definir proprietário
-	domain.set_owner(current_player_id)
+	domain.set_legacy_owner(current_player_id)
 	
 	domains.append(domain)
 	domain_created.emit(domain)
@@ -243,8 +245,6 @@ func clear_all_domains() -> void:
 		domain.cleanup()
 	domains.clear()
 	print("🧹 GameManager: todos os domínios limpos")
-
-# Função removida - algoritmo movido para star_click_demo.gd
 
 ## Verificar se movimento é bloqueado por terreno
 func _is_movement_blocked_by_terrain(from_star_id: int, to_star_id: int) -> bool:

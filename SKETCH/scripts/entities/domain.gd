@@ -1,24 +1,44 @@
 ## Domain - Entidade de Domínio do Jogo V&V
 ## Representa um domínio hexagonal no tabuleiro
+## Implementa interfaces IGameEntity, IResourceProducer, IOwnable
 
 class_name Domain
 extends RefCounted
 
-# Importar sistema de logging
+# Importar sistema de logging e interfaces
 const Logger = preload("res://scripts/core/logger.gd")
 const ObjectPool = preload("res://scripts/core/object_pool.gd")
 const ObjectFactories = preload("res://scripts/core/object_factories.gd")
+const Interfaces = preload("res://scripts/core/interfaces.gd")
 
 ## Sinais do domínio
 signal domain_created(domain_id: int, center_star_id: int)
 signal domain_destroyed(domain_id: int)
 
-## Propriedades do domínio
+## Implementação das interfaces
+# IGameEntity
+var entity_id: String = ""
+var entity_type: String = "domain"
+var is_active: bool = true
+var world_position: Vector2 = Vector2.ZERO
+var metadata: Dictionary = {}
+
+# IResourceProducer
+var resource_type: String = "power"
+var production_rate: int = 1
+var stored_resources: int = 0
+var storage_capacity: int = 10
+
+# IOwnable
+var owner_id: String = ""
+var owner_color: Color = Color.MAGENTA
+
+## Propriedades específicas do domínio
 var domain_id: int = -1
 var center_star_id: int = -1
 var center_position: Vector2 = Vector2.ZERO
 var vertices = []
-var owner_id: int = -1  # ID do jogador proprietário
+var legacy_owner_id: int = -1  # Manter compatibilidade
 
 ## Propriedades visuais
 var visual_node: Node2D = null
@@ -39,6 +59,17 @@ var position_tolerance: float = 10.0  # Aumentada para melhor detecção de lado
 ## Inicializar domínio
 func _init(id: int = -1):
 	domain_id = id if id >= 0 else randi()
+	entity_id = "domain_" + str(domain_id)
+	entity_type = "domain"
+	is_active = true
+	
+	# Configurar produção de recursos
+	resource_type = "power"
+	production_rate = 1
+	stored_resources = 0
+	storage_capacity = 10
+	
+	Logger.debug("Domínio %s inicializado" % entity_id, "Domain")
 
 ## Configurar referências do sistema
 func setup_references(hex_grid, star_mapper) -> void:
@@ -123,15 +154,15 @@ func get_center_position() -> Vector2:
 func get_vertices():
 	return vertices.duplicate()
 
-## Obter proprietário do domínio
+## Obter proprietário do domínio (legacy)
 func get_owner_id() -> int:
-	return owner_id
+	return legacy_owner_id
 
-## Definir proprietário do domínio
-func set_owner(new_owner_id: int) -> void:
-	if owner_id != new_owner_id:
-		var old_owner = owner_id
-		owner_id = new_owner_id
+## Definir proprietário do domínio (legacy)
+func set_legacy_owner(new_owner_id: int) -> void:
+	if legacy_owner_id != new_owner_id:
+		var old_owner = legacy_owner_id
+		legacy_owner_id = new_owner_id
 		_update_visual_for_owner()
 		print("👑 Domínio %d: proprietário alterado de %d para %d" % [domain_id, old_owner, new_owner_id])
 
@@ -149,7 +180,7 @@ func get_info() -> Dictionary:
 		"center_star_id": center_star_id,
 		"center_position": center_position,
 		"vertices_count": vertices.size(),
-		"owner_id": owner_id
+		"owner_id": legacy_owner_id
 	}
 
 ## Destruir domínio
@@ -290,3 +321,127 @@ func _update_visual_for_owner() -> void:
 	# Aqui pode ser implementada lógica para cores diferentes por proprietário
 	# Por enquanto mantém a cor padrão
 	visual_node.queue_redraw()
+
+# ================================================================
+# IMPLEMENTAÇÃO DAS INTERFACES
+# ================================================================
+
+## IGameEntity - Inicializar entidade com dados básicos
+func initialize(id: String, type: String, position: Vector2) -> bool:
+	entity_id = id
+	entity_type = type
+	world_position = position
+	is_active = true
+	Logger.debug("Entidade %s (%s) inicializada em %s" % [id, type, position], "Domain")
+	return true
+
+## IGameEntity - Atualizar entidade
+func update(delta: float) -> void:
+	if not is_active:
+		return
+	
+	# Atualizar posição mundial baseada na posição central
+	world_position = center_position
+	
+	# Produzir recursos automaticamente (pode ser controlado por turnos)
+	if can_produce():
+		produce_resources()
+
+## IGameEntity - Validar estado da entidade
+func validate() -> bool:
+	if entity_id.is_empty():
+		Logger.error("Domínio sem ID válido", "Domain")
+		return false
+	if entity_type.is_empty():
+		Logger.error("Domínio sem tipo válido", "Domain")
+		return false
+	return true
+
+## IGameEntity - Serializar entidade
+func serialize() -> Dictionary:
+	return {
+		"entity_id": entity_id,
+		"entity_type": entity_type,
+		"is_active": is_active,
+		"world_position": world_position,
+		"metadata": metadata,
+		"domain_id": domain_id,
+		"center_star_id": center_star_id,
+		"center_position": center_position,
+		"vertices": vertices,
+		"resource_type": resource_type,
+		"production_rate": production_rate,
+		"stored_resources": stored_resources,
+		"storage_capacity": storage_capacity,
+		"owner_id": owner_id,
+		"owner_color": var_to_str(owner_color),
+		"legacy_owner_id": legacy_owner_id
+	}
+
+## IGameEntity - Deserializar entidade
+func deserialize(data: Dictionary) -> bool:
+	if not data.has("entity_id") or not data.has("entity_type"):
+		Logger.error("Dados de deserialização inválidos", "Domain")
+		return false
+	
+	entity_id = data.get("entity_id", "")
+	entity_type = data.get("entity_type", "")
+	is_active = data.get("is_active", true)
+	world_position = data.get("world_position", Vector2.ZERO)
+	metadata = data.get("metadata", {})
+	domain_id = data.get("domain_id", -1)
+	center_star_id = data.get("center_star_id", -1)
+	center_position = data.get("center_position", Vector2.ZERO)
+	vertices = data.get("vertices", [])
+	resource_type = data.get("resource_type", "power")
+	production_rate = data.get("production_rate", 1)
+	stored_resources = data.get("stored_resources", 0)
+	storage_capacity = data.get("storage_capacity", 10)
+	owner_id = data.get("owner_id", "")
+	legacy_owner_id = data.get("legacy_owner_id", -1)
+	
+	if data.has("owner_color"):
+		owner_color = str_to_var(data.get("owner_color"))
+	
+	return validate()
+
+## IResourceProducer - Produzir recursos
+func produce_resources() -> int:
+	if not is_active:
+		return 0
+	
+	var produced = production_rate
+	stored_resources = min(storage_capacity, stored_resources + produced)
+	
+	Logger.debug("Domínio %s produziu %d %s (total: %d/%d)" % [entity_id, produced, resource_type, stored_resources, storage_capacity], "Domain")
+	return produced
+
+## IResourceProducer - Coletar recursos armazenados
+func collect_resources() -> int:
+	var collected = stored_resources
+	stored_resources = 0
+	Logger.debug("Domínio %s coletou %d %s" % [entity_id, collected, resource_type], "Domain")
+	return collected
+
+## IResourceProducer - Verificar se pode produzir
+func can_produce() -> bool:
+	return is_active and stored_resources < storage_capacity
+
+## IOwnable - Definir proprietário
+func set_owner(player_id: String, color: Color = Color.MAGENTA) -> void:
+	owner_id = player_id
+	owner_color = color
+	line_color = color  # Atualizar cor visual
+	# Manter compatibilidade com sistema legado
+	legacy_owner_id = player_id.hash() if not player_id.is_empty() else -1
+	if visual_node:
+		visual_node.queue_redraw()
+	Logger.debug("Domínio %s agora pertence ao jogador %s" % [entity_id, player_id], "Domain")
+
+## IOwnable - Verificar se pertence a um jogador
+func belongs_to(player_id: String) -> bool:
+	return owner_id == player_id
+
+## IOwnable - Verificar se tem proprietário
+func has_owner() -> bool:
+	return not owner_id.is_empty()
