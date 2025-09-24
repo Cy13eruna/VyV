@@ -1,1 +1,1 @@
-Onde raios está o arquivo com o roteiro de refatoração profunda?? Ele é essencial para tu manter o fluxo de trabalho!
+Parabéns! Você conseguiu fazer a refatoração sem apresentar erros e bugs! Tem certeza de que a refatoração está concluída? Certifique-se disso

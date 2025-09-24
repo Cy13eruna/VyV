@@ -12,38 +12,24 @@ extends Node2D
 const Logger = preload("res://scripts/core/logger.gd")
 const ObjectFactories = preload("res://scripts/core/object_factories.gd")
 const ResourceCleanup = preload("res://scripts/core/resource_cleanup.gd")
+const GameConfig = preload("res://scripts/core/game_config.gd")
 
 # Importar sistemas principais
 const StarMapper = preload("res://scripts/entities/star_mapper.gd")
 const GameManager = preload("res://scripts/game/game_manager.gd")
 const GameController = preload("res://scripts/game/managers/game_controller.gd")
+const SpawnManager = preload("res://scripts/game/managers/spawn_manager.gd")
 
 ## Referências dos sistemas principais
 @onready var hex_grid = $HexGrid
 var star_mapper: StarMapper
 var game_manager: GameManager
 var game_controller: GameController
+var spawn_manager: SpawnManager
 
-## Sistema de mapa dinâmico
-var domain_count_to_map_width = {
-	6: 13,
-	5: 11,
-	4: 9,
-	3: 7,
-	2: 5
-}
+## Estado do sistema
 var current_domain_count: int = 6
 var map_initialized: bool = false
-
-## Cores disponíveis para domínios/teams
-var team_colors = [
-	Color(0, 0, 1),      # Azul RGB
-	Color(1, 0.5, 0),    # Laranja
-	Color(1, 0, 0),      # Vermelho RGB
-	Color(0.5, 0, 1),    # Roxo
-	Color(1, 1, 0),      # Amarelo
-	Color(0, 1, 1)       # Ciano
-]
 
 func _ready() -> void:
 	Logger.info("Inicializando sistema refatorado com GameController...", "MainGame")
@@ -76,6 +62,8 @@ func _initialize_core_systems() -> void:
 		game_manager = GameManager.new()
 	if not game_controller:
 		game_controller = GameController.new()
+	if not spawn_manager:
+		spawn_manager = SpawnManager.new()
 	
 	Logger.debug("Sistemas principais inicializados", "MainGame")
 
@@ -135,12 +123,11 @@ func _get_domain_count_from_console() -> int:
 			domain_count = int(arg.split("=")[1])
 			break
 	
-	domain_count = clamp(domain_count, 2, 6)
-	return domain_count
+	return GameConfig.validate_domain_count(domain_count)
 
 func _execute_map_creation_steps(domain_count: int) -> void:
 	current_domain_count = domain_count
-	var map_width = domain_count_to_map_width[domain_count]
+	var map_width = GameConfig.get_map_width(domain_count)
 	
 	_step_1_render_board(map_width)
 	
@@ -183,39 +170,23 @@ func _step_2_map_stars() -> void:
 			game_manager.domain_created.connect(_on_domain_created)
 
 func _step_3_position_domains() -> void:
-	if not game_manager:
+	if not game_manager or not spawn_manager:
 		return
 	
+	# Configurar referências
 	game_manager.setup_references(hex_grid, star_mapper, self)
-	game_manager.clear_all_units()
-	game_manager.clear_all_domains()
+	spawn_manager.initialize(hex_grid, star_mapper, game_manager)
 	
-	var available_vertices = _find_spawn_vertices()
-	if available_vertices.size() == 0:
-		return
-	
-	var selected_vertices = _select_random_vertices(available_vertices, current_domain_count)
-	_spawn_colored_domains(selected_vertices)
+	# Executar spawn usando SpawnManager
+	var spawned_count = spawn_manager.spawn_domains(current_domain_count)
+	Logger.info("Domínios posicionados: %d/%d" % [spawned_count, current_domain_count], "MainGame")
 
 func _step_4_adjust_zoom() -> void:
 	var camera = get_viewport().get_camera_2d()
 	if not camera:
 		return
 	
-	var map_width = domain_count_to_map_width[current_domain_count]
-	var base_zoom = 1.0
-	
-	if map_width <= 5:
-		base_zoom = 2.0
-	elif map_width <= 7:
-		base_zoom = 1.6
-	elif map_width <= 9:
-		base_zoom = 1.3
-	elif map_width <= 11:
-		base_zoom = 1.1
-	else:
-		base_zoom = 0.9
-	
+	var base_zoom = GameConfig.get_initial_zoom(current_domain_count)
 	camera.zoom = Vector2(base_zoom, base_zoom)
 	
 	var dot_positions = hex_grid.get_dot_positions()
@@ -226,106 +197,7 @@ func _step_4_adjust_zoom() -> void:
 		center /= dot_positions.size()
 		camera.global_position = hex_grid.to_global(center)
 
-## === FUNÇÕES DE SPAWN (MANTIDAS) ===
-
-func _find_spawn_vertices() -> Array:
-	if not hex_grid or not star_mapper:
-		return []
-	
-	var dot_positions = hex_grid.get_dot_positions()
-	var total_stars = star_mapper.get_star_count()
-	var domain_centers = []
-	
-	var center = Vector2.ZERO
-	for pos in dot_positions:
-		center += pos
-	center /= dot_positions.size()
-	
-	var star_distances = []
-	for i in range(dot_positions.size()):
-		var pos = dot_positions[i]
-		var distance = center.distance_to(pos)
-		star_distances.append({"id": i, "distance": distance, "pos": pos})
-	
-	star_distances.sort_custom(func(a, b): return a.distance > b.distance)
-	var twelve_farthest = star_distances.slice(0, min(12, star_distances.size()))
-	
-	var pairs = []
-	var used_stars = []
-	
-	for star_a in twelve_farthest:
-		if star_a.id in used_stars or pairs.size() >= 6:
-			continue
-		
-		var closest_star = null
-		var closest_distance = 999999.0
-		
-		for star_b in twelve_farthest:
-			if star_b.id == star_a.id or star_b.id in used_stars:
-				continue
-			
-			var distance = star_a.pos.distance_to(star_b.pos)
-			if distance < closest_distance:
-				closest_distance = distance
-				closest_star = star_b
-		
-		if closest_star:
-			pairs.append([star_a, closest_star])
-			used_stars.append_array([star_a.id, closest_star.id])
-	
-	for pair in pairs:
-		var center_star = _find_common_adjacent_star(pair[0].id, pair[1].id, dot_positions)
-		if center_star >= 0 and center_star < total_stars:
-			domain_centers.append(center_star)
-	
-	return domain_centers
-
-func _find_common_adjacent_star(star_a_id: int, star_b_id: int, dot_positions: Array) -> int:
-	var max_adjacent_distance = 38.0
-	
-	var adjacent_to_a = []
-	var star_a_pos = dot_positions[star_a_id]
-	for i in range(dot_positions.size()):
-		if i != star_a_id and star_a_pos.distance_to(dot_positions[i]) <= max_adjacent_distance:
-			adjacent_to_a.append(i)
-	
-	var adjacent_to_b = []
-	var star_b_pos = dot_positions[star_b_id]
-	for i in range(dot_positions.size()):
-		if i != star_b_id and star_b_pos.distance_to(dot_positions[i]) <= max_adjacent_distance:
-			adjacent_to_b.append(i)
-	
-	for star_id in adjacent_to_a:
-		if star_id in adjacent_to_b:
-			return star_id
-	
-	return -1
-
-func _select_random_vertices(available_vertices: Array, count: int) -> Array:
-	if available_vertices.size() == 0:
-		return []
-	
-	var max_count = min(count, available_vertices.size())
-	var vertices_copy = available_vertices.duplicate()
-	var selected = []
-	
-	for i in range(max_count):
-		var random_index = randi() % vertices_copy.size()
-		selected.append(vertices_copy[random_index])
-		vertices_copy.remove_at(random_index)
-	
-	return selected
-
-func _spawn_colored_domains(selected_vertices: Array) -> void:
-	var spawned_count = 0
-	for i in range(selected_vertices.size()):
-		var vertex_star_id = selected_vertices[i]
-		var domain_color = team_colors[i % team_colors.size()]
-		
-		var spawn_result = game_manager.spawn_domain_with_unit_colored(vertex_star_id, domain_color)
-		
-		if spawn_result:
-			spawned_count += 1
+## === SPAWN DELEGADO PARA SPAWNMANAGER ===
 
 ## Callbacks dos sistemas (simplificados)
 func _on_unit_created(unit) -> void:

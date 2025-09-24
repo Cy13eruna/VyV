@@ -195,9 +195,27 @@ Transformação de **prototype → production-ready system** **CONCLUÍDA**
 
 ---
 
-## 🎯 **PRÓXIMAS FASES (FUTURAS)**
+## 🔄 **FASE 5: OTIMIZAÇÃO CONTÍNUA - EM PROGRESSO**
 
-### 🚀 **FASE 5: EXPANSÃO DE FEATURES**
+### **✅ PRIORIDADE 5.1: Configuração Centralizada - CONCLUÍDA**
+- ❌ **PROBLEMA**: Constantes espalhadas pelo main_game.gd
+- ✅ **SOLUÇÃO**: GameConfig criado com todas as configurações
+  - `DOMAIN_COUNT_TO_MAP_WIDTH` → Mapeamento centralizado
+  - `TEAM_COLORS` → Cores dos teams
+  - `ZOOM_FACTOR`, `MIN_ZOOM`, `MAX_ZOOM` → Configurações de zoom
+  - Funções utilitárias: `get_map_width()`, `get_team_color()`, `get_initial_zoom()`
+- ✅ **RESULTADO**: main_game.gd ainda mais simplificado, configuração centralizada
+
+### **✅ PRIORIDADE 5.2: Simplificação Adicional - CONCLUÍDA**
+- ✅ **SpawnManager criado**: Lógica de spawn extraída do main_game.gd
+  - `_find_spawn_vertices()`, `_select_random_vertices()`, `_spawn_colored_domains()` movidas
+  - Sistema centralizado e reutilizável
+  - Logging detalhado e validações
+- ✅ **main_game.gd simplificado**: Reduzido de ~300 para 233 linhas
+- ✅ **Configuração centralizada**: GameConfig com todas as constantes
+- ✅ **RESULTADO**: Código mais limpo, responsabilidades bem definidas
+
+### 🚀 **FASE 6: EXPANSÃO DE FEATURES (FUTURAS)**
 - Novas mecânicas de gameplay
 - Multiplayer
 - IA avançada
@@ -240,7 +258,13 @@ Transformação de **prototype → production-ready system** **CONCLUÍDA**
 - **Documentação completa** e organizada
 
 ### 🚀 **STATUS FINAL**
-**PROJETO V&V: TOTALMENTE FUNCIONAL E PRONTO PARA USO**
+**PROJETO V&V: TOTALMENTE FUNCIONAL E OTIMIZADO**
+
+**✅ FASE 5 CONCLUÍDA**: Otimização contínua implementada
+- GameConfig centralizado
+- SpawnManager extraído
+- main_game.gd simplificado (233 linhas)
+- Sistema 100% funcional após refatoração
 
 ---
 
