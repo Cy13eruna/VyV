@@ -14,7 +14,8 @@ static var performance_settings: Dictionary = {
 	"culling_margin": 100.0,
 	"max_elements_per_frame": 10000,
 	"enable_object_pooling": true,
-	"pool_warm_size": 20
+	"pool_warm_size": 20,
+	"object_pool_initial_size": 100
 }
 
 ## Configurações de Debug
@@ -33,7 +34,13 @@ static var game_settings: Dictionary = {
 	"default_players": 3,
 	"turn_time_limit": 0,  # 0 = sem limite
 	"enable_fog_of_war": false,
-	"auto_save": true
+	"auto_save": true,
+	"max_adjacent_distance": 38.0,
+	"click_tolerance": 30.0,
+	"position_tolerance": 10.0,
+	"min_domain_distance": 76.0,
+	"max_units_per_player": 50,
+	"max_domains_per_player": 20
 }
 
 ## Configurações de Renderização
@@ -44,7 +51,10 @@ static var render_settings: Dictionary = {
 	"render_hexagons": false,
 	"render_connections": true,
 	"render_stars": true,
-	"render_diamonds": true
+	"render_diamonds": true,
+	"zoom_factor": 1.3,
+	"min_zoom": 0.3,
+	"max_zoom": 5.0
 }
 
 ## Configurações de UI

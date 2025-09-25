@@ -74,14 +74,15 @@ func _init(id: int = -1):
 	Logger.debug("Unidade %s inicializada" % entity_id, "Unit")
 
 ## Configurar referências do sistema
-func setup_references(hex_grid, star_mapper) -> void:
+func setup_references(hex_grid, star_mapper) -> bool:
 	hex_grid_ref = hex_grid
 	star_mapper_ref = star_mapper
+	return true
 
 ## Criar representação visual da unidade
-func create_visual(parent_node: Node) -> void:
+func create_visual(parent_node: Node) -> bool:
 	if visual_node:
-		return  # Já criada
+		return true  # Já criada
 	
 	# Criar visual da unidade usando ObjectPool
 	visual_node = ObjectPool.get_object("UnitLabel", ObjectFactories.create_unit_label)
@@ -92,6 +93,7 @@ func create_visual(parent_node: Node) -> void:
 	
 	parent_node.add_child(visual_node)
 	Logger.debug("Unidade %d: visual criado" % unit_id, "Unit")
+	return true
 
 ## Posicionar unidade em uma estrela
 func position_at_star(star_id: int) -> bool:

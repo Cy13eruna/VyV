@@ -16,14 +16,14 @@ const GameConfig = preload("res://scripts/core/game_config.gd")
 
 # Importar sistemas principais
 const StarMapper = preload("res://scripts/entities/star_mapper.gd")
-const GameManager = preload("res://scripts/game/game_manager.gd")
+const GameManagerClass = preload("res://scripts/game/game_manager.gd")
 const GameController = preload("res://scripts/game/managers/game_controller.gd")
 const SpawnManager = preload("res://scripts/game/managers/spawn_manager.gd")
 
 ## Referências dos sistemas principais
 @onready var hex_grid = $HexGrid
 var star_mapper: StarMapper
-var game_manager: GameManager
+var game_manager  # Tipagem dinâmica para evitar problemas de resolução
 var game_controller: GameController
 var spawn_manager: SpawnManager
 
@@ -59,9 +59,11 @@ func _initialize_core_systems() -> void:
 	if not star_mapper:
 		star_mapper = StarMapper.new()
 	if not game_manager:
-		game_manager = GameManager.new()
+		game_manager = GameManagerClass.new()
 	if not game_controller:
-		game_controller = GameController.new()
+		# Carregar dinamicamente para evitar problemas de dependência
+		var GameControllerClass = load("res://scripts/game/managers/game_controller.gd")
+		game_controller = GameControllerClass.new()
 	if not spawn_manager:
 		spawn_manager = SpawnManager.new()
 	
@@ -161,7 +163,9 @@ func _step_2_map_stars() -> void:
 	star_mapper.map_stars(dot_positions)
 	
 	if game_manager:
-		game_manager.setup_references(hex_grid, star_mapper, self)
+		var setup_result = game_manager.setup_references(hex_grid, star_mapper, self)
+		if setup_result and setup_result.is_error():
+			Logger.error("Falha ao configurar referências do GameManager: %s" % setup_result.get_error(), "MainGame")
 	
 	if game_manager:
 		if not game_manager.unit_created.is_connected(_on_unit_created):
@@ -174,7 +178,11 @@ func _step_3_position_domains() -> void:
 		return
 	
 	# Configurar referências
-	game_manager.setup_references(hex_grid, star_mapper, self)
+	var setup_result = game_manager.setup_references(hex_grid, star_mapper, self)
+	if setup_result and setup_result.is_error():
+		Logger.error("Falha ao configurar referências do GameManager: %s" % setup_result.get_error(), "MainGame")
+		return
+	
 	spawn_manager.initialize(hex_grid, star_mapper, game_manager)
 	
 	# Executar spawn usando SpawnManager

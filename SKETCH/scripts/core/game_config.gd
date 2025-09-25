@@ -7,6 +7,9 @@
 class_name GameConfig
 extends RefCounted
 
+# Importar sistema de configuração
+const Config = preload("res://scripts/core/config.gd")
+
 ## Configurações de mapa dinâmico
 const DOMAIN_COUNT_TO_MAP_WIDTH = {
 	6: 13,
@@ -26,23 +29,39 @@ const TEAM_COLORS = [
 	Color(0, 1, 1)       # Ciano
 ]
 
-## Configurações de movimento
-const MAX_ADJACENT_DISTANCE = 38.0
-const CLICK_TOLERANCE = 30.0
+## Obter configurações de movimento
+static func get_max_adjacent_distance() -> float:
+	return Config.get_setting("game", "max_adjacent_distance", 38.0)
 
-## Configurações de zoom
-const ZOOM_FACTOR = 1.3
-const MIN_ZOOM = 0.3
-const MAX_ZOOM = 5.0
+static func get_click_tolerance() -> float:
+	return Config.get_setting("game", "click_tolerance", 30.0)
 
-## Configurações de domínios
-const POSITION_TOLERANCE = 10.0
-const MIN_DOMAIN_DISTANCE = 76.0
+## Obter configurações de zoom
+static func get_zoom_factor() -> float:
+	return Config.get_setting("render", "zoom_factor", 1.3)
 
-## Configurações de performance
-const MAX_UNITS_PER_PLAYER = 50
-const MAX_DOMAINS_PER_PLAYER = 20
-const OBJECT_POOL_INITIAL_SIZE = 100
+static func get_min_zoom() -> float:
+	return Config.get_setting("render", "min_zoom", 0.3)
+
+static func get_max_zoom() -> float:
+	return Config.get_setting("render", "max_zoom", 5.0)
+
+## Obter configurações de domínios
+static func get_position_tolerance() -> float:
+	return Config.get_setting("game", "position_tolerance", 10.0)
+
+static func get_min_domain_distance() -> float:
+	return Config.get_setting("game", "min_domain_distance", 76.0)
+
+## Obter configurações de performance
+static func get_max_units_per_player() -> int:
+	return Config.get_setting("game", "max_units_per_player", 50)
+
+static func get_max_domains_per_player() -> int:
+	return Config.get_setting("game", "max_domains_per_player", 20)
+
+static func get_object_pool_initial_size() -> int:
+	return Config.get_setting("performance", "object_pool_initial_size", 100)
 
 ## Obter largura do mapa baseado no número de domínios
 static func get_map_width(domain_count: int) -> int:

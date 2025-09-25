@@ -1,295 +1,221 @@
-## GameManager - Gerenciador Central do Jogo V&V
-## Coordena entidades (Units e Domains) e regras de negócio
-
 class_name GameManager
 extends RefCounted
 
-# Preload classes
 const Logger = preload("res://scripts/core/logger.gd")
+const ResultClass = preload("res://scripts/core/result.gd")
 const Unit = preload("res://scripts/entities/unit.gd")
-# Domain será carregado dinamicamente para evitar dependência circular
+const SharedGameState = preload("res://scripts/systems/shared_game_state.gd")
 
-## Sinais do gerenciador
 signal unit_created(unit)
-signal unit_destroyed(unit)
 signal domain_created(domain)
-signal domain_destroyed(domain)
-signal game_state_changed(new_state: String)
 
-## Coleções de entidades
 var units = []
 var domains = []
-
-## Referências do sistema
 var hex_grid_ref = null
 var star_mapper_ref = null
 var parent_node_ref = null
-
-## Configurações do jogo
-var max_units_per_player: int = 10
-var max_domains_per_player: int = 5
-
-## Estado do jogo
+var max_units_per_player: int = 50
 var current_player_id: int = 1
-var game_state: String = "playing"
 
-## Configurar referências do sistema
-func setup_references(hex_grid, star_mapper, parent_node) -> void:
+# Sistemas de validação
+var shared_game_state: SharedGameState
+
+func _init():
+	max_units_per_player = 50
+
+func setup_references(hex_grid, star_mapper, parent_node) -> ResultClass:
+	if not hex_grid:
+		return ResultClass.error("hex_grid cannot be null")
+	if not star_mapper:
+		return ResultClass.error("star_mapper cannot be null")
+	if not parent_node:
+		return ResultClass.error("parent_node cannot be null")
+	
 	hex_grid_ref = hex_grid
 	star_mapper_ref = star_mapper
 	parent_node_ref = parent_node
-	Logger.debug("Referências configuradas", "GameManager")
-
-## Criar nova unidade
-func create_unit(star_id: int = -1):
-	var unit = Unit.new()
-	unit.setup_references(hex_grid_ref, star_mapper_ref)
-	unit.create_visual(parent_node_ref)
 	
-	# Conectar sinais
-	unit.unit_moved.connect(_on_unit_moved)
-	unit.unit_positioned.connect(_on_unit_positioned)
+	# Inicializar sistemas de validação
+	shared_game_state = SharedGameState.new()
+	shared_game_state.setup(hex_grid, star_mapper, parent_node)
+	
+	Logger.debug("Referencias e sistemas de terreno configurados", "GameManager")
+	return ResultClass.success(true)
+
+func create_unit(star_id: int = -1) -> ResultClass:
+	if not hex_grid_ref or not star_mapper_ref or not parent_node_ref:
+		return ResultClass.error("Referencias nao configuradas")
+	
+	var unit = Unit.new()
+	var setup_result = unit.setup_references(hex_grid_ref, star_mapper_ref)
+	if not setup_result:
+		return ResultClass.error("Falha ao configurar referencias da unidade")
+	
+	var visual_result = unit.create_visual(parent_node_ref)
+	if not visual_result:
+		unit.cleanup()
+		return ResultClass.error("Falha ao criar visual da unidade")
+	
+	# Posicionar unidade na estrela se especificada
+	if star_id >= 0:
+		var position_result = unit.position_at_star(star_id)
+		if not position_result:
+			unit.cleanup()
+			return ResultClass.error("Falha ao posicionar unidade na estrela %d" % star_id)
 	
 	units.append(unit)
-	
-	# Posicionar se estrela especificada
-	if star_id >= 0:
-		unit.position_at_star(star_id)
-	
 	unit_created.emit(unit)
-	Logger.debug("Unidade %d criada" % unit.get_info().unit_id, "GameManager")
-	return unit
+	Logger.debug("Unidade criada e posicionada na estrela %d" % star_id, "GameManager")
+	return ResultClass.success(unit)
 
-## Criar novo domínio
 func create_domain(center_star_id: int):
-	# Verificar se referências estão configuradas
 	if not hex_grid_ref or not star_mapper_ref:
-		Logger.error("Referências não configuradas (hex_grid: %s, star_mapper: %s)" % [hex_grid_ref != null, star_mapper_ref != null], "GameManager")
 		return null
 	
-	# Verificar se já existe domínio na estrela
-	for domain in domains:
-		if domain.is_at_star(center_star_id):
-			Logger.warning("Domínio já existe na estrela %d" % center_star_id, "GameManager")
-			return null
-	
-	# Carregar Domain dinamicamente
 	var DomainClass = load("res://scripts/entities/domain.gd")
 	var domain = DomainClass.new()
-	Logger.debug("Configurando referências para domínio %d" % domain.get_domain_id(), "GameManager")
 	domain.setup_references(hex_grid_ref, star_mapper_ref)
 	
-	# Criar domínio primeiro
 	if not domain.create_at_star(center_star_id, parent_node_ref):
-		print("❌ GameManager: falha ao criar domínio na estrela %d" % center_star_id)
 		domain.cleanup()
 		return null
 	
-	# Verificar se compartilharia lados APÓS criação
-	if domain.would_share_sides_with_domains(domains):
-		print("❌ GameManager: domínio compartilharia lados com domínio existente")
-		domain.cleanup()
-		return null
-	
-	# Conectar sinais
-	domain.domain_created.connect(_on_domain_created)
-	domain.domain_destroyed.connect(_on_domain_destroyed)
-	
-	# Definir proprietário
 	domain.set_legacy_owner(current_player_id)
-	
 	domains.append(domain)
 	domain_created.emit(domain)
-	print("🎮 GameManager: domínio %d criado na estrela %d" % [domain.get_domain_id(), center_star_id])
 	return domain
 
-## Criar domínio com unidade no centro (sistema de spawn)
-func spawn_domain_with_unit(center_star_id: int):
-	# Criar domínio primeiro
-	var domain = create_domain(center_star_id)
-	if not domain:
-		return null
-	
-	# Criar unidade no centro do domínio
-	var unit = create_unit(center_star_id)
-	if not unit:
-		print("⚠️ GameManager: falha ao criar unidade no centro do domínio %d" % domain.get_domain_id())
-		return domain
-	
-	print("🎯 GameManager: spawn completo - domínio %d com unidade %d na estrela %d" % [domain.get_domain_id(), unit.get_info().unit_id, center_star_id])
-	return {"domain": domain, "unit": unit}
+func get_all_units():
+	return units.duplicate()
 
-## Criar domínio com unidade no centro (sistema de spawn com cor)
-func spawn_domain_with_unit_colored(center_star_id: int, color: Color):
-	# Criar domínio primeiro
-	var domain = create_domain(center_star_id)
-	if not domain:
-		return null
-	
-	# Aplicar cor ao domínio
-	domain.set_color(color)
-	
-	# Criar unidade no centro do domínio
-	var unit = create_unit(center_star_id)
-	if not unit:
-		print("⚠️ GameManager: falha ao criar unidade no centro do domínio %d" % domain.get_domain_id())
-		return domain
-	
-	# Aplicar cor à unidade
-	unit.set_color(color)
-	
-	print("🎯 GameManager: spawn colorido completo - domínio %d com unidade %d na estrela %d (cor: %s)" % [domain.get_domain_id(), unit.get_info().unit_id, center_star_id, color])
-	return {"domain": domain, "unit": unit}
+func get_all_domains():
+	return domains.duplicate()
 
-## Mover unidade para estrela
-func move_unit_to_star(unit, target_star_id: int) -> bool:
-	if not unit in units:
-		print("❌ GameManager: unidade não encontrada")
-		return false
-	
-	# Verificar se movimento é válido (não bloqueado por terreno)
-	if unit.is_positioned():
-		var from_star_id = unit.get_current_star_id()
-		if _is_movement_blocked_by_terrain(from_star_id, target_star_id):
-			print("❌ GameManager: movimento bloqueado por terreno")
-			return false
-	
-	return unit.move_to_star(target_star_id)
-
-## Posicionar unidade em estrela (primeiro posicionamento)
-func position_unit_at_star(unit, star_id: int) -> bool:
-	if not unit in units:
-		print("❌ GameManager: unidade não encontrada")
-		return false
-	
-	return unit.position_at_star(star_id)
-
-## Obter unidade na estrela
 func get_unit_at_star(star_id: int):
 	for unit in units:
 		if unit.get_current_star_id() == star_id:
 			return unit
 	return null
 
-## Obter domínio na estrela
-func get_domain_at_star(star_id: int):
-	for domain in domains:
-		if domain.is_at_star(star_id):
-			return domain
-	return null
-
-## Obter estrelas adjacentes válidas para unidade
-func get_valid_adjacent_stars(unit):
-	if not unit.is_positioned():
-		return []
+func spawn_domain_with_unit(center_star_id: int):
+	var domain = create_domain(center_star_id)
+	if not domain:
+		return null
 	
-	var from_star_id = unit.get_current_star_id()
-	var dot_positions = hex_grid_ref.get_dot_positions()
-	var unit_position = dot_positions[from_star_id]
-	var max_distance = 38.0
-	var valid_stars = []
+	var unit_result = create_unit(center_star_id)
+	if unit_result.is_error():
+		return domain
 	
-	for i in range(dot_positions.size()):
-		var star_pos = dot_positions[i]
-		var distance = unit_position.distance_to(star_pos)
-		
-		# Verificar se está dentro da distância e não é a própria estrela
-		if distance > 5.0 and distance <= max_distance:
-			# Verificar se movimento não é bloqueado por terreno
-			if not _is_movement_blocked_by_terrain(from_star_id, i):
-				valid_stars.append(i)
+	var unit = unit_result.get_value()
+	return {"domain": domain, "unit": unit}
+
+func spawn_domain_with_unit_colored(center_star_id: int, color: Color):
+	var domain = create_domain(center_star_id)
+	if not domain:
+		return null
 	
-	return valid_stars
-
-## Obter todas as unidades
-func get_all_units():
-	return units.duplicate()
-
-## Obter todos os domínios
-func get_all_domains():
-	return domains.duplicate()
-
-## Obter estatísticas do jogo
-func get_game_stats() -> Dictionary:
-	return {
-		"total_units": units.size(),
-		"total_domains": domains.size(),
-		"current_player": current_player_id,
-		"game_state": game_state
-	}
-
-## Limpar todas as entidades
-func clear_all_entities() -> void:
-	# Limpar unidades
-	for unit in units:
-		unit.cleanup()
-	units.clear()
+	domain.set_color(color)
 	
-	# Limpar domínios
-	for domain in domains:
-		domain.cleanup()
-	domains.clear()
+	var unit_result = create_unit(center_star_id)
+	if unit_result.is_error():
+		return domain
 	
-	print("🧹 GameManager: todas as entidades limpas")
+	var unit = unit_result.get_value()
+	unit.set_color(color)
+	return {"domain": domain, "unit": unit}
 
-## Limpar apenas unidades
 func clear_all_units() -> void:
 	for unit in units:
 		unit.cleanup()
 	units.clear()
 	print("🧹 GameManager: todas as unidades limpas")
 
-## Limpar apenas domínios
 func clear_all_domains() -> void:
 	for domain in domains:
 		domain.cleanup()
 	domains.clear()
 	print("🧹 GameManager: todos os domínios limpos")
 
-## Verificar se movimento é bloqueado por terreno
-func _is_movement_blocked_by_terrain(from_star_id: int, to_star_id: int) -> bool:
-	if not hex_grid_ref or not hex_grid_ref.cache:
+func clear_all_entities() -> void:
+	clear_all_units()
+	clear_all_domains()
+	print("🧹 GameManager: todas as entidades limpas")
+
+func get_valid_adjacent_stars(unit) -> Array:
+	if not unit or not hex_grid_ref or not star_mapper_ref:
+		return []
+	
+	var current_star_id = unit.get_current_star_id()
+	if current_star_id < 0:
+		return []
+	
+	var dot_positions = hex_grid_ref.get_dot_positions()
+	if current_star_id >= dot_positions.size():
+		return []
+	
+	var current_pos = dot_positions[current_star_id]
+	var valid_stars = []
+	var max_adjacent_distance = 38.0  # Valor padrão para adjacência
+	
+	# Encontrar estrelas adjacentes e validar terreno
+	for i in range(dot_positions.size()):
+		if i != current_star_id:
+			var distance = current_pos.distance_to(dot_positions[i])
+			if distance <= max_adjacent_distance:
+				# Verificar se movimento não é bloqueado por terreno
+				var is_blocked = false
+				
+				# Usar SharedGameState para validação de terreno
+				if shared_game_state:
+					is_blocked = not shared_game_state.is_movement_valid(current_star_id, i)
+				
+				# Verificar se estrela está ocupada por outra unidade
+				var occupying_unit = get_unit_at_star(i)
+				var is_occupied = occupying_unit != null and occupying_unit != unit
+				
+				# Adicionar apenas se não bloqueado e não ocupado
+				if not is_blocked and not is_occupied:
+					valid_stars.append(i)
+	
+	Logger.debug("Unidade na estrela %d tem %d estrelas válidas (com validação de terreno)" % [current_star_id, valid_stars.size()], "GameManager")
+	return valid_stars
+
+func move_unit_to_star(unit, target_star_id: int) -> bool:
+	if not unit or not hex_grid_ref or not star_mapper_ref:
 		return false
 	
-	var terrain_color = _get_terrain_between_stars(from_star_id, to_star_id)
+	# Verificar se a estrela de destino é válida
+	var dot_positions = hex_grid_ref.get_dot_positions()
+	if target_star_id < 0 or target_star_id >= dot_positions.size():
+		Logger.warning("Estrela de destino inválida: %d" % target_star_id, "GameManager")
+		return false
 	
-	# Cores de terreno bloqueado: azul (água) e cinza (montanha)
-	var water_color = Color(0.0, 1.0, 1.0, 1.0)  # Cyan
-	var mountain_color = Color(0.4, 0.4, 0.4, 1.0)  # Gray
+	# Verificar se a unidade pode se mover para a estrela (inclui validação de terreno)
+	var valid_stars = get_valid_adjacent_stars(unit)
+	if target_star_id not in valid_stars:
+		var current_star_id = unit.get_current_star_id()
+		
+		# Verificar motivo específico da falha
+		var is_blocked_by_terrain = false
+		if shared_game_state:
+			is_blocked_by_terrain = not shared_game_state.is_movement_valid(current_star_id, target_star_id)
+		
+		var occupying_unit = get_unit_at_star(target_star_id)
+		var is_occupied = occupying_unit != null and occupying_unit != unit
+		
+		if is_blocked_by_terrain:
+			Logger.warning("Movimento bloqueado por terreno (água/montanha) da estrela %d para %d" % [current_star_id, target_star_id], "GameManager")
+		elif is_occupied:
+			Logger.warning("Estrela %d já está ocupada por outra unidade" % target_star_id, "GameManager")
+		else:
+			Logger.warning("Estrela %d não é adjacente à posição atual da unidade" % target_star_id, "GameManager")
+		return false
 	
-	return terrain_color == water_color or terrain_color == mountain_color
-
-## Obter cor do terreno entre duas estrelas
-func _get_terrain_between_stars(from_star_id: int, to_star_id: int) -> Color:
-	if not hex_grid_ref or not hex_grid_ref.cache:
-		return Color.WHITE
-	
-	var diamond_colors = hex_grid_ref.cache.get_diamond_colors()
-	var connections = hex_grid_ref.cache.get_connections()
-	
-	# Procurar pela conexão específica entre essas duas estrelas
-	for i in range(connections.size()):
-		var connection = connections[i]
-		if (connection.index_a == from_star_id and connection.index_b == to_star_id) or \
-		   (connection.index_a == to_star_id and connection.index_b == from_star_id):
-			if i < diamond_colors.size():
-				return diamond_colors[i]
-	
-	# Se não encontrou conexão direta, assumir terreno livre (verde)
-	return Color(0.0, 1.0, 0.0, 1.0)  # Light green
-
-## Callback: unidade movida
-func _on_unit_moved(from_star_id: int, to_star_id: int) -> void:
-	print("🎮 GameManager: unidade movida de %d para %d" % [from_star_id, to_star_id])
-
-## Callback: unidade posicionada
-func _on_unit_positioned(star_id: int) -> void:
-	print("🎮 GameManager: unidade posicionada na estrela %d" % star_id)
-
-## Callback: domínio criado
-func _on_domain_created(domain_id: int, center_star_id: int) -> void:
-	print("🎮 GameManager: domínio %d criado na estrela %d" % [domain_id, center_star_id])
-
-## Callback: domínio destruído
-func _on_domain_destroyed(domain_id: int) -> void:
-	print("🎮 GameManager: domínio %d destruído" % domain_id)
+	# Executar movimento
+	var old_star_id = unit.get_current_star_id()
+	if unit.move_to_star(target_star_id):
+		Logger.debug("Unidade movida da estrela %d para %d" % [old_star_id, target_star_id], "GameManager")
+		return true
+	else:
+		Logger.warning("Falha ao mover unidade para estrela %d" % target_star_id, "GameManager")
+		return false

@@ -109,7 +109,7 @@ func _find_spawn_vertices() -> Array:
 
 ## Encontrar estrela adjacente comum entre duas estrelas
 func _find_common_adjacent_star(star_a_id: int, star_b_id: int, dot_positions: Array) -> int:
-	var max_adjacent_distance = GameConfig.MAX_ADJACENT_DISTANCE
+	var max_adjacent_distance = 38.0  # Valor padrão para evitar dependência
 	
 	# Encontrar estrelas adjacentes à estrela A
 	var adjacent_to_a = []

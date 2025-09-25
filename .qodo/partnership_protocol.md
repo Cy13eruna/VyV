@@ -59,10 +59,23 @@ Quando encontrar qualquer ambiguidade, o Qodo deve:
 
 ## Estrutura de Arquivos
 
-- **.qodo/**: Configurações e memórias do Qodo
-- **SKETCH/ZERO/**: Projeto principal de desenvolvimento
-- **run.bat**: Executável do jogo
+### 🚨 **REGRA CRÍTICA: LOCALIZAÇÃO DE ARQUIVOS**
+**NUNCA criar arquivos no diretório principal (raiz)**
+**SEMPRE usar apenas:**
+- **.qodo/**: Configurações, memórias e documentação do Qodo
+- **SKETCH/**: Projeto principal de desenvolvimento (código, testes, assets)
+
+### **Arquivos Permitidos na Raiz:**
+- **run.bat**: Executável do jogo (já existente)
 - **i.txt**: Arquivo de instruções do usuário (unidirecional: user → Qodo)
+
+### **PROIBIDO na Raiz:**
+- ❌ Documentação (usar .qodo/)
+- ❌ Código (usar SKETCH/)
+- ❌ Testes (usar SKETCH/tests/)
+- ❌ Análises (usar .qodo/)
+- ❌ Relatórios (usar .qodo/)
+- ❌ Qualquer arquivo temporário
 
 ## Objetivo
 

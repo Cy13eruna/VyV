@@ -6,6 +6,7 @@ const TestObjectPool = preload("res://tests/unit/test_object_pool.gd")
 const TestEventBus = preload("res://tests/unit/test_event_bus_simple.gd")
 const TestMemoryLeaks = preload("res://tests/unit/test_memory_leaks.gd")
 const TestInterfaces = preload("res://tests/unit/test_interfaces.gd")
+const TestGameManager = preload("res://tests/unit/test_game_manager.gd")
 const MemoryMonitor = preload("res://scripts/core/memory_monitor.gd")
 const ResourceCleanup = preload("res://scripts/core/resource_cleanup.gd")
 
@@ -76,6 +77,10 @@ func run_unit_tests() -> void:
 	
 	# Testes de Memory Leaks
 	TestMemoryLeaks.run_all_tests()
+	await get_tree().process_frame
+	
+	# Testes do GameManager com Error Handling
+	TestGameManager.run_all_tests()
 	await get_tree().process_frame
 
 ## Executar testes de interfaces

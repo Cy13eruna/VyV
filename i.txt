@@ -1,1 +1,1 @@
-Parabéns! Você conseguiu fazer a refatoração sem apresentar erros e bugs! Tem certeza de que a refatoração está concluída? Certifique-se disso
+Agora me diga a que pé está nossa refatoração: concluída ou em andamento? Se estiver em andamento, quais passos faltam?
