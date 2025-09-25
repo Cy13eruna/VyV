@@ -10,6 +10,8 @@ const TestGameManager = preload("res://tests/unit/test_game_manager.gd")
 const TestResultSystem = preload("res://tests/unit/test_result_system.gd")
 const TestTerrainValidation = preload("res://tests/unit/test_terrain_validation.gd")
 const TestUnitMovement = preload("res://tests/unit/test_unit_movement.gd")
+const TestFullGameFlow = preload("res://tests/integration/test_full_game_flow.gd")
+const TestStressPerformance = preload("res://tests/integration/test_stress_performance.gd")
 const MemoryMonitor = preload("res://scripts/core/memory_monitor.gd")
 const ResourceCleanup = preload("res://scripts/core/resource_cleanup.gd")
 
@@ -108,7 +110,15 @@ func run_interface_tests() -> void:
 
 ## Executar testes de integração
 func run_integration_tests() -> void:
-	print("\\n--- EXECUTANDO TESTES DE INTEGRAÇÃO ---")
+	print("\n--- EXECUTANDO TESTES DE INTEGRAÇÃO ---")
+	
+	# Teste de fluxo completo do jogo
+	TestFullGameFlow.run_all_tests()
+	await get_tree().process_frame
+	
+	# Testes de stress e performance extrema
+	TestStressPerformance.run_all_tests()
+	await get_tree().process_frame
 	
 	# Teste de integração básico: verificar se todos os sistemas carregam
 	TestFramework.start_test_suite("Integration")
