@@ -63,7 +63,7 @@ func initialize(parent_node: Node2D, hex_grid: Node2D, star_mapper, game_manager
 	ui_manager = UIManager.new()
 	
 	# Inicializar managers
-	turn_manager.initialize()
+	turn_manager.initialize(game_manager)  # Passar referência do GameManager
 	input_handler.initialize(hex_grid, game_manager, star_mapper, parent_node.get_viewport())
 	ui_manager.initialize(parent_node)
 	
@@ -83,9 +83,13 @@ func _connect_manager_signals() -> void:
 	turn_manager.game_started.connect(_on_game_started)
 	turn_manager.game_ended.connect(_on_game_ended)
 	
-	# Conectar ao EventBus para comunicação global
-	EventBus.game_state_changed.connect(_on_global_game_state_changed)
-	EventBus.system_error.connect(_on_system_error)
+	# Conectar ao EventBus para comunicação global (se disponível)
+	if Engine.has_singleton("EventBus"):
+		var event_bus = Engine.get_singleton("EventBus")
+		if event_bus.has_signal("game_state_changed"):
+			event_bus.game_state_changed.connect(_on_global_game_state_changed)
+		if event_bus.has_signal("system_error"):
+			event_bus.system_error.connect(_on_system_error)
 	
 	# Sinais do InputHandler
 	input_handler.left_click_processed.connect(_on_left_click_processed)
@@ -135,17 +139,24 @@ func _on_turn_started(team_index: int, turn_number: int) -> void:
 	ui_manager.update_turn_button(team_info)
 	_deactivate_movement_mode()
 	
-	# Emitir evento global via EventBus
-	EventBus.emit_turn_started(team_index)
-	EventBus.emit_game_state_changed("turn_started")
+	# Emitir evento global via EventBus (se disponível)
+	if Engine.has_singleton("EventBus"):
+		var event_bus = Engine.get_singleton("EventBus")
+		if event_bus.has_method("emit_turn_started"):
+			event_bus.emit_turn_started(team_index)
+		if event_bus.has_method("emit_game_state_changed"):
+			event_bus.emit_game_state_changed("turn_started")
 	
 	Logger.debug("Turno iniciado: Team %d, Turno %d" % [team_index, turn_number], "GameController")
 
 func _on_turn_ended(team_index: int, turn_number: int) -> void:
 	_deactivate_movement_mode()
 	
-	# Emitir evento global via EventBus
-	EventBus.emit_turn_ended(team_index)
+	# Emitir evento global via EventBus (se disponível)
+	if Engine.has_singleton("EventBus"):
+		var event_bus = Engine.get_singleton("EventBus")
+		if event_bus.has_method("emit_turn_ended"):
+			event_bus.emit_turn_ended(team_index)
 	
 	Logger.debug("Turno finalizado: Team %d, Turno %d" % [team_index, turn_number], "GameController")
 
@@ -153,8 +164,11 @@ func _on_team_changed(old_team_index: int, new_team_index: int) -> void:
 	Logger.debug("Team mudou: %d -> %d" % [old_team_index, new_team_index], "GameController")
 
 func _on_game_started() -> void:
-	# Emitir evento global via EventBus
-	EventBus.emit_game_state_changed("game_started")
+	# Emitir evento global via EventBus (se disponível)
+	if Engine.has_singleton("EventBus"):
+		var event_bus = Engine.get_singleton("EventBus")
+		if event_bus.has_method("emit_game_state_changed"):
+			event_bus.emit_game_state_changed("game_started")
 	
 	Logger.info("Jogo iniciado (sinal do TurnManager)", "GameController")
 
@@ -162,8 +176,11 @@ func _on_game_ended() -> void:
 	is_game_active = false
 	game_ended.emit()
 	
-	# Emitir evento global via EventBus
-	EventBus.emit_game_state_changed("game_ended")
+	# Emitir evento global via EventBus (se disponível)
+	if Engine.has_singleton("EventBus"):
+		var event_bus = Engine.get_singleton("EventBus")
+		if event_bus.has_method("emit_game_state_changed"):
+			event_bus.emit_game_state_changed("game_ended")
 	
 	Logger.info("Jogo finalizado", "GameController")
 
@@ -177,19 +194,25 @@ func _on_unit_clicked(unit, world_position: Vector2) -> void:
 		Logger.warning("Unidade não pertence ao team atual", "GameController")
 		return
 	
-	# Emitir evento via EventBus
-	EventBus.emit_unit_selected(unit.get_info().unit_id)
+	# Emitir evento via EventBus (se disponível)
+	if Engine.has_singleton("EventBus"):
+		var event_bus = Engine.get_singleton("EventBus")
+		if event_bus.has_method("emit_unit_selected"):
+			event_bus.emit_unit_selected(unit.get_info().unit_id)
 	
 	_handle_unit_click(unit)
 
 func _on_star_clicked(star_id: int, world_position: Vector2) -> void:
-	# Emitir evento via EventBus
-	EventBus.emit_star_clicked(star_id, MOUSE_BUTTON_LEFT)
+	# Emitir evento via EventBus (se disponível)
+	if Engine.has_singleton("EventBus"):
+		var event_bus = Engine.get_singleton("EventBus")
+		if event_bus.has_method("emit_star_clicked"):
+			event_bus.emit_star_clicked(star_id, MOUSE_BUTTON_LEFT)
 	
 	if movement_mode_active and selected_unit and star_id in valid_movement_stars:
-		# Verificar se unidade pode agir
-		if not turn_manager.can_unit_act(selected_unit):
-			Logger.warning("Unidade já usou sua ação neste turno", "GameController")
+		# Verificar se unidade pode agir (inclui verificação de poder)
+		if not game_manager_ref.can_unit_act(selected_unit):
+			Logger.warning("Unidade não pode agir (sem ações ou sem poder)", "GameController")
 			return
 		
 		# Verificar se estrela está ocupada
@@ -197,7 +220,7 @@ func _on_star_clicked(star_id: int, world_position: Vector2) -> void:
 		if occupying_unit and occupying_unit != selected_unit:
 			return
 		
-		# Executar movimento
+		# Executar movimento com sistema de poder
 		_move_selected_unit_to_star(star_id)
 	else:
 		_deactivate_movement_mode()
@@ -238,9 +261,9 @@ func _handle_unit_click(unit) -> void:
 
 ## Ativar modo de movimento
 func _activate_movement_mode(unit) -> void:
-	# Verificar se unidade pode agir
-	if not turn_manager.can_unit_act(unit):
-		Logger.warning("Unidade não pode agir neste turno", "GameController")
+	# Verificar se unidade pode agir (inclui verificação de poder)
+	if not game_manager_ref.can_unit_act(unit):
+		Logger.warning("Unidade não pode agir (sem ações ou sem poder)", "GameController")
 		return
 	
 	# Desativar modo anterior se ativo
@@ -250,8 +273,11 @@ func _activate_movement_mode(unit) -> void:
 	selected_unit = unit
 	movement_mode_active = true
 	
-	# Emitir evento de seleção via EventBus
-	EventBus.emit_unit_selected(unit.get_info().unit_id)
+	# Emitir evento de seleção via EventBus (se disponível)
+	if Engine.has_singleton("EventBus"):
+		var event_bus = Engine.get_singleton("EventBus")
+		if event_bus.has_method("emit_unit_selected"):
+			event_bus.emit_unit_selected(unit.get_info().unit_id)
 	
 	# Obter estrelas válidas para movimento
 	var adjacent_stars = game_manager_ref.get_valid_adjacent_stars(unit)
@@ -270,9 +296,11 @@ func _activate_movement_mode(unit) -> void:
 
 ## Desativar modo de movimento
 func _deactivate_movement_mode() -> void:
-	# Emitir evento de desseleção via EventBus se havia unidade selecionada
-	if selected_unit:
-		EventBus.emit_unit_deselected(selected_unit.get_info().unit_id)
+	# Emitir evento de desseleção via EventBus se havia unidade selecionada (se disponível)
+	if selected_unit and Engine.has_singleton("EventBus"):
+		var event_bus = Engine.get_singleton("EventBus")
+		if event_bus.has_method("emit_unit_deselected"):
+			event_bus.emit_unit_deselected(selected_unit.get_info().unit_id)
 	
 	selected_unit = null
 	movement_mode_active = false
@@ -285,15 +313,18 @@ func _move_selected_unit_to_star(target_star_id: int) -> void:
 	if not selected_unit:
 		return
 	
-	# Verificar se unidade pode agir
-	if not turn_manager.can_unit_act(selected_unit):
+	# Verificar se unidade pode agir (inclui verificação de poder)
+	if not game_manager_ref.can_unit_act(selected_unit):
 		return
 	
-	# Tentar movimento
+	# Tentar movimento com sistema de poder
 	var old_star_id = selected_unit.current_star_id
-	if game_manager_ref.move_unit_to_star(selected_unit, target_star_id):
-		# Emitir evento de movimento via EventBus
-		EventBus.emit_unit_moved(selected_unit.get_info().unit_id, old_star_id, target_star_id)
+	if game_manager_ref.move_unit_to_star_with_power(selected_unit, target_star_id):
+		# Emitir evento de movimento via EventBus (se disponível)
+		if Engine.has_singleton("EventBus"):
+			var event_bus = Engine.get_singleton("EventBus")
+			if event_bus.has_method("emit_unit_moved"):
+				event_bus.emit_unit_moved(selected_unit.get_info().unit_id, old_star_id, target_star_id)
 		
 		Logger.debug("Unidade movida! Ações restantes: %d" % selected_unit.actions_remaining, "GameController")
 		

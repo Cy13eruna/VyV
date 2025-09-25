@@ -17,14 +17,13 @@ const GameConfig = preload("res://scripts/core/game_config.gd")
 # Importar sistemas principais
 const StarMapper = preload("res://scripts/entities/star_mapper.gd")
 const GameManagerClass = preload("res://scripts/game/game_manager.gd")
-const GameController = preload("res://scripts/game/managers/game_controller.gd")
 const SpawnManager = preload("res://scripts/game/managers/spawn_manager.gd")
 
 ## Referências dos sistemas principais
 @onready var hex_grid = $HexGrid
 var star_mapper: StarMapper
 var game_manager  # Tipagem dinâmica para evitar problemas de resolução
-var game_controller: GameController
+var game_controller  # Tipagem dinâmica para evitar problemas de resolução
 var spawn_manager: SpawnManager
 
 ## Estado do sistema
@@ -63,7 +62,11 @@ func _initialize_core_systems() -> void:
 	if not game_controller:
 		# Carregar dinamicamente para evitar problemas de dependência
 		var GameControllerClass = load("res://scripts/game/managers/game_controller.gd")
-		game_controller = GameControllerClass.new()
+		if GameControllerClass:
+			game_controller = GameControllerClass.new()
+			Logger.debug("GameController carregado dinamicamente", "MainGame")
+		else:
+			Logger.error("Falha ao carregar GameController", "MainGame")
 	if not spawn_manager:
 		spawn_manager = SpawnManager.new()
 	
@@ -75,18 +78,21 @@ func _setup_complete_system() -> void:
 	await get_tree().process_frame
 	
 	# Inicializar GameController com todas as referências
-	if game_controller:
+	if game_controller and game_controller.has_method("initialize"):
 		game_controller.initialize(self, hex_grid, star_mapper, game_manager)
 		
 		# Aguardar mais um frame para garantir que hex_grid está completamente pronto
 		await get_tree().process_frame
 		
 		# Configurar zoom inicial baseado no número de domínios
-		game_controller.setup_initial_zoom(current_domain_count)
-		Logger.info("Zoom de mapeamento de estrelas configurado pelo GameController", "MainGame")
+		if game_controller.has_method("setup_initial_zoom"):
+			game_controller.setup_initial_zoom(current_domain_count)
+			Logger.info("Zoom de mapeamento de estrelas configurado pelo GameController", "MainGame")
+	else:
+		Logger.warning("GameController não disponível ou métodos não encontrados", "MainGame")
 	
 	# Configurar sistema de turnos
-	if game_manager and game_controller:
+	if game_manager and game_controller and game_controller.has_method("setup_turn_system"):
 		var all_domains = game_manager.get_all_domains()
 		var all_units = game_manager.get_all_units()
 		game_controller.setup_turn_system(all_units, all_domains)
@@ -95,19 +101,59 @@ func _setup_complete_system() -> void:
 	await get_tree().process_frame
 	
 	# Iniciar jogo
-	if game_controller:
+	if game_controller and game_controller.has_method("start_game"):
 		game_controller.start_game()
 	map_initialized = true
 	
 	Logger.info("Sistema completo configurado e jogo iniciado!", "MainGame")
+	
+	# Mostrar relatório inicial de nomes
+	await get_tree().create_timer(1.0).timeout  # Aguardar 1 segundo
+	_show_names_report()
+	
+	# Aplicar melhorias estéticas automaticamente
+	await get_tree().create_timer(0.5).timeout
+	_apply_aesthetic_improvements()
+	
+	# Mostrar relatório de poder inicial
+	await get_tree().create_timer(0.5).timeout
+	_show_power_report()
 
 ## Processar input através do GameController
 func _unhandled_input(event: InputEvent) -> void:
 	if not map_initialized or not game_controller:
 		return
 	
-	if game_controller.process_input(event):
-		get_viewport().set_input_as_handled()
+	# Comando especial para testar sistema de nomes
+	if event is InputEventKey and event.pressed:
+		if event.keycode == KEY_N:  # Tecla N para mostrar relatório de nomes
+			_show_names_report()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_R:  # Tecla R para recriar labels de nomes
+			_recreate_name_labels()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_A:  # Tecla A para aplicar melhorias estéticas
+			_apply_aesthetic_improvements()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_P:  # Tecla P para relatório de poder
+			_show_power_report()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_T:  # Tecla T para produzir poder (simular turno)
+			_produce_power_turn()
+			get_viewport().set_input_as_handled()
+			return
+		if event.keycode == KEY_U:  # Tecla U para atualizar displays de poder
+			_update_power_displays()
+			get_viewport().set_input_as_handled()
+			return
+	
+	if game_controller and game_controller.has_method("process_input"):
+		if game_controller.process_input(event):
+			get_viewport().set_input_as_handled()
 
 ## === SISTEMA DE CRIAÇÃO DE MAPA (MANTIDO) ===
 
@@ -233,10 +279,184 @@ func _on_quit_request() -> void:
 func _exit_tree():
 	Logger.info("MainGame _exit_tree chamado", "MainGame")
 	
-	if game_controller:
+	if game_controller and game_controller.has_method("cleanup"):
 		game_controller.cleanup()
 	
 	# Cleanup de emergência
 	ResourceCleanup.emergency_cleanup()
 	
 	Logger.info("MainGame limpo", "MainGame")
+
+# ================================================================
+# SISTEMA DE TESTE DE NOMES
+# ================================================================
+
+## Mostrar relatório completo do sistema de nomes
+func _show_names_report() -> void:
+	if not game_manager:
+		print("⚠️ GameManager não disponível")
+		return
+	
+	print("\n🎮 === RELATÓRIO DO SISTEMA DE NOMES V&V ===")
+	print("📝 Pressione N para atualizar este relatório")
+	print("🔄 Pressione R para recriar labels de nomes")
+	print("🎨 Pressione A para aplicar melhorias estéticas")
+	print("⚡ Pressione P para relatório de poder")
+	print("🔄 Pressione T para produzir poder (turno)")
+	print("🔄 Pressione U para atualizar displays")
+	print("🔄 Pressione U para atualizar displays")
+	
+	# Usar o relatório do GameManager
+	game_manager.print_names_report()
+	
+	# Informações adicionais sobre o jogo
+	print("\n🎯 Informações do Jogo:")
+	print("   • Domínios no mapa: %d" % current_domain_count)
+	print("   • Total de domínios criados: %d" % game_manager.get_all_domains().size())
+	print("   • Total de unidades criadas: %d" % game_manager.get_all_units().size())
+	
+	# Exemplo de relacionamento
+	var domains = game_manager.get_all_domains()
+	var units = game_manager.get_all_units()
+	
+	if domains.size() > 0 and units.size() > 0:
+		print("\n💡 Exemplo de Relacionamento:")
+		var example_domain = domains[0]
+		var example_unit = null
+		
+		# Encontrar unidade do primeiro domínio
+		for unit in units:
+			if unit.get_origin_domain_id() == example_domain.get_domain_id():
+				example_unit = unit
+				break
+		
+		if example_unit:
+			print("   🏰 Domínio: %s (inicial %s)" % [example_domain.get_domain_name(), example_domain.get_domain_initial()])
+			print("   ⚔️ Unidade: %s (inicial %s)" % [example_unit.get_unit_name(), example_unit.get_unit_initial()])
+			print("   🔗 Relacionamento: %s" % ("✅ Válido" if example_unit.validate_domain_relationship() else "❌ Inválido"))
+	
+	print("\n=== FIM DO RELATÓRIO ===\n")
+	print("🔄 Pressione R para recriar labels de nomes")
+	print("🎨 Pressione A para aplicar melhorias estéticas")
+	print("⚡ Pressione P para relatório de poder")
+	print("🔄 Pressione T para produzir poder (turno)")
+
+## Comando de debug para criar domínio e unidade de teste
+func _create_test_domain_and_unit() -> void:
+	if not game_manager or not hex_grid or not star_mapper:
+		print("❌ Sistemas não inicializados")
+		return
+	
+	var dot_positions = hex_grid.get_dot_positions()
+	if dot_positions.size() == 0:
+		print("❌ Nenhuma estrela disponível")
+		return
+	
+	# Encontrar estrela livre
+	var free_star_id = -1
+	for i in range(dot_positions.size()):
+		var occupied = false
+		for domain in game_manager.get_all_domains():
+			if domain.get_center_star_id() == i:
+				occupied = true
+				break
+		if not occupied:
+			free_star_id = i
+			break
+	
+	if free_star_id == -1:
+		print("❌ Nenhuma estrela livre disponível")
+		return
+	
+	# Criar domínio e unidade com nomes
+	var result = game_manager.spawn_domain_with_unit_colored(free_star_id, Color.CYAN)
+	if result:
+		var domain = result.domain
+		var unit = result.unit
+		print("✅ Criado: Domínio %s e Unidade %s" % [domain.get_domain_name(), unit.get_unit_name()])
+	else:
+		print("❌ Falha ao criar domínio e unidade de teste")
+
+## Forçar recriação dos labels de nomes
+func _recreate_name_labels() -> void:
+	if not game_manager:
+		print("⚠️ GameManager não disponível")
+		return
+	
+	print("🔄 Recriando labels de nomes...")
+	game_manager.recreate_all_name_labels()
+	print("✅ Labels de nomes recriados!")
+	
+	# Mostrar relatório atualizado
+	await get_tree().create_timer(0.5).timeout
+	_show_names_report()
+
+## Mostrar relatório de poder
+func _show_power_report() -> void:
+	if not game_manager:
+		print("⚠️ GameManager não disponível")
+		return
+	
+	game_manager.print_power_report()
+
+## Produzir poder em todos os domínios (simular turno)
+func _produce_power_turn() -> void:
+	if not game_manager:
+		print("⚠️ GameManager não disponível")
+		return
+	
+	print("🔄 Produzindo poder para todos os domínios...")
+	var power_report = game_manager.produce_power_for_all_domains()
+	print("✅ Poder produzido!")
+	print("   • Total produzido: %d" % power_report.total_produced)
+	print("   • Domínios: %d" % power_report.domains_count)
+	
+	# Mostrar relatório de poder atualizado
+	await get_tree().create_timer(0.5).timeout
+	_show_power_report()
+
+## Atualizar displays de poder
+func _update_power_displays() -> void:
+	if not game_manager:
+		print("⚠️ GameManager não disponível")
+		return
+	
+	print("🔄 Atualizando displays de poder...")
+	game_manager.force_update_power_displays()
+	print("✅ Displays atualizados!")
+	
+	# Mostrar relatório de poder atualizado
+	await get_tree().create_timer(0.5).timeout
+	_show_power_report()
+
+## Método auxiliar para criar labels de nome (chamado via call_deferred)
+func _ensure_labels_created(domain, unit) -> void:
+	if not domain or not unit:
+		return
+	
+	# Forçar criação do label do domínio se tem nome mas não tem label
+	if domain.has_name() and not domain.name_label:
+		domain._create_name_label(self)
+	
+	# Forçar criação do label da unidade se tem nome mas não tem label
+	if unit.has_name() and not unit.name_label:
+		unit._create_name_label(self)
+	
+	Logger.debug("Labels de nome criados para domínio %s e unidade %s" % [domain.get_domain_name(), unit.get_unit_name()], "MainGame")
+
+## Aplicar melhorias estéticas nos labels
+func _apply_aesthetic_improvements() -> void:
+	if not game_manager:
+		print("⚠️ GameManager não disponível")
+		return
+	
+	print("🎨 Aplicando melhorias estéticas...")
+	game_manager.apply_aesthetic_improvements()
+	print("✅ Melhorias estéticas aplicadas!")
+	print("   • Fontes menores: Domínios 10px, Unidades 8px")
+	print("   • Unidades mais próximas: 8px de distância")
+	print("   • Qualidade melhorada: Renderização nítida")
+	
+	# Mostrar relatório atualizado
+	await get_tree().create_timer(0.5).timeout
+	_show_names_report()

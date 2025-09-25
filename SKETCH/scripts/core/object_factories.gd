@@ -18,14 +18,16 @@ static func create_highlight_node() -> Node2D:
 	ResourceCleanup.track_node(node)
 	return node
 
-## Factory para labels de unidades
+## Criar label para unidades
 static func create_unit_label() -> Label:
 	var label = Label.new()
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	label.add_theme_font_size_override("font_size", 16)
-	# Rastrear para cleanup
-	ResourceCleanup.track_node(label)
+	
+	# Melhorar qualidade da renderização de texto
+	label.clip_contents = false
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+	
 	return label
 
 ## Factory para nodes de domínio

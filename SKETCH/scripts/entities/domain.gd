@@ -10,6 +10,7 @@ const Logger = preload("res://scripts/core/logger.gd")
 const ObjectPool = preload("res://scripts/core/object_pool.gd")
 const ObjectFactories = preload("res://scripts/core/object_factories.gd")
 const Interfaces = preload("res://scripts/core/interfaces.gd")
+const NameGenerator = preload("res://scripts/core/name_generator.gd")
 
 ## Sinais do domínio
 signal domain_created(domain_id: int, center_star_id: int)
@@ -40,13 +41,24 @@ var center_position: Vector2 = Vector2.ZERO
 var vertices = []
 var legacy_owner_id: int = -1  # Manter compatibilidade
 
+## Sistema de nomes
+var domain_name: String = ""
+var domain_initial: String = ""
+var name_generator_ref = null
+
+## Sistema de poder
+var power_points: int = 1  # Começar com 1 poder
+var power_per_turn: int = 1
+
 ## Propriedades visuais
 var visual_node: Node2D = null
+var name_label: Label = null
 var line_color: Color = Color.MAGENTA
 var line_width: float = 2.0
 var dash_length: float = 8.0
 var gap_length: float = 4.0
 var z_index: int = 40
+var name_font_size: int = 10
 
 ## Referências do sistema
 var hex_grid_ref = null
@@ -69,12 +81,20 @@ func _init(id: int = -1):
 	stored_resources = 0
 	storage_capacity = 10
 	
+	# Inicializar com 1 poder
+	power_points = 1
+	
 	Logger.debug("Domínio %s inicializado" % entity_id, "Domain")
 
 ## Configurar referências do sistema
-func setup_references(hex_grid, star_mapper) -> void:
+func setup_references(hex_grid, star_mapper, name_generator = null) -> void:
 	hex_grid_ref = hex_grid
 	star_mapper_ref = star_mapper
+	name_generator_ref = name_generator
+	
+	# Gerar nome automaticamente se name_generator disponível
+	if name_generator_ref and domain_name.is_empty():
+		_generate_domain_name()
 
 ## Criar domínio em uma estrela
 func create_at_star(star_id: int, parent_node: Node) -> bool:
@@ -98,8 +118,12 @@ func create_at_star(star_id: int, parent_node: Node) -> bool:
 		Logger.error("Domínio %d: falha ao criar visualização" % domain_id, "Domain")
 		return false
 	
+	# Gerar nome se ainda não tem
+	if name_generator_ref and domain_name.is_empty():
+		_generate_domain_name()
+	
 	domain_created.emit(domain_id, center_star_id)
-	Logger.info("Domínio %d criado na estrela %d com %d vértices" % [domain_id, center_star_id, vertices.size()], "Domain")
+	Logger.info("Domínio %d (%s) criado na estrela %d com %d vértices" % [domain_id, domain_name, center_star_id, vertices.size()], "Domain")
 	return true
 
 ## Verificar se domínio compartilharia lados com outros domínios
@@ -169,18 +193,25 @@ func set_legacy_owner(new_owner_id: int) -> void:
 ## Definir cor do domínio
 func set_color(new_color: Color) -> void:
 	line_color = new_color
+	owner_color = new_color
 	if visual_node:
 		visual_node.queue_redraw()
+	# Atualizar cor do nome
+	_update_name_label_color()
 	print("🎨 Domínio %d: cor alterada para %s" % [domain_id, new_color])
 
 ## Obter informações do domínio
 func get_info() -> Dictionary:
 	return {
 		"domain_id": domain_id,
+		"domain_name": domain_name,
+		"domain_initial": domain_initial,
 		"center_star_id": center_star_id,
 		"center_position": center_position,
 		"vertices_count": vertices.size(),
-		"owner_id": legacy_owner_id
+		"owner_id": legacy_owner_id,
+		"power_points": power_points,
+		"power_per_turn": power_per_turn
 	}
 
 ## Destruir domínio
@@ -206,6 +237,13 @@ func cleanup() -> void:
 		# Retornar ao pool
 		ObjectPool.return_object("DomainNode", visual_node)
 		visual_node = null
+	
+	# Limpar label do nome
+	if name_label and is_instance_valid(name_label):
+		if name_label.get_parent():
+			name_label.get_parent().remove_child(name_label)
+		ObjectPool.return_object("UnitLabel", name_label)
+		name_label = null
 	
 	Logger.debug("Domínio %d: recursos limpos e retornados ao ObjectPool" % domain_id, "Domain")
 
@@ -252,6 +290,9 @@ func _create_visual(parent_node: Node) -> bool:
 	hex_grid_ref.add_child(visual_node)
 	visual_node.draw.connect(_draw_domain_hexagon)
 	visual_node.queue_redraw()
+	
+	# Criar label do nome
+	_create_name_label(parent_node)
 	
 	return true
 
@@ -375,7 +416,11 @@ func serialize() -> Dictionary:
 		"storage_capacity": storage_capacity,
 		"owner_id": owner_id,
 		"owner_color": var_to_str(owner_color),
-		"legacy_owner_id": legacy_owner_id
+		"legacy_owner_id": legacy_owner_id,
+		"domain_name": domain_name,
+		"domain_initial": domain_initial,
+		"power_points": power_points,
+		"power_per_turn": power_per_turn
 	}
 
 ## IGameEntity - Deserializar entidade
@@ -399,6 +444,10 @@ func deserialize(data: Dictionary) -> bool:
 	storage_capacity = data.get("storage_capacity", 10)
 	owner_id = data.get("owner_id", "")
 	legacy_owner_id = data.get("legacy_owner_id", -1)
+	domain_name = data.get("domain_name", "")
+	domain_initial = data.get("domain_initial", "")
+	power_points = data.get("power_points", 1)  # Padrão 1 poder
+	power_per_turn = data.get("power_per_turn", 1)
 	
 	if data.has("owner_color"):
 		owner_color = str_to_var(data.get("owner_color"))
@@ -436,6 +485,8 @@ func set_owner(player_id: String, color: Color = Color.MAGENTA) -> void:
 	legacy_owner_id = player_id.hash() if not player_id.is_empty() else -1
 	if visual_node:
 		visual_node.queue_redraw()
+	# Atualizar cor do nome
+	_update_name_label_color()
 	Logger.debug("Domínio %s agora pertence ao jogador %s" % [entity_id, player_id], "Domain")
 
 ## IOwnable - Verificar se pertence a um jogador
@@ -445,3 +496,136 @@ func belongs_to(player_id: String) -> bool:
 ## IOwnable - Verificar se tem proprietário
 func has_owner() -> bool:
 	return not owner_id.is_empty()
+
+# ================================================================
+# SISTEMA DE NOMES
+# ================================================================
+
+## Gerar nome para o domínio
+func _generate_domain_name() -> void:
+	if not name_generator_ref:
+		Logger.warning("NameGenerator não disponível para domínio %d" % domain_id, "Domain")
+		return
+	
+	var name_data = name_generator_ref.generate_domain_name(domain_id)
+	domain_name = name_data.name
+	domain_initial = name_data.initial
+	
+	# Atualizar label se já existe
+	_update_name_label_text()
+	
+	Logger.info("Domínio %d nomeado: %s (inicial %s)" % [domain_id, domain_name, domain_initial], "Domain")
+
+## Obter nome do domínio
+func get_domain_name() -> String:
+	return domain_name
+
+## Obter inicial do domínio
+func get_domain_initial() -> String:
+	return domain_initial
+
+## Verificar se domínio tem nome
+func has_name() -> bool:
+	return not domain_name.is_empty()
+
+## Definir nome manualmente (para casos especiais)
+func set_domain_name(name: String, initial: String = "") -> void:
+	domain_name = name
+	if not initial.is_empty():
+		domain_initial = initial
+	elif not name.is_empty():
+		domain_initial = name.substr(0, 1).to_upper()
+	
+	Logger.info("Domínio %d nome definido manualmente: %s (inicial %s)" % [domain_id, domain_name, domain_initial], "Domain")
+
+# ================================================================
+# SISTEMA DE PODER
+# ================================================================
+
+## Produzir poder no início do turno
+func produce_power() -> int:
+	var produced = power_per_turn
+	power_points += produced
+	Logger.info("Domínio %s produziu %d poder (total: %d)" % [domain_name, produced, power_points], "Domain")
+	return produced
+
+## Consumir poder para ação de unidade
+func consume_power(amount: int = 1) -> bool:
+	if power_points >= amount:
+		power_points -= amount
+		Logger.debug("Domínio %s consumiu %d poder (restante: %d)" % [domain_name, amount, power_points], "Domain")
+		return true
+	else:
+		Logger.warning("Domínio %s não tem poder suficiente (%d/%d)" % [domain_name, power_points, amount], "Domain")
+		return false
+
+## Verificar se tem poder suficiente
+func has_power(amount: int = 1) -> bool:
+	return power_points >= amount
+
+## Obter poder atual
+func get_power() -> int:
+	return power_points
+
+## Definir poder (para testes ou carga de save)
+func set_power(amount: int) -> void:
+	power_points = max(0, amount)
+	Logger.debug("Domínio %s poder definido para %d" % [domain_name, power_points], "Domain")
+
+## Obter texto de exibição com poder
+func get_display_text() -> String:
+	if domain_name.is_empty():
+		return "Unnamed (%d)" % power_points
+	else:
+		return "%s (%d)" % [domain_name, power_points]
+
+# ================================================================
+# SISTEMA DE RENDERIZAÇÃO DE NOMES
+# ================================================================
+
+## Criar label do nome do domínio
+func _create_name_label(parent_node: Node) -> void:
+	if not domain_name.is_empty():
+		# Criar label usando ObjectPool
+		name_label = ObjectPool.get_object("UnitLabel", ObjectFactories.create_unit_label)
+		name_label.text = get_display_text()
+		name_label.add_theme_font_size_override("font_size", name_font_size)
+		name_label.z_index = 50  # Acima do domínio
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		
+		# Melhorar qualidade da renderização
+		name_label.clip_contents = false
+		name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		
+		# Posicionar na parte inferior do domínio
+		_position_name_label()
+		
+		# Aplicar cor do team
+		_update_name_label_color()
+		
+		parent_node.add_child(name_label)
+		Logger.debug("Label do nome criado para domínio %s" % domain_name, "Domain")
+
+## Posicionar label do nome
+func _position_name_label() -> void:
+	if not name_label or not hex_grid_ref:
+		return
+	
+	# Calcular posição inferior do domínio
+	var global_center = hex_grid_ref.to_global(center_position)
+	name_label.global_position = global_center
+	
+	# Posicionar na parte inferior
+	name_label.global_position.x -= name_label.size.x * 0.5  # Centralizar horizontalmente
+	name_label.global_position.y += 20  # Abaixo do domínio
+
+## Atualizar cor do label do nome
+func _update_name_label_color() -> void:
+	if name_label:
+		name_label.modulate = owner_color
+
+## Atualizar nome no label
+func _update_name_label_text() -> void:
+	if name_label and not domain_name.is_empty():
+		name_label.text = get_display_text()
+		_position_name_label()  # Reposicionar após mudança de texto

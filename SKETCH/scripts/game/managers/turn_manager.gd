@@ -14,12 +14,16 @@ signal turn_ended(team_index: int, turn_number: int)
 signal team_changed(old_team_index: int, new_team_index: int)
 signal game_started()
 signal game_ended()
+signal power_production_requested()  # Novo sinal para produção de poder
 
 ## Estado do sistema de turnos
 var teams: Array = []
 var current_team_index: int = 0
 var current_turn: int = 1
 var game_started_flag: bool = false
+
+## Referência ao GameManager para produção de poder
+var game_manager_ref = null
 
 ## Cores e nomes disponíveis para teams
 var team_colors: Array[Color] = [
@@ -33,11 +37,12 @@ var team_colors: Array[Color] = [
 var team_names: Array[String] = ["Azul", "Laranja", "Vermelho", "Roxo", "Amarelo", "Ciano"]
 
 ## Inicializar sistema de turnos
-func initialize() -> void:
+func initialize(game_manager = null) -> void:
 	teams.clear()
 	current_team_index = 0
 	current_turn = 1
 	game_started_flag = false
+	game_manager_ref = game_manager
 	Logger.info("Sistema de turnos inicializado", "TurnManager")
 
 ## Configurar teams baseado em unidades e domínios
@@ -107,6 +112,11 @@ func start_game() -> void:
 	current_turn = 1
 	game_started_flag = true
 	
+	# Produzir poder inicial (primeiro turno)
+	if game_manager_ref:
+		var power_report = game_manager_ref.produce_power_for_all_domains()
+		Logger.info("Poder inicial produzido: %d total" % power_report.total_produced, "TurnManager")
+	
 	_activate_team_turn(current_team_index)
 	game_started.emit()
 	Logger.info("Jogo iniciado - Primeiro turno", "TurnManager")
@@ -128,6 +138,11 @@ func next_turn() -> void:
 	# Se voltou ao primeiro team, incrementar turno
 	if current_team_index == 0:
 		current_turn += 1
+	
+	# Produzir poder no início do turno (apenas no primeiro team de cada rodada)
+	if current_team_index == 0 and game_manager_ref:
+		var power_report = game_manager_ref.produce_power_for_all_domains()
+		Logger.info("Poder produzido no turno %d: %d total" % [current_turn, power_report.total_produced], "TurnManager")
 	
 	# Ativar próximo team
 	_activate_team_turn(current_team_index)

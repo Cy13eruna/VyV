@@ -1,1 +1,2 @@
-A refatoração está 100% completa ou tens sugestões?
+Não está aumentando a quantidade de poder. Está paralizado em zero
+Além disso, faça com que ao spawnar o domínio já tenha 1 PODER

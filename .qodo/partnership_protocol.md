@@ -65,9 +65,15 @@ Quando encontrar qualquer ambiguidade, o Qodo deve:
 - **.qodo/**: Configurações, memórias e documentação do Qodo
 - **SKETCH/**: Projeto principal de desenvolvimento (código, testes, assets)
 
+### 🔒 **REGRA CRÍTICA: i.txt É EXCLUSIVO DO USUÁRIO**
+**JAMAIS ESCREVER OU MODIFICAR i.txt**
+- i.txt é **UNIDIRECIONAL**: Usuário escreve → Qodo lê
+- Qodo **NUNCA** deve escrever no i.txt
+- Esta regra é **INVIOLÁVEL**
+
 ### **Arquivos Permitidos na Raiz:**
 - **run.bat**: Executável do jogo (já existente)
-- **i.txt**: Arquivo de instruções do usuário (unidirecional: user → Qodo)
+- **i.txt**: Arquivo de instruções do usuário (**EXCLUSIVO DO USUÁRIO - QODO APENAS LÊ, NUNCA ESCREVE**)
 
 ### **PROIBIDO na Raiz:**
 - ❌ Documentação (usar .qodo/)

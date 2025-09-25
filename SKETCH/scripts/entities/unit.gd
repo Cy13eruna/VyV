@@ -10,6 +10,7 @@ const Logger = preload("res://scripts/core/logger.gd")
 const ObjectPool = preload("res://scripts/core/object_pool.gd")
 const ObjectFactories = preload("res://scripts/core/object_factories.gd")
 const Interfaces = preload("res://scripts/core/interfaces.gd")
+const NameGenerator = preload("res://scripts/core/name_generator.gd")
 
 ## Sinais da unidade
 signal unit_moved(from_star_id: int, to_star_id: int)
@@ -50,10 +51,17 @@ var state: int = BEM
 var actions_remaining: int = 1
 var max_actions: int = 1
 
+## Sistema de nomes
+var unit_name: String = ""
+var origin_domain_id: int = -1
+var name_generator_ref = null
+
 ## Referências visuais
 var visual_node: Label = null
+var name_label: Label = null
 var emoji_text: String = "🚶🏻‍♀️"
 var font_size: int = 14
+var name_font_size: int = 8
 
 ## Referências do sistema
 var hex_grid_ref = null
@@ -74,9 +82,10 @@ func _init(id: int = -1):
 	Logger.debug("Unidade %s inicializada" % entity_id, "Unit")
 
 ## Configurar referências do sistema
-func setup_references(hex_grid, star_mapper) -> bool:
+func setup_references(hex_grid, star_mapper, name_generator = null) -> bool:
 	hex_grid_ref = hex_grid
 	star_mapper_ref = star_mapper
+	name_generator_ref = name_generator
 	return true
 
 ## Criar representação visual da unidade
@@ -92,6 +101,10 @@ func create_visual(parent_node: Node) -> bool:
 	visual_node.visible = false
 	
 	parent_node.add_child(visual_node)
+	
+	# Criar label do nome
+	_create_name_label(parent_node)
+	
 	Logger.debug("Unidade %d: visual criado" % unit_id, "Unit")
 	return true
 
@@ -110,6 +123,9 @@ func position_at_star(star_id: int) -> bool:
 		visual_node.global_position.x -= font_size * 0.5  # Centralização horizontal
 		visual_node.global_position.y -= font_size * 1.1  # Ainda mais para cima no eixo Y
 		visual_node.visible = true
+	
+	# Posicionar label do nome
+	_position_name_label(global_position)
 	
 	# Atualizar estado
 	var old_star_id = current_star_id
@@ -133,6 +149,10 @@ func move_to_star(target_star_id: int) -> bool:
 	
 	if actions_remaining <= 0:
 		Logger.warning("Unidade %d não tem ações restantes" % unit_id, "Unit")
+		return false
+	
+	# Verificar se domínio de origem tem poder
+	if not _check_and_consume_power():
 		return false
 	
 	if not _validate_star_id(target_star_id):
@@ -164,7 +184,7 @@ func get_world_position() -> Vector2:
 ## Resetar ações da unidade
 func reset_actions() -> void:
 	actions_remaining = max_actions
-	Logger.debug("Unidade %d: ações resetadas (%d/%d)" % [unit_id, actions_remaining, max_actions], "Unit")
+	Logger.debug("Unidade %d (%s): ações resetadas (%d/%d)" % [unit_id, unit_name, actions_remaining, max_actions], "Unit")
 
 ## Alterar estado da unidade
 func set_state(new_state: int) -> void:
@@ -172,23 +192,29 @@ func set_state(new_state: int) -> void:
 		var old_state = state
 		state = new_state
 		_update_visual_for_state()
-		Logger.debug("Unidade %d: estado alterado de %s para %s" % [unit_id, _state_to_string(old_state), _state_to_string(new_state)], "Unit")
+		Logger.debug("Unidade %d (%s): estado alterado de %s para %s" % [unit_id, unit_name, _state_to_string(old_state), _state_to_string(new_state)], "Unit")
 
 ## Definir cor da unidade
 func set_color(new_color: Color) -> void:
+	owner_color = new_color
 	if visual_node:
 		visual_node.modulate = new_color
-	Logger.debug("Unidade %d: cor alterada para %s" % [unit_id, new_color], "Unit")
+	# Atualizar cor do nome
+	_update_name_label_color()
+	Logger.debug("Unidade %d (%s): cor alterada para %s" % [unit_id, unit_name, new_color], "Unit")
 
 ## Obter informações da unidade
 func get_info() -> Dictionary:
 	return {
 		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"origin_domain_id": origin_domain_id,
 		"current_star_id": current_star_id,
 		"state": state,
 		"actions_remaining": actions_remaining,
 		"max_actions": max_actions,
-		"is_positioned": is_positioned()
+		"is_positioned": is_positioned(),
+		"can_act": can_act()
 	}
 
 ## Limpar recursos
@@ -201,6 +227,13 @@ func cleanup() -> void:
 		# Retornar ao pool
 		ObjectPool.return_object("UnitLabel", visual_node)
 		visual_node = null
+	
+	# Limpar label do nome
+	if name_label and is_instance_valid(name_label):
+		if name_label.get_parent():
+			name_label.get_parent().remove_child(name_label)
+		ObjectPool.return_object("UnitLabel", name_label)
+		name_label = null
 	
 	Logger.debug("Unidade %d: recursos limpos e retornados ao ObjectPool" % unit_id, "Unit")
 
@@ -282,6 +315,8 @@ func serialize() -> Dictionary:
 		"world_position": world_position,
 		"metadata": metadata,
 		"unit_id": unit_id,
+		"unit_name": unit_name,
+		"origin_domain_id": origin_domain_id,
 		"current_star_id": current_star_id,
 		"state": state,
 		"actions_remaining": actions_remaining,
@@ -302,6 +337,8 @@ func deserialize(data: Dictionary) -> bool:
 	world_position = data.get("world_position", Vector2.ZERO)
 	metadata = data.get("metadata", {})
 	unit_id = data.get("unit_id", -1)
+	unit_name = data.get("unit_name", "")
+	origin_domain_id = data.get("origin_domain_id", -1)
 	current_star_id = data.get("current_star_id", -1)
 	state = data.get("state", BEM)
 	actions_remaining = data.get("actions_remaining", 1)
@@ -392,7 +429,7 @@ func _on_death() -> void:
 func set_owner(player_id: String, color: Color = Color.WHITE) -> void:
 	owner_id = player_id
 	owner_color = color
-	set_color(color)  # Atualizar cor visual
+	set_color(color)  # Atualizar cor visual (inclui nome)
 	Logger.debug("Unidade %s agora pertence ao jogador %s" % [entity_id, player_id], "Unit")
 
 ## IOwnable - Verificar se pertence a um jogador
@@ -402,3 +439,138 @@ func belongs_to(player_id: String) -> bool:
 ## IOwnable - Verificar se tem proprietário
 func has_owner() -> bool:
 	return not owner_id.is_empty()
+
+# ================================================================
+# SISTEMA DE NOMES
+# ================================================================
+
+## Definir domínio de origem e gerar nome
+func set_origin_domain(domain_id: int) -> void:
+	origin_domain_id = domain_id
+	
+	# Gerar nome automaticamente se name_generator disponível
+	if name_generator_ref and unit_name.is_empty():
+		_generate_unit_name()
+	
+	Logger.info("Unidade %d vinculada ao domínio %d" % [unit_id, domain_id], "Unit")
+
+## Gerar nome para a unidade baseado no domínio de origem
+func _generate_unit_name() -> void:
+	if not name_generator_ref:
+		Logger.warning("NameGenerator não disponível para unidade %d" % unit_id, "Unit")
+		return
+	
+	if origin_domain_id == -1:
+		Logger.warning("Unidade %d não tem domínio de origem definido" % unit_id, "Unit")
+		return
+	
+	var name_data = name_generator_ref.generate_unit_name(unit_id, origin_domain_id)
+	unit_name = name_data.name
+	
+	# Atualizar label se já existe
+	_update_name_label_text()
+	
+	Logger.info("Unidade %d nomeada: %s (inicial %s)" % [unit_id, unit_name, name_data.domain_initial], "Unit")
+
+## Obter nome da unidade
+func get_unit_name() -> String:
+	return unit_name
+
+## Obter domínio de origem
+func get_origin_domain_id() -> int:
+	return origin_domain_id
+
+## Verificar se unidade tem nome
+func has_name() -> bool:
+	return not unit_name.is_empty()
+
+## Definir nome manualmente (para casos especiais)
+func set_unit_name(name: String) -> void:
+	unit_name = name
+	# Atualizar label se já existe
+	_update_name_label_text()
+	Logger.info("Unidade %d nome definido manualmente: %s" % [unit_id, unit_name], "Unit")
+
+## Obter inicial da unidade (baseada no domínio)
+func get_unit_initial() -> String:
+	if not name_generator_ref or origin_domain_id == -1:
+		return "?"
+	
+	return name_generator_ref.get_unit_initial(unit_id)
+
+## Validar relacionamento com domínio
+func validate_domain_relationship() -> bool:
+	if not name_generator_ref or origin_domain_id == -1:
+		return false
+	
+	return name_generator_ref.validate_unit_domain_relationship(unit_id, origin_domain_id)
+
+## Verificar e consumir poder do domínio de origem
+func _check_and_consume_power() -> bool:
+	if origin_domain_id == -1:
+		Logger.warning("Unidade %d não tem domínio de origem definido" % unit_id, "Unit")
+		return false
+	
+	# Encontrar domínio de origem (precisamos de referência ao GameManager)
+	# Por enquanto, vamos assumir que o sistema de poder será verificado externamente
+	# Esta função será chamada pelo GameManager que tem acesso aos domínios
+	return true
+
+## Verificar se pode agir (tem ações e domínio tem poder)
+func can_act() -> bool:
+	return actions_remaining > 0 and origin_domain_id != -1
+
+## Obter ID do domínio de origem para verificação externa de poder
+func get_origin_domain_for_power_check() -> int:
+	return origin_domain_id
+
+# ================================================================
+# SISTEMA DE RENDERIZAÇÃO DE NOMES
+# ================================================================
+
+## Criar label do nome da unidade
+func _create_name_label(parent_node: Node) -> void:
+	if not unit_name.is_empty():
+		# Criar label usando ObjectPool
+		name_label = ObjectPool.get_object("UnitLabel", ObjectFactories.create_unit_label)
+		name_label.text = unit_name
+		name_label.add_theme_font_size_override("font_size", name_font_size)
+		name_label.z_index = 110  # Acima da unidade
+		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		name_label.visible = false  # Inicialmente invisível
+		
+		# Melhorar qualidade da renderização
+		name_label.clip_contents = false
+		name_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+		
+		# Aplicar cor do team
+		_update_name_label_color()
+		
+		parent_node.add_child(name_label)
+		Logger.debug("Label do nome criado para unidade %s" % unit_name, "Unit")
+
+## Posicionar label do nome
+func _position_name_label(star_global_position: Vector2) -> void:
+	if not name_label:
+		return
+	
+	# Posicionar na parte inferior da unidade
+	name_label.global_position = star_global_position
+	name_label.global_position.x -= name_label.size.x * 0.5  # Centralizar horizontalmente
+	name_label.global_position.y += 8  # Bem próximo da unidade
+	name_label.visible = true
+
+## Atualizar cor do label do nome
+func _update_name_label_color() -> void:
+	if name_label:
+		name_label.modulate = owner_color
+
+## Atualizar nome no label
+func _update_name_label_text() -> void:
+	if name_label and not unit_name.is_empty():
+		name_label.text = unit_name
+		# Reposicionar se a unidade já está posicionada
+		if current_star_id >= 0 and star_mapper_ref and hex_grid_ref:
+			var star_position = star_mapper_ref.get_star_position(current_star_id)
+			var global_position = hex_grid_ref.to_global(star_position)
+			_position_name_label(global_position)
