@@ -7,6 +7,9 @@ const TestEventBus = preload("res://tests/unit/test_event_bus_simple.gd")
 const TestMemoryLeaks = preload("res://tests/unit/test_memory_leaks.gd")
 const TestInterfaces = preload("res://tests/unit/test_interfaces.gd")
 const TestGameManager = preload("res://tests/unit/test_game_manager.gd")
+const TestResultSystem = preload("res://tests/unit/test_result_system.gd")
+const TestTerrainValidation = preload("res://tests/unit/test_terrain_validation.gd")
+const TestUnitMovement = preload("res://tests/unit/test_unit_movement.gd")
 const MemoryMonitor = preload("res://scripts/core/memory_monitor.gd")
 const ResourceCleanup = preload("res://scripts/core/resource_cleanup.gd")
 
@@ -81,6 +84,18 @@ func run_unit_tests() -> void:
 	
 	# Testes do GameManager com Error Handling
 	TestGameManager.run_all_tests()
+	await get_tree().process_frame
+	
+	# Testes do Sistema Result<T>
+	TestResultSystem.run_all_tests()
+	await get_tree().process_frame
+	
+	# Testes de Validação de Terreno
+	TestTerrainValidation.run_all_tests()
+	await get_tree().process_frame
+	
+	# Testes de Movimento de Unidades
+	TestUnitMovement.run_all_tests()
 	await get_tree().process_frame
 
 ## Executar testes de interfaces
