@@ -1,2 +1,2 @@
-Muito bm. Agora o que tu precisa fazer é detectar quando o mouse estiver entre duas estrelas. Esse "entre duas estrelas" é ujm losango!
-Faça com que quando o mouse estiver entre duas estrelas, ambas fiquem destacadas
+ok. Agora simplifique:
+Faça com que apenas a estrela debaixo do mouse seja destacada. Não destaque as demais

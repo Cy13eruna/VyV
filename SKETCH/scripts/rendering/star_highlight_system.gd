@@ -32,12 +32,12 @@ func setup_references(hex_grid, game_manager) -> void:
 	# Criar unidade virtual para usar sistema de locomocao
 	_create_virtual_unit()
 
-## Processar movimento do mouse usando sistema de locomocao
+## Processar movimento do mouse para destacar estrela sob cursor
 func process_mouse_movement(mouse_position: Vector2) -> void:
-	if not hex_grid_ref or not game_manager_ref or not virtual_unit:
+	if not hex_grid_ref:
 		return
 	
-	# USAR SISTEMA EXISTENTE: Detectar estrela sob cursor
+	# SIMPLES: Detectar apenas a estrela sob o cursor
 	var nearest_star_data = _get_nearest_star_under_cursor()
 	if nearest_star_data.star_id == -1:
 		# Não há estrela sob o cursor, remover highlight
@@ -45,20 +45,14 @@ func process_mouse_movement(mouse_position: Vector2) -> void:
 			_unhighlight_stars()
 		return
 	
-	# GENIAL: Tratar mouse como unidade! Posicionar unidade virtual na estrela
-	virtual_unit.current_star_id = nearest_star_data.star_id
+	# Destacar apenas a estrela sob o mouse
+	var stars_to_highlight = [nearest_star_data.star_id]
 	
-	# Usar sistema de locomocao para obter estrelas adjacentes válidas
-	var adjacent_stars = game_manager_ref.get_valid_adjacent_stars(virtual_unit)
-	
-	print("✨ HOVER: Estrela %d -> %d estrelas adjacentes: %s" % [nearest_star_data.star_id, adjacent_stars.size(), str(adjacent_stars)])
-	
-	# Destacar a estrela atual + adjacentes
-	var stars_to_highlight = [nearest_star_data.star_id] + adjacent_stars
+	print("✨ HOVER: Estrela %d sob o mouse" % nearest_star_data.star_id)
 	
 	# Se mudou o highlight, atualizar
 	if not _arrays_equal(highlighted_stars, stars_to_highlight):
-		_highlight_stars(stars_to_highlight, "adjacency_%d" % nearest_star_data.star_id)
+		_highlight_stars(stars_to_highlight, "star_%d" % nearest_star_data.star_id)
 
 ## Destacar estrelas específicas
 func _highlight_stars(star_ids: Array, diamond_id: String) -> void:
@@ -117,19 +111,25 @@ func set_highlight_radius_multiplier(multiplier: float) -> void:
 
 ## Criar unidade virtual para usar sistema de locomocao
 func _create_virtual_unit() -> void:
-	# Criar objeto simples que simula uma unidade
-	virtual_unit = {
-		"current_star_id": -1,
-		"actions_remaining": 1,  # Sempre pode "agir"
-		"origin_domain_id": -1   # Sem dominio
-	}
-	
-	# Adicionar métodos necessários
-	virtual_unit.get_current_star_id = func(): return virtual_unit.current_star_id
-	virtual_unit.can_act = func(): return true
-	virtual_unit.get_origin_domain_for_power_check = func(): return -1
+	# Criar classe simples que simula uma unidade
+	virtual_unit = VirtualUnit.new()
 	
 	print("🤖 Unidade virtual criada para sistema de locomocao")
+
+# Classe interna para simular uma unidade
+class VirtualUnit:
+	var current_star_id: int = -1
+	var actions_remaining: int = 1
+	var origin_domain_id: int = -1
+	
+	func get_current_star_id() -> int:
+		return current_star_id
+	
+	func can_act() -> bool:
+		return true
+	
+	func get_origin_domain_for_power_check() -> int:
+		return -1
 
 ## Obter estrela mais próxima sob o cursor (baseado em star_click_demo.gd)
 func _get_nearest_star_under_cursor() -> Dictionary:
