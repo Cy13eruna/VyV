@@ -11,7 +11,7 @@ var game_manager_ref = null
 # Estado do highlight
 var highlighted_stars: Array[int] = []
 var highlight_color: Color = Color.YELLOW
-var highlight_radius_multiplier: float = 1.5
+var highlight_radius_multiplier: float = 1.2  # Reduzido para círculos menores
 
 # Unidade virtual para usar sistema de locomocao
 var virtual_unit = null
@@ -32,27 +32,29 @@ func setup_references(hex_grid, game_manager) -> void:
 	# Criar unidade virtual para usar sistema de locomocao
 	_create_virtual_unit()
 
-## Processar movimento do mouse para destacar estrela sob cursor
+## Processar movimento do mouse para destacar duas estrelas mais próximas
 func process_mouse_movement(mouse_position: Vector2) -> void:
 	if not hex_grid_ref:
 		return
 	
-	# SIMPLES: Detectar apenas a estrela sob o cursor
-	var nearest_star_data = _get_nearest_star_under_cursor()
-	if nearest_star_data.star_id == -1:
-		# Não há estrela sob o cursor, remover highlight
+	# NOVO: Detectar as duas estrelas mais próximas do cursor
+	var two_nearest_stars = _get_two_nearest_stars_under_cursor()
+	if two_nearest_stars.is_empty():
+		# Não há estrelas, remover highlight
 		if not highlighted_stars.is_empty():
 			_unhighlight_stars()
 		return
 	
-	# Destacar apenas a estrela sob o mouse
-	var stars_to_highlight = [nearest_star_data.star_id]
+	# Destacar as duas estrelas mais próximas
+	var stars_to_highlight = []
+	for star_data in two_nearest_stars:
+		stars_to_highlight.append(star_data.star_id)
 	
-	print("✨ HOVER: Estrela %d sob o mouse" % nearest_star_data.star_id)
+	print("✨ HOVER: Duas estrelas mais próximas %s" % str(stars_to_highlight))
 	
 	# Se mudou o highlight, atualizar
 	if not _arrays_equal(highlighted_stars, stars_to_highlight):
-		_highlight_stars(stars_to_highlight, "star_%d" % nearest_star_data.star_id)
+		_highlight_stars(stars_to_highlight, "two_stars_%s" % str(stars_to_highlight))
 
 ## Destacar estrelas específicas
 func _highlight_stars(star_ids: Array, diamond_id: String) -> void:
@@ -131,28 +133,33 @@ class VirtualUnit:
 	func get_origin_domain_for_power_check() -> int:
 		return -1
 
-## Obter estrela mais próxima sob o cursor (baseado em star_click_demo.gd)
-func _get_nearest_star_under_cursor() -> Dictionary:
+## Obter as duas estrelas mais próximas do cursor
+func _get_two_nearest_stars_under_cursor() -> Array:
 	if not hex_grid_ref:
-		return {"star_id": -1}
+		return []
 	
 	var mouse_pos = hex_grid_ref.get_global_mouse_position()
 	var hex_grid_pos = hex_grid_ref.to_local(mouse_pos)
 	var dot_positions = hex_grid_ref.get_dot_positions()
 	
-	var closest_star = -1
-	var closest_distance = 999999.0
-	var max_distance = 30.0  # Tolerância para detectar estrela
-	
+	# Criar array de estrelas com distâncias
+	var star_distances = []
 	for i in range(dot_positions.size()):
 		var star_pos = dot_positions[i]
 		var distance = hex_grid_pos.distance_to(star_pos)
-		
-		if distance < closest_distance and distance <= max_distance:
-			closest_distance = distance
-			closest_star = i
+		star_distances.append({"star_id": i, "distance": distance})
 	
-	return {"star_id": closest_star, "distance": closest_distance}
+	# Ordenar por distância (mais próxima primeiro)
+	star_distances.sort_custom(func(a, b): return a.distance < b.distance)
+	
+	# Retornar as duas mais próximas (se existirem)
+	var result = []
+	if star_distances.size() >= 1:
+		result.append(star_distances[0])  # Primeira mais próxima
+	if star_distances.size() >= 2:
+		result.append(star_distances[1])  # Segunda mais próxima
+	
+	return result
 
 ## Verificar se dois arrays são iguais
 func _arrays_equal(array1: Array[int], array2: Array) -> bool:

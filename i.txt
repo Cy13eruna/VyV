@@ -1,2 +1,1 @@
-ok. Agora simplifique:
-Faça com que apenas a estrela debaixo do mouse seja destacada. Não destaque as demais
+Ok. Destaque ambas as estrelas: a mais próxima e a segunda mais próxima. Deixe os círculos um pouco menores também para melhor visualização
