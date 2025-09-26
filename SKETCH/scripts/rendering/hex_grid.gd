@@ -15,7 +15,9 @@ const Logger = preload("res://scripts/core/logger.gd")
 const HexGridConfig = preload("res://scripts/rendering/hex_grid_config.gd")
 const HexGridGeometry = preload("res://scripts/rendering/hex_grid_geometry.gd")
 const HexGridCache = preload("res://scripts/rendering/hex_grid_cache.gd")
-const HexGridRenderer = preload("res://scripts/rendering/hex_grid_renderer.gd")
+const SimpleHexGridRenderer = preload("res://scripts/rendering/simple_hex_grid_renderer.gd")
+const DiamondMapper = preload("res://scripts/rendering/diamond_mapper.gd")
+const StarHighlightSystem = preload("res://scripts/rendering/star_highlight_system.gd")
 
 ## Grid system events
 signal grid_initialized()
@@ -68,6 +70,8 @@ var config
 var geometry
 var cache
 var renderer
+var diamond_mapper
+var star_highlight_system
 
 ## State management
 var is_initialized: bool = false
@@ -92,12 +96,18 @@ func _ready() -> void:
 	# Initial cache build
 	cache.build_cache()
 	
+	# Map diamonds after cache is built
+	if diamond_mapper:
+		print("🔷 INICIANDO MAPEAMENTO DE LOSANGOS...")
+		diamond_mapper.map_all_diamonds()
+		diamond_mapper.print_diamond_info(3)  # Debug: mostrar primeiros 3 losangos
+	
 	is_initialized = true
 	grid_initialized.emit()
 	
 	Logger.info("Initialized successfully", "HexGrid")
 	
-	# Enable input processing for mouse wheel
+	# Enable input processing for mouse wheel and mouse movement
 	set_process_unhandled_input(true)
 
 ## Main drawing function
@@ -308,9 +318,23 @@ func _initialize_components() -> void:
 	Logger.debug("Cache created and setup", "HexGrid")
 	
 	# Create renderer
-	renderer = HexGridRenderer.new()
+	renderer = SimpleHexGridRenderer.new()
 	renderer.setup_renderer(config, cache, geometry)
-	Logger.debug("Renderer created and setup", "HexGrid")
+	Logger.debug("SimpleHexGridRenderer created and setup", "HexGrid")
+	
+	# Create diamond mapper
+	diamond_mapper = DiamondMapper.new()
+	diamond_mapper.setup_references(self, cache)
+	Logger.debug("DiamondMapper created", "HexGrid")
+	
+	# Create star highlight system
+	star_highlight_system = StarHighlightSystem.new()
+	# Nota: GameManager será configurado depois via set_game_manager_reference
+	Logger.debug("StarHighlightSystem created", "HexGrid")
+	
+	# Connect highlight system to renderer
+	if renderer and renderer.has_method("set_star_highlight_system"):
+		renderer.set_star_highlight_system(star_highlight_system)
 	
 	Logger.debug("Components initialized", "HexGrid")
 
@@ -416,8 +440,14 @@ func get_average_frame_time() -> float:
 	
 	return total / frame_times.size()
 
-## Handle input events (mouse wheel for zoom, page keys for hexagon count)
+## Handle input events (mouse wheel for zoom, page keys for hexagon count, mouse movement for highlights)
 func _unhandled_input(event: InputEvent) -> void:
+	# Handle mouse movement for star highlighting
+	if event is InputEventMouseMotion:
+		var mouse_motion = event as InputEventMouseMotion
+		if star_highlight_system:
+			star_highlight_system.process_mouse_movement(mouse_motion.global_position)
+	
 	if event is InputEventMouseButton:
 		var mouse_event = event as InputEventMouseButton
 		
@@ -444,22 +474,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					Logger.debug("Zoom out to %.1fx" % new_zoom, "HexGrid")
 					get_viewport().set_input_as_handled()
 	
-	elif event is InputEventKey:
-		var key_event = event as InputEventKey
-		
-		# Handle Page Up/Down for hexagon count
-		if key_event.pressed:
-				if key_event.keycode == KEY_PAGEUP:
-					# Increase hexagon count with spam protection
-					if _can_process_input():
-						_increase_hexagon_count()
-					get_viewport().set_input_as_handled()
-					
-				elif key_event.keycode == KEY_PAGEDOWN:
-					# Decrease hexagon count with spam protection
-					if _can_process_input():
-						_decrease_hexagon_count()
-					get_viewport().set_input_as_handled()
+	# Atalhos de teclado removidos conforme solicitado
 
 ## Center the grid on screen automatically
 func _center_grid_on_screen() -> void:
@@ -595,6 +610,12 @@ func get_hex_positions() -> Array[Vector2]:
 ## @return bool: True if grid is initialized and ready
 func is_grid_ready() -> bool:
 	return is_initialized and cache != null and cache.is_valid()
+
+## Configurar referência do GameManager para o sistema de highlight
+func set_game_manager_reference(game_manager) -> void:
+	if star_highlight_system:
+		star_highlight_system.setup_references(self, game_manager)
+		Logger.debug("GameManager configurado no StarHighlightSystem", "HexGrid")
 
 ## Rebuild the entire grid (for dynamic map system)
 func rebuild_grid() -> void:

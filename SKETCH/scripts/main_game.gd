@@ -212,6 +212,11 @@ func _step_2_map_stars() -> void:
 		var setup_result = game_manager.setup_references(hex_grid, star_mapper, self)
 		if setup_result and setup_result.is_error():
 			Logger.error("Falha ao configurar referências do GameManager: %s" % setup_result.get_error(), "MainGame")
+		
+		# IMPORTANTE: Configurar GameManager no sistema de highlight
+		if hex_grid and hex_grid.has_method("set_game_manager_reference"):
+			hex_grid.set_game_manager_reference(game_manager)
+			Logger.info("GameManager configurado no sistema de highlight", "MainGame")
 	
 	if game_manager:
 		if not game_manager.unit_created.is_connected(_on_unit_created):
@@ -298,13 +303,7 @@ func _show_names_report() -> void:
 		return
 	
 	print("\n🎮 === RELATÓRIO DO SISTEMA DE NOMES V&V ===")
-	print("📝 Pressione N para atualizar este relatório")
-	print("🔄 Pressione R para recriar labels de nomes")
-	print("🎨 Pressione A para aplicar melhorias estéticas")
-	print("⚡ Pressione P para relatório de poder")
-	print("🔄 Pressione T para produzir poder (turno)")
-	print("🔄 Pressione U para atualizar displays")
-	print("🔄 Pressione U para atualizar displays")
+	# Atalhos de teclado removidos conforme solicitado
 	
 	# Usar o relatório do GameManager
 	game_manager.print_names_report()
@@ -336,10 +335,7 @@ func _show_names_report() -> void:
 			print("   🔗 Relacionamento: %s" % ("✅ Válido" if example_unit.validate_domain_relationship() else "❌ Inválido"))
 	
 	print("\n=== FIM DO RELATÓRIO ===\n")
-	print("🔄 Pressione R para recriar labels de nomes")
-	print("🎨 Pressione A para aplicar melhorias estéticas")
-	print("⚡ Pressione P para relatório de poder")
-	print("🔄 Pressione T para produzir poder (turno)")
+	# Atalhos de teclado removidos conforme solicitado
 
 ## Comando de debug para criar domínio e unidade de teste
 func _create_test_domain_and_unit() -> void:

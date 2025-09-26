@@ -1,2 +1,2 @@
-Não está aumentando a quantidade de poder. Está paralizado em zero
-Além disso, faça com que ao spawnar o domínio já tenha 1 PODER
+Muito bm. Agora o que tu precisa fazer é detectar quando o mouse estiver entre duas estrelas. Esse "entre duas estrelas" é ujm losango!
+Faça com que quando o mouse estiver entre duas estrelas, ambas fiquem destacadas
