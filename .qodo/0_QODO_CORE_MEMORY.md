@@ -74,6 +74,9 @@
 **EDGE_LENGTH_CALC**: _get_edge_length() | calculates actual distance between adjacent points | dynamic radius
 **DOMAIN_REVELATION**: Domains reveal terrain permanently | _is_point_in_domain() | _is_edge_in_domain() | ignore fog of war
 **SEPARATE_DOMAINS**: Each player only sees own domain | _is_point_in_current_player_domain() | _is_edge_in_current_player_domain()
-**STATUS**: ATOMIC_SYSTEM_WITH_SEPARATE_DOMAINS
+**NAMING_SYSTEM**: Domain and unit names with matching initials | _generate_domain_and_unit_names() | unique initials
+**PATHS_RENAME**: Edges renamed to paths | thicker (8px) | more saturated colors | better visibility
+**DOMAIN_SELF_VISIBILITY**: Own domains always visible | _is_domain_visible() enhanced | domain entities always shown
+**STATUS**: ATOMIC_SYSTEM_WITH_ENHANCED_DOMAIN_VISIBILITY
 
 *AUTO_UPDATE_ON_MILESTONES*

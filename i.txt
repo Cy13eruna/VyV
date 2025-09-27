@@ -1,0 +1,1 @@
+Apenas um detalhe: quando uma unidade tentar atravessar uma floresta e houver uma unidade já ali oculta, ela será revelada e a unidade quetentou se mover para lá perderá sua ação
