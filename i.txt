@@ -1,1 +1,4 @@
-Agora gire o hexagono em 30 graus
+Agora adicione uma segunda unidade.
+Pinte uma unidade de vermelho e outra de violeta.
+Faça com que cada uma tenha seu turno (não poderá se mexer no turno do outro), sua visibilidade e seus pontos de ação proprios.
+Impeça que elas habitem o mesmo ponto (uma começara na esquerda e a outra na direita)

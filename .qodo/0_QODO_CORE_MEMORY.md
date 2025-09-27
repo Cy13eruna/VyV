@@ -52,6 +52,12 @@
 **ACTION_SYSTEM**: unit_actions=1 per turn | movement costs 1 action | Skip Turn button restores
 **UI_ELEMENTS**: Skip Turn button (top-right) | Actions label | _on_skip_turn_pressed() callback
 **HEXAGON_ROTATED**: 30° rotation applied | flat-top → pointy-top orientation | coordinates recalculated
-**STATUS**: ATOMIC_SYSTEM_WITH_ROTATED_HEXAGON
+**TWO_UNITS**: unit1 (red, left) + unit2 (magenta, right) | separate positions, actions, visibility
+**TURN_SYSTEM**: current_player (1|2) | only active player can move | Skip Turn switches players
+**COLLISION**: Units cannot occupy same point | position validation before movement
+**PARSE_ERROR_FIXED**: Removed obsolete _is_connected_to_unit() function | unit_position references cleaned
+**SEPARATE_VISIBILITY**: Each player only sees their own unit's visibility | _is_point_visible_to_current_unit() | _is_edge_adjacent_to_current_unit()
+**HIDDEN_UNITS**: Enemy unit only visible if on visible point | unit1_label.visible | unit2_label.visible | conditional rendering
+**STATUS**: ATOMIC_SYSTEM_WITH_HIDDEN_UNITS
 
 *AUTO_UPDATE_ON_MILESTONES*

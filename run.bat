@@ -10,7 +10,10 @@ echo Clique em pontos magentas para mover a unit
 echo Tipos de arestas: Verde (move+ve), Verde acizentado (move), Amarelo acizentado (bloqueado), Ciano acizentado (ve)
 echo Pressione ESPACO para gerar terreno aleatorio
 echo Hover em elementos nao renderizados os mostra em magenta
-echo Sistema de acoes: 1 acao por turno, botao Skip Turn restaura
+echo Duas unidades: Vermelha (esquerda) e Violeta (direita)
+echo Sistema de turnos: apenas jogador atual pode se mover
+echo Skip Turn troca jogador e restaura acoes
+echo Unidades ficam ocultas uma da outra a menos que estejam em ponto visivel
 echo.
 echo Iniciando...
 echo.
