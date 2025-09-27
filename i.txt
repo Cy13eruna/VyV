@@ -1,1 +1,1 @@
-Ok. Destaque ambas as estrelas: a mais próxima e a segunda mais próxima. Deixe os círculos um pouco menores também para melhor visualização
+Agora adicione outro triangulo. Faça com que os dois triangulos compartilhem uma aresta e dois pontos formando assim um paralelgramo

@@ -12,6 +12,9 @@ var game_manager_ref = null
 var highlighted_stars: Array[int] = []
 var highlight_color: Color = Color.YELLOW
 var highlight_radius_multiplier: float = 1.2  # Reduzido para círculos menores
+var current_midpoint: Vector2 = Vector2.ZERO
+var current_midpoint_id: String = ""
+var has_midpoint_highlight: bool = false
 
 # Unidade virtual para usar sistema de locomocao
 var virtual_unit = null
@@ -32,29 +35,59 @@ func setup_references(hex_grid, game_manager) -> void:
 	# Criar unidade virtual para usar sistema de locomocao
 	_create_virtual_unit()
 
-## Processar movimento do mouse para destacar duas estrelas mais próximas
+## SISTEMA DE DETECÇÃO DE LOSANGO: mouse_on_diamond_detection
+## Detecta quando o mouse está sobre um losango e destaca seu centro
 func process_mouse_movement(mouse_position: Vector2) -> void:
 	if not hex_grid_ref:
 		return
 	
-	# NOVO: Detectar as duas estrelas mais próximas do cursor
+	# Detectar as duas estrelas mais próximas do cursor
 	var two_nearest_stars = _get_two_nearest_stars_under_cursor()
-	if two_nearest_stars.is_empty():
-		# Não há estrelas, remover highlight
-		if not highlighted_stars.is_empty():
+	if two_nearest_stars.size() < 2:
+		# Não há duas estrelas, remover highlight
+		if has_midpoint_highlight:
 			_unhighlight_stars()
 		return
 	
-	# Destacar as duas estrelas mais próximas
-	var stars_to_highlight = []
-	for star_data in two_nearest_stars:
-		stars_to_highlight.append(star_data.star_id)
+	# Calcular ponto médio entre as duas estrelas
+	var star_a_pos = two_nearest_stars[0].position
+	var star_b_pos = two_nearest_stars[1].position
+	var midpoint = (star_a_pos + star_b_pos) / 2.0
 	
-	print("✨ HOVER: Duas estrelas mais próximas %s" % str(stars_to_highlight))
+	print("✨ HOVER: Ponto médio entre estrelas %d e %d em %s" % [two_nearest_stars[0].star_id, two_nearest_stars[1].star_id, str(midpoint)])
 	
-	# Se mudou o highlight, atualizar
-	if not _arrays_equal(highlighted_stars, stars_to_highlight):
-		_highlight_stars(stars_to_highlight, "two_stars_%s" % str(stars_to_highlight))
+	# Definir ponto médio e forçar redesenho
+	current_midpoint = midpoint
+	has_midpoint_highlight = true
+	highlighted_stars.clear()  # Limpar estrelas destacadas
+	
+	# Forçar redesenho
+	if hex_grid_ref:
+		hex_grid_ref.redraw_grid()
+
+## Adicionar estrela virtual no ponto médio
+func _add_virtual_star_at_midpoint(midpoint_pos: Vector2) -> void:
+	# Adicionar posição virtual ao hex_grid temporariamente
+	if hex_grid_ref and hex_grid_ref.has_method("add_virtual_dot"):
+		hex_grid_ref.add_virtual_dot(-1, midpoint_pos)
+	else:
+		# Fallback: armazenar localmente
+		current_midpoint = midpoint_pos
+		has_midpoint_highlight = true
+
+## Destacar ponto médio
+func _highlight_midpoint(midpoint_pos: Vector2, midpoint_id: String) -> void:
+	# Limpar highlights anteriores
+	_unhighlight_stars()
+	
+	# Definir novo ponto médio
+	current_midpoint = midpoint_pos
+	current_midpoint_id = midpoint_id
+	has_midpoint_highlight = true
+	
+	# Solicitar redesenho
+	if hex_grid_ref:
+		hex_grid_ref.redraw_grid()
 
 ## Destacar estrelas específicas
 func _highlight_stars(star_ids: Array, diamond_id: String) -> void:
@@ -69,17 +102,12 @@ func _highlight_stars(star_ids: Array, diamond_id: String) -> void:
 	if hex_grid_ref:
 		hex_grid_ref.redraw_grid()
 
-## Remover highlight das estrelas
+## Remover highlight de todas as estrelas e midpoint
 func _unhighlight_stars() -> void:
-	if highlighted_stars.is_empty():
-		return
-	
 	highlighted_stars.clear()
-	
-	# Emitir sinal
-	stars_unhighlighted.emit()
-	
-	# Forçar redesenho do grid
+	has_midpoint_highlight = false
+	current_midpoint = Vector2.ZERO
+	current_midpoint_id = ""
 	if hex_grid_ref:
 		hex_grid_ref.redraw_grid()
 
@@ -99,9 +127,20 @@ func get_highlight_radius_for_star(star_id: int, base_radius: float) -> float:
 		return base_radius * highlight_radius_multiplier
 	return base_radius
 
-## Obter estrelas atualmente destacadas
+## Obter estrelas destacadas
 func get_highlighted_stars() -> Array[int]:
 	return highlighted_stars.duplicate()
+
+## Obter ponto médio atual
+func get_current_midpoint() -> Dictionary:
+	if has_midpoint_highlight:
+		return {
+			"position": current_midpoint,
+			"id": current_midpoint_id,
+			"active": true
+		}
+	else:
+		return {"active": false}
 
 ## Definir cor de highlight
 func set_highlight_color(color: Color) -> void:
@@ -142,12 +181,16 @@ func _get_two_nearest_stars_under_cursor() -> Array:
 	var hex_grid_pos = hex_grid_ref.to_local(mouse_pos)
 	var dot_positions = hex_grid_ref.get_dot_positions()
 	
-	# Criar array de estrelas com distâncias
+	# Criar array de estrelas com distâncias e posições
 	var star_distances = []
 	for i in range(dot_positions.size()):
 		var star_pos = dot_positions[i]
 		var distance = hex_grid_pos.distance_to(star_pos)
-		star_distances.append({"star_id": i, "distance": distance})
+		star_distances.append({
+			"star_id": i, 
+			"distance": distance,
+			"position": star_pos
+		})
 	
 	# Ordenar por distância (mais próxima primeiro)
 	star_distances.sort_custom(func(a, b): return a.distance < b.distance)

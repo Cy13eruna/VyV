@@ -134,8 +134,26 @@ func _render_stars(canvas_item: CanvasItem) -> void:
 	
 	print("⭐ ESTRELAS RENDERIZADAS: %d (total: %d)" % [rendered_count, star_geometry.size()])
 	
+	# Renderizar ponto médio se ativo
+	_render_midpoint_highlight(canvas_item)
+	
 	# Atualizar terreno revelado
 	_update_revealed_terrain()
+
+## Renderizar destaque do ponto médio
+func _render_midpoint_highlight(canvas_item: CanvasItem) -> void:
+	if not star_highlight_system_ref:
+		return
+	
+	var midpoint_data = star_highlight_system_ref.get_current_midpoint()
+	if midpoint_data.get("active", false):
+		var midpoint_pos = midpoint_data.position
+		var highlight_color = Color.YELLOW
+		var highlight_radius = 8.0
+		
+		# Desenhar círculo no ponto médio
+		canvas_item.draw_circle(midpoint_pos, highlight_radius, highlight_color)
+		print("✨ RENDERER: Destacando ponto médio em %s" % str(midpoint_pos))
 
 ## Atualizar terreno revelado baseado nos elementos visíveis
 func _update_revealed_terrain() -> void:
