@@ -56,8 +56,7 @@ var skip_turn_button: Button
 var action_label: Label
 
 func _ready():
-	print("🔥 STEP 6 - RenderSystem integration...")
-	print("🎨 Testing rendering with 6 systems: GameConstants, TerrainSystem, HexGridSystem, GameManager, InputSystem, RenderSystem")
+	print("🔥 STEP 5 - InputSystem integration...")
 	print("🔥 Player 1 (RED) starts with 1 power")
 	print("🔥 Player 2 (VIOLET) starts with 1 power")
 	
@@ -90,11 +89,6 @@ func _ready():
 		InputSystem.point_clicked.connect(_on_input_point_clicked)
 		InputSystem.fog_toggle_requested.connect(_on_input_fog_toggle)
 		print("🎮 InputSystem connected and ready")
-	
-	# Initialize RenderSystem
-	if RenderSystem:
-		RenderSystem.initialize(points, hex_coords, paths)
-		print("🎨 RenderSystem initialized and ready")
 	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
@@ -140,28 +134,74 @@ func _process(_delta):
 		queue_redraw()
 
 func _draw():
-	# Use RenderSystem if available
-	if RenderSystem:
-		# Update RenderSystem state
-		var render_state = {
-			"fog_of_war": fog_of_war,
-			"current_player": current_player,
-			"hovered_point": hovered_point,
-			"hovered_edge": hovered_edge,
-			"unit1_position": unit1_position,
-			"unit2_position": unit2_position,
-			"unit1_domain_center": unit1_domain_center,
-			"unit2_domain_center": unit2_domain_center
-		}
-		RenderSystem.update_state(render_state)
-		
-		# Render using RenderSystem
-		RenderSystem.render_game(self)
-	else:
-		# Fallback to local rendering
-		_draw_fallback()
+	# Expanded white background
+	draw_rect(Rect2(-200, -200, 1200, 1000), Color.WHITE)
 	
-	# Update unit positions (always local)
+	# Draw paths (with or without fog of war)
+	for i in range(paths.size()):
+		var path = paths[i]
+		# Render based on fog of war
+		var should_render = false
+		if fog_of_war:
+			# With fog: adjacent to current player, hover OR within current player's domain
+			should_render = _is_path_adjacent_to_current_unit(path) or hovered_edge == i or _is_path_in_current_player_domain(path)
+		else:
+			# Without fog: all paths
+			should_render = true
+		
+		if should_render:
+			var path_points = path.points
+			var p1 = points[path_points[0]]
+			var p2 = points[path_points[1]]
+			var color = TerrainSystem.get_path_color(path.type) if TerrainSystem else _get_path_color(path.type)
+			if hovered_edge == i:
+				color = Color.MAGENTA
+			draw_line(p1, p2, color, 8)  # Even thicker paths
+	
+	# Draw points (with or without fog of war)
+	for i in range(points.size()):
+		var current_unit_pos = unit1_position if current_player == 1 else unit2_position
+		var enemy_unit_pos = unit2_position if current_player == 1 else unit1_position
+		
+		var should_render = false
+		
+		if fog_of_war:
+			# With fog: render based on visibility
+			# Always render current player's unit
+			if i == current_unit_pos:
+				should_render = true
+			# Render enemy unit only if it's on a visible point
+			elif i == enemy_unit_pos and _is_point_visible_to_current_unit(i):
+				should_render = true
+			# Render points visible to current player
+			elif _is_point_visible_to_current_unit(i):
+				should_render = true
+			# Render points on hover
+			elif hovered_point == i:
+				should_render = true
+			# Render points within current player's domain
+			elif _is_point_in_current_player_domain(i):
+				should_render = true
+		else:
+			# Without fog: render all points
+			should_render = true
+		
+		if should_render:
+			var color = Color.BLACK
+			
+			# Magenta if hovering
+			if hovered_point == i:
+				color = Color.MAGENTA
+			# Magenta if current unit can move there
+			elif _can_current_unit_move_to_point(i):
+				color = Color.MAGENTA
+			
+			draw_circle(points[i], 8, color)
+	
+	# Draw domains
+	_draw_domains()
+	
+	# Update unit positions
 	_update_units_visibility_and_position()
 
 ## Input handling for unit movement and terrain generation
@@ -271,75 +311,6 @@ func _handle_input_fallback(event: InputEvent) -> void:
 		if event.keycode == KEY_SPACE:
 			_on_input_fog_toggle()
 			get_viewport().set_input_as_handled()
-
-## Fallback rendering function
-func _draw_fallback() -> void:
-	# Expanded white background
-	draw_rect(Rect2(-200, -200, 1200, 1000), Color.WHITE)
-	
-	# Draw paths (with or without fog of war)
-	for i in range(paths.size()):
-		var path = paths[i]
-		# Render based on fog of war
-		var should_render = false
-		if fog_of_war:
-			# With fog: adjacent to current player, hover OR within current player's domain
-			should_render = _is_path_adjacent_to_current_unit(path) or hovered_edge == i or _is_path_in_current_player_domain(path)
-		else:
-			# Without fog: all paths
-			should_render = true
-		
-		if should_render:
-			var path_points = path.points
-			var p1 = points[path_points[0]]
-			var p2 = points[path_points[1]]
-			var color = TerrainSystem.get_path_color(path.type) if TerrainSystem else _get_path_color(path.type)
-			if hovered_edge == i:
-				color = Color.MAGENTA
-			draw_line(p1, p2, color, 8)  # Even thicker paths
-	
-	# Draw points (with or without fog of war)
-	for i in range(points.size()):
-		var current_unit_pos = unit1_position if current_player == 1 else unit2_position
-		var enemy_unit_pos = unit2_position if current_player == 1 else unit1_position
-		
-		var should_render = false
-		
-		if fog_of_war:
-			# With fog: render based on visibility
-			# Always render current player's unit
-			if i == current_unit_pos:
-				should_render = true
-			# Render enemy unit only if it's on a visible point
-			elif i == enemy_unit_pos and _is_point_visible_to_current_unit(i):
-				should_render = true
-			# Render points visible to current player
-			elif _is_point_visible_to_current_unit(i):
-				should_render = true
-			# Render points on hover
-			elif hovered_point == i:
-				should_render = true
-			# Render points within current player's domain
-			elif _is_point_in_current_player_domain(i):
-				should_render = true
-		else:
-			# Without fog: render all points
-			should_render = true
-		
-		if should_render:
-			var color = Color.BLACK
-			
-			# Magenta if hovering
-			if hovered_point == i:
-				color = Color.MAGENTA
-			# Magenta if current unit can move there
-			elif _can_current_unit_move_to_point(i):
-				color = Color.MAGENTA
-			
-			draw_circle(points[i], 8, color)
-	
-	# Draw domains
-	_draw_domains()
 
 func _point_near_line(point, line_start, line_end, tolerance):
 	var line_vec = line_end - line_start
