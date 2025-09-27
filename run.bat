@@ -16,6 +16,7 @@ echo Duas unidades: Vermelha e Violeta (emojis coloridos, spawn oficial em ponto
 echo Dominios hexagonais: contorno grosso, raio=distancia real entre pontos, revelam terreno
 echo Propriedades de dominio: 7 pontos + 12 paths sempre visiveis para o dono, dominio sempre visivel
 echo Paths engrossados para 8px para melhor visibilidade
+echo Mecanica de floresta: unidades ocultas sao reveladas ao tentar atravessar floresta, acao perdida
 echo Sistema de turnos: apenas jogador atual pode se mover
 echo Skip Turn troca jogador e restaura acoes
 echo Unidades ficam ocultas uma da outra a menos que estejam em ponto visivel

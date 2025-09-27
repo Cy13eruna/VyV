@@ -186,24 +186,31 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Verificar clique em pontos
 		for i in range(points.size()):
 			if mouse_pos.distance_to(points[i]) < 20:
-				# Verificar se ponto está ocupado
-				if i == unit1_position or i == unit2_position:
-					print("❌ Ponto %d já está ocupado!" % i)
-					return
-				
 				# Se clicou em ponto que a unit atual pode se mover, verificar ações
 				if _can_current_unit_move_to_point(i):
 					var current_actions = unit1_actions if current_player == 1 else unit2_actions
 					if current_actions > 0:
-						var old_pos = unit1_position if current_player == 1 else unit2_position
-						print("🚶🏻‍♀️ Unit %d movendo do ponto %d para ponto %d (Ações: %d → %d)" % [current_player, old_pos, i, current_actions, current_actions - 1])
+						# Verificar se há unidade oculta no destino
+						var movement_result = _attempt_movement(i)
 						
-						if current_player == 1:
-							unit1_position = i
-							unit1_actions -= 1
+						if movement_result.success:
+							var old_pos = unit1_position if current_player == 1 else unit2_position
+							print("🚶🏻‍♀️ Unit %d movendo do ponto %d para ponto %d (Ações: %d → %d)" % [current_player, old_pos, i, current_actions, current_actions - 1])
+							
+							if current_player == 1:
+								unit1_position = i
+								unit1_actions -= 1
+							else:
+								unit2_position = i
+								unit2_actions -= 1
 						else:
-							unit2_position = i
-							unit2_actions -= 1
+							# Movimento falhou devido a unidade oculta
+							print("⚠️ Movimento bloqueado! %s" % movement_result.message)
+							# Perder ação mesmo assim
+							if current_player == 1:
+								unit1_actions -= 1
+							else:
+								unit2_actions -= 1
 						
 						_update_units_visibility_and_position()
 						_update_action_display()
@@ -286,6 +293,51 @@ func _is_point_visible_to_unit(point_index: int, unit_pos: int) -> bool:
 			if path.type == EdgeType.FIELD or path.type == EdgeType.WATER:
 				return true
 	return false
+
+## Tentar movimento e verificar unidades ocultas
+func _attempt_movement(target_point: int) -> Dictionary:
+	# Verificar se há unidade inimiga no ponto de destino
+	var enemy_unit_pos = unit2_position if current_player == 1 else unit1_position
+	var current_unit_pos = unit1_position if current_player == 1 else unit2_position
+	
+	# Se a unidade inimiga está no ponto de destino
+	if enemy_unit_pos == target_point:
+		# Verificar se o movimento é através de floresta
+		var path_type = _get_path_type_between_points(current_unit_pos, target_point)
+		
+		# Verificar se a unidade inimiga estava oculta (não visível)
+		var enemy_was_visible = false
+		if current_player == 1:
+			enemy_was_visible = unit2_label.visible
+		else:
+			enemy_was_visible = unit1_label.visible
+		
+		if path_type == EdgeType.FOREST and not enemy_was_visible:
+			# Revelar a unidade inimiga na floresta
+			print("🔍 Unidade inimiga revelada na floresta!")
+			# Forçar visibilidade da unidade inimiga
+			if current_player == 1:
+				unit2_label.visible = true
+			else:
+				unit1_label.visible = true
+			return {"success": false, "message": "Unidade inimiga descoberta na floresta! Movimento cancelado."}
+		else:
+			# Movimento bloqueado por unidade visível ou terreno não-floresta
+			return {"success": false, "message": "Ponto ocupado por unidade inimiga."}
+	
+	# Movimento bem-sucedido
+	return {"success": true, "message": ""}
+
+## Obter tipo de path entre dois pontos
+func _get_path_type_between_points(point1: int, point2: int) -> EdgeType:
+	for path in paths:
+		var path_points = path.points
+		if (path_points[0] == point1 and path_points[1] == point2) or \
+		   (path_points[1] == point1 and path_points[0] == point2):
+			return path.type
+	
+	# Se não encontrar path, retornar MOUNTAIN (bloqueado)
+	return EdgeType.MOUNTAIN
 
 ## Verificar se ponto está dentro do domínio do jogador atual
 func _is_point_in_current_player_domain(point_index: int) -> bool:

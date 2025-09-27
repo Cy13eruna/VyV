@@ -77,6 +77,7 @@
 **NAMING_SYSTEM**: Domain and unit names with matching initials | _generate_domain_and_unit_names() | unique initials
 **PATHS_RENAME**: Edges renamed to paths | thicker (8px) | more saturated colors | better visibility
 **DOMAIN_SELF_VISIBILITY**: Own domains always visible | _is_domain_visible() enhanced | domain entities always shown
-**STATUS**: ATOMIC_SYSTEM_WITH_ENHANCED_DOMAIN_VISIBILITY
+**FOREST_MECHANICS**: Hidden unit revelation in forest | _attempt_movement() fixed | uses label visibility | action lost on discovery
+**STATUS**: ATOMIC_SYSTEM_WITH_FIXED_FOREST_MECHANICS
 
 *AUTO_UPDATE_ON_MILESTONES*
