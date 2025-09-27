@@ -43,6 +43,8 @@
 **ATOMIC_ENTITIES**: POINTS + EDGES only | triangles = organization_method not entity
 **ARCHITECTURE**: points=vertices | edges=connections | triangles=grouping_concept
 **UNIT_MOVEMENT**: Click on magenta_connected_points to move unit | _unhandled_input() | validation via _is_connected_to_unit()
-**STATUS**: ATOMIC_SYSTEM_WITH_MOVEMENT
+**FOG_OF_WAR**: Only points+edges adjacent to unit are rendered | _is_edge_adjacent_to_unit() | conditional rendering
+**TERMINOLOGY**: emoji → unit | unidade terminology established
+**STATUS**: ATOMIC_SYSTEM_WITH_FOG_OF_WAR
 
 *AUTO_UPDATE_ON_MILESTONES*

@@ -33,14 +33,14 @@ var edges = [
 var hovered_point = -1
 var hovered_edge = -1
 
-# Emoji da unidade
-var unit_position = 0  # Índice do ponto onde está a unidade
+# Unit (unidade)
+var unit_position = 0  # Índice do ponto onde está a unit
 var unit_label: Label
 
 func _ready():
 	print("Hexágono equilátero com 7 pontos e 12 arestas criado")
 	
-	# Criar label para o emoji
+	# Criar label para a unit
 	unit_label = Label.new()
 	unit_label.text = "🚶🏻‍♀️"
 	unit_label.add_theme_font_size_override("font_size", 24)
@@ -76,26 +76,30 @@ func _draw():
 	# Fundo branco
 	draw_rect(Rect2(0, 0, 800, 600), Color.WHITE)
 	
-	# Desenhar arestas
+	# Desenhar apenas arestas adjacentes à unit
 	for i in range(edges.size()):
 		var edge = edges[i]
-		var p1 = points[edge[0]]
-		var p2 = points[edge[1]]
-		var color = Color.MAGENTA if hovered_edge == i else Color.BLACK
-		draw_line(p1, p2, color, 3)
+		# Só renderizar se a aresta está conectada à unit
+		if _is_edge_adjacent_to_unit(edge):
+			var p1 = points[edge[0]]
+			var p2 = points[edge[1]]
+			var color = Color.MAGENTA if hovered_edge == i else Color.BLACK
+			draw_line(p1, p2, color, 3)
 	
-	# Desenhar pontos
+	# Desenhar apenas pontos adjacentes à unit
 	for i in range(points.size()):
-		var color = Color.BLACK
-		
-		# Magenta se estiver em hover
-		if hovered_point == i:
-			color = Color.MAGENTA
-		# Magenta se estiver conectado ao emoji por uma aresta
-		elif _is_connected_to_unit(i):
-			color = Color.MAGENTA
-		
-		draw_circle(points[i], 8, color)
+		# Só renderizar se o ponto é a unit ou está conectado à unit
+		if i == unit_position or _is_connected_to_unit(i):
+			var color = Color.BLACK
+			
+			# Magenta se estiver em hover
+			if hovered_point == i:
+				color = Color.MAGENTA
+			# Magenta se estiver conectado à unit por uma aresta
+			elif _is_connected_to_unit(i):
+				color = Color.MAGENTA
+			
+			draw_circle(points[i], 8, color)
 	
 	# Atualizar posição da unidade
 	_update_unit_position()
@@ -108,16 +112,16 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Verificar clique em pontos
 		for i in range(points.size()):
 			if mouse_pos.distance_to(points[i]) < 20:
-				# Se clicou em ponto conectado à unidade, mover unidade para lá
+				# Se clicou em ponto conectado à unit, mover unit para lá
 				if _is_connected_to_unit(i):
-					print("🚶🏻‍♀️ Movendo unidade do ponto %d para ponto %d" % [unit_position, i])
+					print("🚶🏻‍♀️ Movendo unit do ponto %d para ponto %d" % [unit_position, i])
 					unit_position = i
 					_update_unit_position()
 					queue_redraw()
 					get_viewport().set_input_as_handled()
 					return
 				else:
-					print("❌ Ponto %d não está conectado à unidade" % i)
+					print("❌ Ponto %d não está conectado à unit" % i)
 
 func _point_near_line(point, line_start, line_end, tolerance):
 	var line_vec = line_end - line_start
@@ -147,7 +151,12 @@ func _is_connected_to_unit(point_index: int) -> bool:
 	
 	return false
 
-## Atualizar posição do emoji da unidade
+## Verificar se aresta é adjacente à unit
+func _is_edge_adjacent_to_unit(edge: Array) -> bool:
+	# Aresta é adjacente se um dos pontos é a unit
+	return edge[0] == unit_position or edge[1] == unit_position
+
+## Atualizar posição da unit
 func _update_unit_position():
 	if unit_label:
 		var unit_pos = points[unit_position]
