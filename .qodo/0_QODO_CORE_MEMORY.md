@@ -47,6 +47,10 @@
 **TERMINOLOGY**: emoji → unit | unidade terminology established
 **EDGE_TYPES**: GREEN (move+see) | GREEN_GRAY (move only) | YELLOW_GRAY (blocked) | CYAN_GRAY (see only)
 **VISIBILITY_SYSTEM**: _is_point_visible_to_unit() | _can_unit_move_to_point() | type-based permissions
-**STATUS**: ATOMIC_SYSTEM_WITH_EDGE_TYPES
+**RANDOM_TERRAIN**: SPACE key generates random edge types | _generate_random_terrain() | randi() % 4
+**HOVER_SYSTEM**: Non-rendered elements show magenta on hover | exploration preview
+**ACTION_SYSTEM**: unit_actions=1 per turn | movement costs 1 action | Skip Turn button restores
+**UI_ELEMENTS**: Skip Turn button (top-right) | Actions label | _on_skip_turn_pressed() callback
+**STATUS**: ATOMIC_SYSTEM_WITH_ACTION_POINTS
 
 *AUTO_UPDATE_ON_MILESTONES*

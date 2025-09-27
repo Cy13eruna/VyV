@@ -1,5 +1,2 @@
-Agora crie quatro tipos de arestas que influenciarão a capacidade da unidade se mover e ver o ponto que ela separa.
-Verde: aresta padrão que já está criada
-Verde acizentado: não renderiza o ponto, porém permite que a unidade se mova para lá
-Amarelo acizentado: não permite que a unidade veja ou e mova para o ponto 
-Ciano acizentado: permite  unidade ver o ponto, mas não pode se mover para lá
+Agora faça com que a unidade tenha uma pontuação chamada 'action' (ação) que sera igual a 1. Para andar, a unidade gastará esse ponto.
+Adicione um botão flutuante no canto superior direito escrito 'skip turn' que quando eu clicar nele a unidade restaurará seu ponto de ação (não cumulativo. todo turno resetará para 1)

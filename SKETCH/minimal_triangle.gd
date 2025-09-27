@@ -44,6 +44,11 @@ var hovered_edge = -1
 # Unit (unidade)
 var unit_position = 0  # Índice do ponto onde está a unit
 var unit_label: Label
+var unit_actions = 1   # Pontos de ação da unit
+
+# UI
+var skip_turn_button: Button
+var action_label: Label
 
 func _ready():
 	print("Hexágono equilátero com 7 pontos e 12 arestas criado")
@@ -56,29 +61,31 @@ func _ready():
 	
 	# Posicionar label no ponto inicial
 	_update_unit_position()
+	
+	# Criar UI
+	_create_ui()
 
 func _process(_delta):
 	var mouse_pos = get_global_mouse_position()
 	
-	# Verificar hover em pontos
+	# Verificar hover em pontos (incluindo não renderizados)
 	hovered_point = -1
 	for i in range(points.size()):
 		if mouse_pos.distance_to(points[i]) < 20:
 			hovered_point = i
 			break
 	
-	# Verificar hover em arestas (só se não estiver em ponto)
+	# Verificar hover em arestas (incluindo não renderizadas)
 	hovered_edge = -1
 	if hovered_point == -1:
-			for i in range(edges.size()):
-				var edge = edges[i]
-				if _is_edge_adjacent_to_unit(edge):
-					var edge_points = edge.points
-					var p1 = points[edge_points[0]]
-					var p2 = points[edge_points[1]]
-					if _point_near_line(mouse_pos, p1, p2, 10):
-						hovered_edge = i
-						break
+		for i in range(edges.size()):
+			var edge = edges[i]
+			var edge_points = edge.points
+			var p1 = points[edge_points[0]]
+			var p2 = points[edge_points[1]]
+			if _point_near_line(mouse_pos, p1, p2, 10):
+				hovered_edge = i
+				break
 	
 	queue_redraw()
 
@@ -86,11 +93,11 @@ func _draw():
 	# Fundo branco
 	draw_rect(Rect2(0, 0, 800, 600), Color.WHITE)
 	
-	# Desenhar apenas arestas adjacentes à unit
+	# Desenhar arestas (adjacentes + hover)
 	for i in range(edges.size()):
 		var edge = edges[i]
-		# Só renderizar se a aresta está conectada à unit
-		if _is_edge_adjacent_to_unit(edge):
+		# Renderizar se adjacente à unit OU em hover
+		if _is_edge_adjacent_to_unit(edge) or hovered_edge == i:
 			var edge_points = edge.points
 			var p1 = points[edge_points[0]]
 			var p2 = points[edge_points[1]]
@@ -99,10 +106,10 @@ func _draw():
 				color = Color.MAGENTA
 			draw_line(p1, p2, color, 3)
 	
-	# Desenhar apenas pontos visíveis à unit
+	# Desenhar pontos (visíveis + hover)
 	for i in range(points.size()):
-		# Só renderizar se o ponto é a unit ou é visível à unit
-		if i == unit_position or _is_point_visible_to_unit(i):
+		# Renderizar se é a unit, visível à unit OU em hover
+		if i == unit_position or _is_point_visible_to_unit(i) or hovered_point == i:
 			var color = Color.BLACK
 			
 			# Magenta se estiver em hover
@@ -117,7 +124,7 @@ func _draw():
 	# Atualizar posição da unidade
 	_update_unit_position()
 
-## Input handling para movimento da unidade
+## Input handling para movimento da unidade e geração de terreno
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var mouse_pos = get_global_mouse_position()
@@ -125,16 +132,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Verificar clique em pontos
 		for i in range(points.size()):
 			if mouse_pos.distance_to(points[i]) < 20:
-				# Se clicou em ponto que a unit pode se mover, mover unit para lá
+				# Se clicou em ponto que a unit pode se mover, verificar ações
 				if _can_unit_move_to_point(i):
-					print("🚶🏻‍♀️ Movendo unit do ponto %d para ponto %d" % [unit_position, i])
-					unit_position = i
-					_update_unit_position()
-					queue_redraw()
-					get_viewport().set_input_as_handled()
-					return
+					if unit_actions > 0:
+						print("🚶🏻‍♀️ Movendo unit do ponto %d para ponto %d (Ações: %d → %d)" % [unit_position, i, unit_actions, unit_actions - 1])
+						unit_position = i
+						unit_actions -= 1
+						_update_unit_position()
+						_update_action_display()
+						queue_redraw()
+						get_viewport().set_input_as_handled()
+						return
+					else:
+						print("❌ Sem ações restantes! Use 'Skip Turn' para restaurar.")
 				else:
 					print("❌ Unit não pode se mover para ponto %d" % i)
+	
+	elif event is InputEventKey and event.pressed:
+		if event.keycode == KEY_SPACE:
+			# Gerar terreno aleatório
+			_generate_random_terrain()
+			queue_redraw()
+			get_viewport().set_input_as_handled()
 
 func _point_near_line(point, line_start, line_end, tolerance):
 	var line_vec = line_end - line_start
@@ -211,6 +230,54 @@ func _can_unit_move_to_point(point_index: int) -> bool:
 			if edge.type == EdgeType.GREEN or edge.type == EdgeType.GREEN_GRAY:
 				return true
 	return false
+
+## Gerar terreno aleatório
+func _generate_random_terrain() -> void:
+	print("🌍 Gerando terreno aleatório...")
+	
+	# Gerar tipo aleatório para cada aresta
+	for i in range(edges.size()):
+		var random_type = randi() % 4  # 0-3
+		match random_type:
+			0:
+				edges[i].type = EdgeType.GREEN
+			1:
+				edges[i].type = EdgeType.GREEN_GRAY
+			2:
+				edges[i].type = EdgeType.YELLOW_GRAY
+			3:
+				edges[i].type = EdgeType.CYAN_GRAY
+	
+	print("✨ Terreno aleatório gerado! Pressione ESPAÇO novamente para regenerar.")
+
+## Criar interface do usuário
+func _create_ui() -> void:
+	# Botão Skip Turn
+	skip_turn_button = Button.new()
+	skip_turn_button.text = "Skip Turn"
+	skip_turn_button.size = Vector2(100, 40)
+	skip_turn_button.position = Vector2(680, 20)  # Canto superior direito
+	skip_turn_button.pressed.connect(_on_skip_turn_pressed)
+	add_child(skip_turn_button)
+	
+	# Label de ações
+	action_label = Label.new()
+	action_label.text = "Ações: 1"
+	action_label.position = Vector2(680, 70)
+	action_label.add_theme_font_size_override("font_size", 16)
+	add_child(action_label)
+
+## Callback do botão Skip Turn
+func _on_skip_turn_pressed() -> void:
+	print("⏭️ Pulando turno - Ações restauradas!")
+	unit_actions = 1
+	_update_action_display()
+	queue_redraw()
+
+## Atualizar display de ações
+func _update_action_display() -> void:
+	if action_label:
+		action_label.text = "Ações: %d" % unit_actions
 
 ## Atualizar posição da unit
 func _update_unit_position():
