@@ -100,6 +100,25 @@ func _draw():
 	# Atualizar posição da unidade
 	_update_unit_position()
 
+## Input handling para movimento da unidade
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var mouse_pos = get_global_mouse_position()
+		
+		# Verificar clique em pontos
+		for i in range(points.size()):
+			if mouse_pos.distance_to(points[i]) < 20:
+				# Se clicou em ponto conectado à unidade, mover unidade para lá
+				if _is_connected_to_unit(i):
+					print("🚶🏻‍♀️ Movendo unidade do ponto %d para ponto %d" % [unit_position, i])
+					unit_position = i
+					_update_unit_position()
+					queue_redraw()
+					get_viewport().set_input_as_handled()
+					return
+				else:
+					print("❌ Ponto %d não está conectado à unidade" % i)
+
 func _point_near_line(point, line_start, line_end, tolerance):
 	var line_vec = line_end - line_start
 	var point_vec = point - line_start

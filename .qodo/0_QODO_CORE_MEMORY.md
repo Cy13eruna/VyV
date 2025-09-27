@@ -42,6 +42,7 @@
 **STRUCTURE**: center_point_0 + 6_vertices | radius=150 | perfect_geometry
 **ATOMIC_ENTITIES**: POINTS + EDGES only | triangles = organization_method not entity
 **ARCHITECTURE**: points=vertices | edges=connections | triangles=grouping_concept
-**STATUS**: ATOMIC_SYSTEM_ESTABLISHED
+**UNIT_MOVEMENT**: Click on magenta_connected_points to move unit | _unhandled_input() | validation via _is_connected_to_unit()
+**STATUS**: ATOMIC_SYSTEM_WITH_MOVEMENT
 
 *AUTO_UPDATE_ON_MILESTONES*

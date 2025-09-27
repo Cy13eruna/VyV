@@ -1,1 +1,2 @@
-Como podes ver a entidade atomica do nosso sistema são pontos e arestas. Triangulo não será mais uma entidade mas sim um método de organização de pontos e arestas
+A partir de agora o emoji se chamará unit (unidade)
+Apenas arestas e pontos adjacentes a unidade serão renderizados. Os outros não serão gerados até que a unidade esteja adjacente a eles

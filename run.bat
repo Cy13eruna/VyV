@@ -6,6 +6,7 @@ echo.
 echo === HEXAGONO EQUILATERO ===
 echo 7 pontos e 12 arestas
 echo Hover sobre pontos e arestas para destaque magenta
+echo Clique em pontos magentas para mover a unidade
 echo.
 echo Iniciando...
 echo.
