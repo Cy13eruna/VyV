@@ -1,2 +1,0 @@
-Ótimo. Agora antes de iniciarmos a refatoração, crie uma nova regra em sua memória: apenas escreva em inglês dentro de SKETCH. Nada em português ou qualquer outra língua!
-Depois, incie uma varredura linha por linha do diretorio SKETCH traduzindo TUDO para inglês

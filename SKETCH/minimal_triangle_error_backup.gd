@@ -1,18 +1,17 @@
 extends Node2D
 
+# Import required systems and constants
+const GameConstants = preload("res://data/constants.gd")
+const TerrainSystem = preload("res://systems/terrain_system.gd")
+
 # Expanded hexagonal grid (37 points: radius 3)
 var points = []
 var hex_coords = []  # Axial coordinates (q, r) for each point
 var hex_size = 40.0  # Hexagon size
 var hex_center = Vector2(400, 300)  # Grid center
 
-# Terrain types (edges) - temporarily back to local enum
-enum EdgeType {
-	FIELD,          # Green: field (move + see) - 6/12
-	FOREST,         # Grayish green: forest (move but don't see) - 2/12
-	MOUNTAIN,       # Grayish yellow: mountain (don't move or see) - 2/12
-	WATER           # Grayish cyan: water (see but don't move) - 2/12
-}
+# Import terrain system
+# Note: EdgeType enum now in GameConstants
 
 # Paths of the hexagonal grid (generated dynamically)
 var paths = []
@@ -65,10 +64,7 @@ func _ready():
 	_set_initial_unit_positions()
 	
 	# Generate random terrain automatically using TerrainSystem
-	if TerrainSystem:
-		TerrainSystem.generate_random_terrain(paths)
-	else:
-		_generate_random_terrain()
+	TerrainSystem.generate_random_terrain(paths)
 	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
@@ -138,7 +134,7 @@ func _draw():
 			var path_points = path.points
 			var p1 = points[path_points[0]]
 			var p2 = points[path_points[1]]
-			var color = TerrainSystem.get_path_color(path.type) if TerrainSystem else _get_path_color(path.type)
+			var color = TerrainSystem.get_path_color(path.type)
 			if hovered_edge == i:
 				color = Color.MAGENTA
 			draw_line(p1, p2, color, 8)  # Even thicker paths
@@ -265,19 +261,7 @@ func _point_near_line(point, line_start, line_end, tolerance):
 	var closest_point = line_start + t * line_vec
 	return point.distance_to(closest_point) <= tolerance
 
-## Get path color based on type (more saturated colors)
-func _get_path_color(path_type: EdgeType) -> Color:
-	match path_type:
-		EdgeType.FIELD:
-			return Color.GREEN          # Green: field
-		EdgeType.FOREST:
-			return Color(0.2, 0.7, 0.2) # More saturated green: forest
-		EdgeType.MOUNTAIN:
-			return Color(0.7, 0.7, 0.2) # More saturated yellow: mountain
-		EdgeType.WATER:
-			return Color(0.2, 0.7, 0.7) # More saturated cyan: water
-		_:
-			return Color.BLACK
+# Path color function moved to TerrainSystem
 
 ## Check if path is adjacent to current player
 func _is_path_adjacent_to_current_unit(path: Dictionary) -> bool:
@@ -310,9 +294,7 @@ func _is_point_visible_to_unit(point_index: int, unit_pos: int) -> bool:
 		if (path_points[0] == unit_pos and path_points[1] == point_index) or \
 		   (path_points[1] == unit_pos and path_points[0] == point_index):
 			# Field and Water allow seeing
-			var field_type = GameConstants.EdgeType.FIELD if GameConstants else EdgeType.FIELD
-			var water_type = GameConstants.EdgeType.WATER if GameConstants else EdgeType.WATER
-			if path.type == field_type or path.type == water_type:
+			if path.type == GameConstants.EdgeType.FIELD or path.type == GameConstants.EdgeType.WATER:
 				return true
 	return false
 
@@ -334,8 +316,7 @@ func _attempt_movement(target_point: int) -> Dictionary:
 		else:
 			enemy_was_visible = unit1_label.visible
 		
-		var forest_type = GameConstants.EdgeType.FOREST if GameConstants else EdgeType.FOREST
-		if path_type == forest_type and not enemy_was_visible:
+		if path_type == GameConstants.EdgeType.FOREST and not enemy_was_visible:
 			# Reveal enemy unit in forest
 			print("🔍 Enemy unit revealed in forest!")
 			# Mark enemy unit as forcefully revealed
@@ -352,7 +333,7 @@ func _attempt_movement(target_point: int) -> Dictionary:
 	return {"success": true, "message": ""}
 
 ## Get path type between two points
-func _get_path_type_between_points(point1: int, point2: int) -> EdgeType:
+func _get_path_type_between_points(point1: int, point2: int) -> GameConstants.EdgeType:
 	for path in paths:
 		var path_points = path.points
 		if (path_points[0] == point1 and path_points[1] == point2) or \
@@ -360,8 +341,7 @@ func _get_path_type_between_points(point1: int, point2: int) -> EdgeType:
 			return path.type
 	
 	# If no path found, return MOUNTAIN (blocked)
-	var mountain_type = GameConstants.EdgeType.MOUNTAIN if GameConstants else EdgeType.MOUNTAIN
-	return mountain_type
+	return GameConstants.EdgeType.MOUNTAIN
 
 ## Check if domain has power for action
 func _has_domain_power_for_action() -> bool:
@@ -490,39 +470,11 @@ func _can_unit_move_to_point(point_index: int, unit_pos: int) -> bool:
 		if (path_points[0] == unit_pos and path_points[1] == point_index) or \
 		   (path_points[1] == unit_pos and path_points[0] == point_index):
 			# Field and Forest allow movement
-			var field_type = GameConstants.EdgeType.FIELD if GameConstants else EdgeType.FIELD
-			var forest_type = GameConstants.EdgeType.FOREST if GameConstants else EdgeType.FOREST
-			if path.type == field_type or path.type == forest_type:
+			if path.type == GameConstants.EdgeType.FIELD or path.type == GameConstants.EdgeType.FOREST:
 				return true
 	return false
 
-## Generate random terrain with proportions
-func _generate_random_terrain() -> void:
-	print("🌍 Generating random terrain...")
-	
-	# Create pool of types based on proportions
-	var terrain_pool = []
-	# Field: 6/12 (50%)
-	for i in range(6):
-		terrain_pool.append(EdgeType.FIELD)
-	# Forest: 2/12 (16.7%)
-	for i in range(2):
-		terrain_pool.append(EdgeType.FOREST)
-	# Water: 2/12 (16.7%)
-	for i in range(2):
-		terrain_pool.append(EdgeType.WATER)
-	# Mountain: 2/12 (16.7%)
-	for i in range(2):
-		terrain_pool.append(EdgeType.MOUNTAIN)
-	
-	# Shuffle and apply to paths
-	terrain_pool.shuffle()
-	for i in range(paths.size()):
-		var pool_index = i % terrain_pool.size()
-		paths[i].type = terrain_pool[pool_index]
-	
-	print("✨ Random terrain generated! Field: 50%, Forest/Water/Mountain: 16.7% each")
-	print("Press SPACE again to regenerate.")
+# Random terrain generation moved to TerrainSystem
 
 ## Get outer points (radius 3)
 func _get_outer_points() -> Array[int]:
@@ -601,8 +553,7 @@ func _generate_hex_paths() -> void:
 				var path_id = "%d_%d" % [min(i, neighbor_index), max(i, neighbor_index)]
 				
 				if not path_set.has(path_id):
-					var field_type = GameConstants.EdgeType.FIELD if GameConstants else EdgeType.FIELD
-					paths.append({"points": [i, neighbor_index], "type": field_type})
+					paths.append({"points": [i, neighbor_index], "type": GameConstants.EdgeType.FIELD})
 					path_set[path_id] = true
 
 ## Find hexagonal coordinate index

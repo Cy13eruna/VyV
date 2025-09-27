@@ -4,6 +4,11 @@ config/name="Triangular System V&V"
 run/main_scene="res://minimal_triangle.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
 
+[autoload]
+
+GameConstants="*res://data/constants.gd"
+TerrainSystem="*res://systems/terrain_system.gd"
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

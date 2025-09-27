@@ -138,7 +138,7 @@ func _draw():
 			var path_points = path.points
 			var p1 = points[path_points[0]]
 			var p2 = points[path_points[1]]
-			var color = TerrainSystem.get_path_color(path.type) if TerrainSystem else _get_path_color(path.type)
+			var color = _get_path_color(path.type)
 			if hovered_edge == i:
 				color = Color.MAGENTA
 			draw_line(p1, p2, color, 8)  # Even thicker paths
@@ -310,9 +310,7 @@ func _is_point_visible_to_unit(point_index: int, unit_pos: int) -> bool:
 		if (path_points[0] == unit_pos and path_points[1] == point_index) or \
 		   (path_points[1] == unit_pos and path_points[0] == point_index):
 			# Field and Water allow seeing
-			var field_type = GameConstants.EdgeType.FIELD if GameConstants else EdgeType.FIELD
-			var water_type = GameConstants.EdgeType.WATER if GameConstants else EdgeType.WATER
-			if path.type == field_type or path.type == water_type:
+			if path.type == EdgeType.FIELD or path.type == EdgeType.WATER:
 				return true
 	return false
 
@@ -334,8 +332,7 @@ func _attempt_movement(target_point: int) -> Dictionary:
 		else:
 			enemy_was_visible = unit1_label.visible
 		
-		var forest_type = GameConstants.EdgeType.FOREST if GameConstants else EdgeType.FOREST
-		if path_type == forest_type and not enemy_was_visible:
+		if path_type == EdgeType.FOREST and not enemy_was_visible:
 			# Reveal enemy unit in forest
 			print("🔍 Enemy unit revealed in forest!")
 			# Mark enemy unit as forcefully revealed
@@ -360,8 +357,7 @@ func _get_path_type_between_points(point1: int, point2: int) -> EdgeType:
 			return path.type
 	
 	# If no path found, return MOUNTAIN (blocked)
-	var mountain_type = GameConstants.EdgeType.MOUNTAIN if GameConstants else EdgeType.MOUNTAIN
-	return mountain_type
+	return EdgeType.MOUNTAIN
 
 ## Check if domain has power for action
 func _has_domain_power_for_action() -> bool:
@@ -490,9 +486,7 @@ func _can_unit_move_to_point(point_index: int, unit_pos: int) -> bool:
 		if (path_points[0] == unit_pos and path_points[1] == point_index) or \
 		   (path_points[1] == unit_pos and path_points[0] == point_index):
 			# Field and Forest allow movement
-			var field_type = GameConstants.EdgeType.FIELD if GameConstants else EdgeType.FIELD
-			var forest_type = GameConstants.EdgeType.FOREST if GameConstants else EdgeType.FOREST
-			if path.type == field_type or path.type == forest_type:
+			if path.type == EdgeType.FIELD or path.type == EdgeType.FOREST:
 				return true
 	return false
 
@@ -601,8 +595,7 @@ func _generate_hex_paths() -> void:
 				var path_id = "%d_%d" % [min(i, neighbor_index), max(i, neighbor_index)]
 				
 				if not path_set.has(path_id):
-					var field_type = GameConstants.EdgeType.FIELD if GameConstants else EdgeType.FIELD
-					paths.append({"points": [i, neighbor_index], "type": field_type})
+					paths.append({"points": [i, neighbor_index], "type": EdgeType.FIELD})
 					path_set[path_id] = true
 
 ## Find hexagonal coordinate index
