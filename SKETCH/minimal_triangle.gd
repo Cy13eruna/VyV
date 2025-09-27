@@ -11,22 +11,30 @@ var points = [
 	Vector2(270, 125)                     # 6: Topo esquerdo
 ]
 
-# Arestas do hexágono equilátero (12 arestas: 6 perímetro + 6 radiais)
+# Tipos de arestas
+enum EdgeType {
+	GREEN,          # Verde: padrão (move + vê)
+	GREEN_GRAY,     # Verde acizentado: move mas não vê
+	YELLOW_GRAY,    # Amarelo acizentado: não move nem vê
+	CYAN_GRAY       # Ciano acizentado: vê mas não move
+}
+
+# Arestas do hexágono com tipos (12 arestas: 6 perímetro + 6 radiais)
 var edges = [
 	# Perímetro do hexágono (6 arestas)
-	[1, 2],  # Topo -> Topo direito
-	[2, 3],  # Topo direito -> Inferior direito
-	[3, 4],  # Inferior direito -> Inferior
-	[4, 5],  # Inferior -> Inferior esquerdo
-	[5, 6],  # Inferior esquerdo -> Topo esquerdo
-	[6, 1],  # Topo esquerdo -> Topo
+	{"points": [1, 2], "type": EdgeType.GREEN},      # Topo -> Topo direito
+	{"points": [2, 3], "type": EdgeType.GREEN_GRAY}, # Topo direito -> Inferior direito
+	{"points": [3, 4], "type": EdgeType.YELLOW_GRAY},# Inferior direito -> Inferior
+	{"points": [4, 5], "type": EdgeType.CYAN_GRAY},  # Inferior -> Inferior esquerdo
+	{"points": [5, 6], "type": EdgeType.GREEN},      # Inferior esquerdo -> Topo esquerdo
+	{"points": [6, 1], "type": EdgeType.GREEN_GRAY}, # Topo esquerdo -> Topo
 	# Arestas radiais do centro (6 arestas)
-	[0, 1],  # Centro -> Topo
-	[0, 2],  # Centro -> Topo direito
-	[0, 3],  # Centro -> Inferior direito
-	[0, 4],  # Centro -> Inferior
-	[0, 5],  # Centro -> Inferior esquerdo
-	[0, 6]   # Centro -> Topo esquerdo
+	{"points": [0, 1], "type": EdgeType.GREEN},      # Centro -> Topo
+	{"points": [0, 2], "type": EdgeType.GREEN_GRAY}, # Centro -> Topo direito
+	{"points": [0, 3], "type": EdgeType.YELLOW_GRAY},# Centro -> Inferior direito
+	{"points": [0, 4], "type": EdgeType.CYAN_GRAY},  # Centro -> Inferior
+	{"points": [0, 5], "type": EdgeType.GREEN},      # Centro -> Inferior esquerdo
+	{"points": [0, 6], "type": EdgeType.GREEN_GRAY}  # Centro -> Topo esquerdo
 ]
 
 # Estado do hover
@@ -62,13 +70,15 @@ func _process(_delta):
 	# Verificar hover em arestas (só se não estiver em ponto)
 	hovered_edge = -1
 	if hovered_point == -1:
-		for i in range(edges.size()):
-			var edge = edges[i]
-			var p1 = points[edge[0]]
-			var p2 = points[edge[1]]
-			if _point_near_line(mouse_pos, p1, p2, 10):
-				hovered_edge = i
-				break
+			for i in range(edges.size()):
+				var edge = edges[i]
+				if _is_edge_adjacent_to_unit(edge):
+					var edge_points = edge.points
+					var p1 = points[edge_points[0]]
+					var p2 = points[edge_points[1]]
+					if _point_near_line(mouse_pos, p1, p2, 10):
+						hovered_edge = i
+						break
 	
 	queue_redraw()
 
@@ -81,22 +91,25 @@ func _draw():
 		var edge = edges[i]
 		# Só renderizar se a aresta está conectada à unit
 		if _is_edge_adjacent_to_unit(edge):
-			var p1 = points[edge[0]]
-			var p2 = points[edge[1]]
-			var color = Color.MAGENTA if hovered_edge == i else Color.BLACK
+			var edge_points = edge.points
+			var p1 = points[edge_points[0]]
+			var p2 = points[edge_points[1]]
+			var color = _get_edge_color(edge.type)
+			if hovered_edge == i:
+				color = Color.MAGENTA
 			draw_line(p1, p2, color, 3)
 	
-	# Desenhar apenas pontos adjacentes à unit
+	# Desenhar apenas pontos visíveis à unit
 	for i in range(points.size()):
-		# Só renderizar se o ponto é a unit ou está conectado à unit
-		if i == unit_position or _is_connected_to_unit(i):
+		# Só renderizar se o ponto é a unit ou é visível à unit
+		if i == unit_position or _is_point_visible_to_unit(i):
 			var color = Color.BLACK
 			
 			# Magenta se estiver em hover
 			if hovered_point == i:
 				color = Color.MAGENTA
-			# Magenta se estiver conectado à unit por uma aresta
-			elif _is_connected_to_unit(i):
+			# Magenta se estiver conectado à unit e puder se mover
+			elif _can_unit_move_to_point(i):
 				color = Color.MAGENTA
 			
 			draw_circle(points[i], 8, color)
@@ -112,8 +125,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		# Verificar clique em pontos
 		for i in range(points.size()):
 			if mouse_pos.distance_to(points[i]) < 20:
-				# Se clicou em ponto conectado à unit, mover unit para lá
-				if _is_connected_to_unit(i):
+				# Se clicou em ponto que a unit pode se mover, mover unit para lá
+				if _can_unit_move_to_point(i):
 					print("🚶🏻‍♀️ Movendo unit do ponto %d para ponto %d" % [unit_position, i])
 					unit_position = i
 					_update_unit_position()
@@ -121,7 +134,7 @@ func _unhandled_input(event: InputEvent) -> void:
 					get_viewport().set_input_as_handled()
 					return
 				else:
-					print("❌ Ponto %d não está conectado à unit" % i)
+					print("❌ Unit não pode se mover para ponto %d" % i)
 
 func _point_near_line(point, line_start, line_end, tolerance):
 	var line_vec = line_end - line_start
@@ -151,10 +164,53 @@ func _is_connected_to_unit(point_index: int) -> bool:
 	
 	return false
 
+## Obter cor da aresta baseada no tipo
+func _get_edge_color(edge_type: EdgeType) -> Color:
+	match edge_type:
+		EdgeType.GREEN:
+			return Color.GREEN
+		EdgeType.GREEN_GRAY:
+			return Color(0.5, 0.7, 0.5)  # Verde acizentado
+		EdgeType.YELLOW_GRAY:
+			return Color(0.7, 0.7, 0.5)  # Amarelo acizentado
+		EdgeType.CYAN_GRAY:
+			return Color(0.5, 0.7, 0.7)  # Ciano acizentado
+		_:
+			return Color.BLACK
+
 ## Verificar se aresta é adjacente à unit
-func _is_edge_adjacent_to_unit(edge: Array) -> bool:
+func _is_edge_adjacent_to_unit(edge: Dictionary) -> bool:
 	# Aresta é adjacente se um dos pontos é a unit
-	return edge[0] == unit_position or edge[1] == unit_position
+	var edge_points = edge.points
+	return edge_points[0] == unit_position or edge_points[1] == unit_position
+
+## Verificar se ponto é visível à unit
+func _is_point_visible_to_unit(point_index: int) -> bool:
+	# Verificar se existe aresta que permite visibilidade
+	for edge in edges:
+		var edge_points = edge.points
+		if (edge_points[0] == unit_position and edge_points[1] == point_index) or \
+		   (edge_points[1] == unit_position and edge_points[0] == point_index):
+			# Verde e Ciano permitem ver
+			if edge.type == EdgeType.GREEN or edge.type == EdgeType.CYAN_GRAY:
+				return true
+	return false
+
+## Verificar se unit pode se mover para o ponto
+func _can_unit_move_to_point(point_index: int) -> bool:
+	# Não pode mover para si mesmo
+	if point_index == unit_position:
+		return false
+	
+	# Verificar se existe aresta que permite movimento
+	for edge in edges:
+		var edge_points = edge.points
+		if (edge_points[0] == unit_position and edge_points[1] == point_index) or \
+		   (edge_points[1] == unit_position and edge_points[0] == point_index):
+			# Verde e Verde acizentado permitem mover
+			if edge.type == EdgeType.GREEN or edge.type == EdgeType.GREEN_GRAY:
+				return true
+	return false
 
 ## Atualizar posição da unit
 func _update_unit_position():

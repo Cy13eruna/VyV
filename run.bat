@@ -7,7 +7,7 @@ echo === HEXAGONO EQUILATERO ===
 echo 7 pontos e 12 arestas
 echo Hover sobre pontos e arestas para destaque magenta
 echo Clique em pontos magentas para mover a unit
-echo Apenas pontos e arestas adjacentes a unit sao renderizados
+echo Tipos de arestas: Verde (move+ve), Verde acizentado (move), Amarelo acizentado (bloqueado), Ciano acizentado (ve)
 echo.
 echo Iniciando...
 echo.

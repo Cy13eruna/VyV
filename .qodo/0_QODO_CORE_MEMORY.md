@@ -45,6 +45,8 @@
 **UNIT_MOVEMENT**: Click on magenta_connected_points to move unit | _unhandled_input() | validation via _is_connected_to_unit()
 **FOG_OF_WAR**: Only points+edges adjacent to unit are rendered | _is_edge_adjacent_to_unit() | conditional rendering
 **TERMINOLOGY**: emoji → unit | unidade terminology established
-**STATUS**: ATOMIC_SYSTEM_WITH_FOG_OF_WAR
+**EDGE_TYPES**: GREEN (move+see) | GREEN_GRAY (move only) | YELLOW_GRAY (blocked) | CYAN_GRAY (see only)
+**VISIBILITY_SYSTEM**: _is_point_visible_to_unit() | _can_unit_move_to_point() | type-based permissions
+**STATUS**: ATOMIC_SYSTEM_WITH_EDGE_TYPES
 
 *AUTO_UPDATE_ON_MILESTONES*
