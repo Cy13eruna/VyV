@@ -56,8 +56,8 @@ var skip_turn_button: Button
 var action_label: Label
 
 func _ready():
-	print("🔥 STEP 7 - UISystem integration (FOG OF WAR FIXED)...")
-	print("💻 Testing UI with 7 systems: GameConstants, TerrainSystem, HexGridSystem, GameManager, InputSystem, RenderSystem, UISystem")
+	print("🔥 STEP 6 - RenderSystem integration...")
+	print("🎨 Testing rendering with 6 systems: GameConstants, TerrainSystem, HexGridSystem, GameManager, InputSystem, RenderSystem")
 	print("🔥 Player 1 (RED) starts with 1 power")
 	print("🔥 Player 2 (VIOLET) starts with 1 power")
 	
@@ -96,44 +96,29 @@ func _ready():
 		RenderSystem.initialize(points, hex_coords, paths)
 		print("🎨 RenderSystem initialized and ready")
 	
-	# Initialize UISystem
-	if UISystem:
-		UISystem.initialize(self, points)
-		UISystem.skip_turn_requested.connect(_on_ui_skip_turn)
-		print("💻 UISystem initialized and ready")
-	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
-	# Create UI elements using UISystem or fallback
-	if UISystem:
-		# Set names first
-		UISystem.set_names(unit1_name, unit2_name, unit1_domain_name, unit2_domain_name)
-		# Create all UI elements
-		UISystem.create_ui_elements()
-		# Get references to UI elements
-		var ui_elements = UISystem.get_ui_elements()
-		unit1_label = ui_elements.unit1_label
-		unit2_label = ui_elements.unit2_label
-		unit1_name_label = ui_elements.unit1_name_label
-		unit2_name_label = ui_elements.unit2_name_label
-		unit1_domain_label = ui_elements.unit1_domain_label
-		unit2_domain_label = ui_elements.unit2_domain_label
-		skip_turn_button = ui_elements.skip_turn_button
-		action_label = ui_elements.action_label
-	else:
-		# Fallback to local UI creation
-		_create_ui_fallback()
+	# Create labels for the units
+	unit1_label = Label.new()
+	unit1_label.text = "🚶🏻‍♀️"  # Walking person emoji
+	unit1_label.add_theme_font_size_override("font_size", 24)
+	unit1_label.modulate = Color(1.0, 0.0, 0.0)  # Red using modulate
+	add_child(unit1_label)
+	
+	unit2_label = Label.new()
+	unit2_label.text = "🚶🏻‍♀️"  # Walking person emoji
+	unit2_label.add_theme_font_size_override("font_size", 24)
+	unit2_label.modulate = Color(0.5, 0.0, 0.8)  # Violet using modulate
+	add_child(unit2_label)
 	
 	# Mark map corners
 	_mark_map_corners()
 	
-	# Update UI positions and visibility
-	if UISystem:
-		_update_ui_system_state()
-		UISystem.update_ui()
-	else:
-		_update_units_visibility_and_position()
-		_create_ui()
+	# Position labels at initial points
+	_update_units_visibility_and_position()
+	
+	# Create UI
+	_create_ui()
 	
 	print("🔥 FIXED VERSION - Game ready! Current player: %d" % current_player)
 
@@ -176,12 +161,8 @@ func _draw():
 		# Fallback to local rendering
 		_draw_fallback()
 	
-	# Update UI positions and visibility
-	if UISystem:
-		_update_ui_system_state()
-		UISystem.update_ui()
-	else:
-		_update_units_visibility_and_position()
+	# Update unit positions (always local)
+	_update_units_visibility_and_position()
 
 ## Input handling for unit movement and terrain generation
 func _unhandled_input(event: InputEvent) -> void:
@@ -233,12 +214,8 @@ func _on_input_point_clicked(point_index: int) -> void:
 				else:
 					unit2_actions -= 1
 			
-			if UISystem:
-				_update_ui_system_state()
-				UISystem.update_ui()
-			else:
-				_update_units_visibility_and_position()
-				_update_action_display()
+			_update_units_visibility_and_position()
+			_update_action_display()
 			queue_redraw()
 		else:
 			print("❌ No actions remaining! Use 'Skip Turn' to restore.")
@@ -257,30 +234,6 @@ func _on_input_fog_toggle() -> void:
 		var fog_status = "ENABLED" if fog_of_war else "DISABLED"
 		print("🌫️ Fog of War %s" % fog_status)
 	queue_redraw()
-
-## UISystem signal callback
-func _on_ui_skip_turn() -> void:
-	print("💻 UISystem: Skip Turn requested")
-	_on_skip_turn_pressed()
-
-## Update UISystem state
-func _update_ui_system_state() -> void:
-	if UISystem:
-		var ui_state = {
-			"current_player": current_player,
-			"unit1_actions": unit1_actions,
-			"unit2_actions": unit2_actions,
-			"unit1_domain_power": unit1_domain_power,
-			"unit2_domain_power": unit2_domain_power,
-			"fog_of_war": fog_of_war,
-			"unit1_position": unit1_position,
-			"unit2_position": unit2_position,
-			"unit1_domain_center": unit1_domain_center,
-			"unit2_domain_center": unit2_domain_center,
-			"unit1_force_revealed": unit1_force_revealed,
-			"unit2_force_revealed": unit2_force_revealed
-		}
-		UISystem.update_game_state(ui_state)
 
 ## Fallback functions for when systems are not available
 func _process_hover_fallback(mouse_pos: Vector2) -> void:
@@ -387,27 +340,6 @@ func _draw_fallback() -> void:
 	
 	# Draw domains
 	_draw_domains()
-
-## Fallback UI creation
-func _create_ui_fallback() -> void:
-	# Create labels for the units
-	unit1_label = Label.new()
-	unit1_label.text = "🚶🏻‍♀️"  # Walking person emoji
-	unit1_label.add_theme_font_size_override("font_size", 24)
-	unit1_label.modulate = Color(1.0, 0.0, 0.0)  # Red using modulate
-	add_child(unit1_label)
-	
-	unit2_label = Label.new()
-	unit2_label.text = "🚶🏻‍♀️"  # Walking person emoji
-	unit2_label.add_theme_font_size_override("font_size", 24)
-	unit2_label.modulate = Color(0.5, 0.0, 0.8)  # Violet using modulate
-	add_child(unit2_label)
-	
-	# Create name labels
-	_create_name_labels()
-	
-	# Create UI
-	_create_ui()
 
 func _point_near_line(point, line_start, line_end, tolerance):
 	var line_vec = line_end - line_start
@@ -992,11 +924,7 @@ func _on_skip_turn_pressed() -> void:
 	# NOW generate power for the NEW current player
 	_generate_power_for_current_player_only()
 	
-	if UISystem:
-		_update_ui_system_state()
-		UISystem.update_ui()
-	else:
-		_update_action_display()
+	_update_action_display()
 	queue_redraw()
 
 ## Update action display
