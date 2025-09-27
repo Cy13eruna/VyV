@@ -58,6 +58,22 @@
 **PARSE_ERROR_FIXED**: Removed obsolete _is_connected_to_unit() function | unit_position references cleaned
 **SEPARATE_VISIBILITY**: Each player only sees their own unit's visibility | _is_point_visible_to_current_unit() | _is_edge_adjacent_to_current_unit()
 **HIDDEN_UNITS**: Enemy unit only visible if on visible point | unit1_label.visible | unit2_label.visible | conditional rendering
-**STATUS**: ATOMIC_SYSTEM_WITH_HIDDEN_UNITS
+**EXPANDED_HEX_GRID**: 37 points | diameter 7 | radius 3 | axial coordinates | _generate_hex_grid()
+**AUTO_TERRAIN**: Random terrain generated on startup | _generate_random_terrain() in _ready()
+**TERRAIN_TYPES**: FIELD (50%) | FOREST (16.7%) | WATER (16.7%) | MOUNTAIN (16.7%) | proper proportions
+**OFFICIAL_SPAWN**: Units spawn at adjacent 6-edge points | _find_adjacent_six_edge_point() | precise positioning | official spawn system
+**PARSE_ERROR_FIXED**: Indentation error in _is_point_visible_to_unit() corrected | line 247
+**TYPE_ERROR_FIXED**: Array type annotation in _get_outer_points() | var outer_points: Array[int] = []
+**COLORED_UNITS**: Red and Violet emojis 🚶🏻‍♀️ | modulate property for coloring | Color(1.0, 0.0, 0.0) + Color(0.5, 0.0, 0.8)
+**MAP_CORNERS**: Six corner detection by edge count | points with exactly 3 edges | no longer highlighted | _get_map_corners()
+**FOG_TOGGLE**: SPACE key toggles fog_of_war | debug mode shows all points/edges | conditional rendering
+**BOARD_ROTATION**: 60° rotation applied to entire hexagonal grid | _hex_to_pixel() modified | PI/3 radians
+**VISUAL_IMPROVEMENTS**: Saturated colors (30% more) | thicker edges (width=5) | better visibility
+**DOMAIN_SYSTEM**: Hexagonal domains at spawn points | radius=real edge distance | thick outlines (4px) | fog of war coverage
+**DOMAIN_VISIBILITY**: _is_domain_visible() | center + adjacent points check | conditional rendering
+**EDGE_LENGTH_CALC**: _get_edge_length() | calculates actual distance between adjacent points | dynamic radius
+**DOMAIN_REVELATION**: Domains reveal terrain permanently | _is_point_in_domain() | _is_edge_in_domain() | ignore fog of war
+**SEPARATE_DOMAINS**: Each player only sees own domain | _is_point_in_current_player_domain() | _is_edge_in_current_player_domain()
+**STATUS**: ATOMIC_SYSTEM_WITH_SEPARATE_DOMAINS
 
 *AUTO_UPDATE_ON_MILESTONES*

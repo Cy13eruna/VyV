@@ -1,74 +1,73 @@
 extends Node2D
 
-# Pontos do hexágono equilátero girado 30° (7 pontos: 6 vértices + 1 centro)
-var points = [
-	Vector2(400, 200),                    # 0: Centro
-	Vector2(530, 200),                    # 1: Direita
-	Vector2(465, 312.5),                  # 2: Inferior direito
-	Vector2(335, 312.5),                  # 3: Inferior esquerdo
-	Vector2(270, 200),                    # 4: Esquerda
-	Vector2(335, 87.5),                   # 5: Superior esquerdo
-	Vector2(465, 87.5)                    # 6: Superior direito
-]
+# Malha hexagonal expandida (37 pontos: raio 3)
+var points = []
+var hex_coords = []  # Coordenadas axiais (q, r) para cada ponto
+var hex_size = 40.0  # Tamanho do hexágono
+var hex_center = Vector2(400, 300)  # Centro da malha
 
-# Tipos de arestas
+# Tipos de terreno (arestas)
 enum EdgeType {
-	GREEN,          # Verde: padrão (move + vê)
-	GREEN_GRAY,     # Verde acizentado: move mas não vê
-	YELLOW_GRAY,    # Amarelo acizentado: não move nem vê
-	CYAN_GRAY       # Ciano acizentado: vê mas não move
+	FIELD,          # Verde: field (move + vê) - 6/12
+	FOREST,         # Verde acizentado: forest (move mas não vê) - 2/12
+	MOUNTAIN,       # Amarelo acizentado: mountain (não move nem vê) - 2/12
+	WATER           # Ciano acizentado: water (vê mas não move) - 2/12
 }
 
-# Arestas do hexágono girado com tipos (12 arestas: 6 perímetro + 6 radiais)
-var edges = [
-	# Perímetro do hexágono (6 arestas)
-	{"points": [1, 2], "type": EdgeType.GREEN},      # Direita -> Inferior direito
-	{"points": [2, 3], "type": EdgeType.GREEN_GRAY}, # Inferior direito -> Inferior esquerdo
-	{"points": [3, 4], "type": EdgeType.YELLOW_GRAY},# Inferior esquerdo -> Esquerda
-	{"points": [4, 5], "type": EdgeType.CYAN_GRAY},  # Esquerda -> Superior esquerdo
-	{"points": [5, 6], "type": EdgeType.GREEN},      # Superior esquerdo -> Superior direito
-	{"points": [6, 1], "type": EdgeType.GREEN_GRAY}, # Superior direito -> Direita
-	# Arestas radiais do centro (6 arestas)
-	{"points": [0, 1], "type": EdgeType.GREEN},      # Centro -> Direita
-	{"points": [0, 2], "type": EdgeType.GREEN_GRAY}, # Centro -> Inferior direito
-	{"points": [0, 3], "type": EdgeType.YELLOW_GRAY},# Centro -> Inferior esquerdo
-	{"points": [0, 4], "type": EdgeType.CYAN_GRAY},  # Centro -> Esquerda
-	{"points": [0, 5], "type": EdgeType.GREEN},      # Centro -> Superior esquerdo
-	{"points": [0, 6], "type": EdgeType.GREEN_GRAY}  # Centro -> Superior direito
-]
+# Arestas da malha hexagonal (geradas dinamicamente)
+var edges = []
 
 # Estado do hover
 var hovered_point = -1
 var hovered_edge = -1
 
-# Units (unidades)
-var unit1_position = 4  # Índice do ponto onde está a unit 1 (esquerda)
-var unit2_position = 1  # Índice do ponto onde está a unit 2 (direita)
+# Units (unidades) - serão definidas após gerar a malha
+var unit1_position = 0  # Índice do ponto onde está a unit 1
+var unit2_position = 0  # Índice do ponto onde está a unit 2
 var unit1_label: Label
 var unit2_label: Label
 var unit1_actions = 1   # Pontos de ação da unit 1
 var unit2_actions = 1   # Pontos de ação da unit 2
 var current_player = 1  # Jogador atual (1 ou 2)
+var fog_of_war = true   # Controle da fog of war
+
+# Domains (domínios)
+var unit1_domain_center = 0  # Centro do domínio da unit 1
+var unit2_domain_center = 0  # Centro do domínio da unit 2
 
 # UI
 var skip_turn_button: Button
 var action_label: Label
 
 func _ready():
-	print("Hexágono equilátero com 7 pontos e 12 arestas criado")
+	print("Gerando malha hexagonal expandida...")
+	
+	# Gerar malha hexagonal
+	_generate_hex_grid()
+	
+	# Definir posições iniciais das unidades
+	_set_initial_unit_positions()
+	
+	# Gerar terreno aleatório automaticamente
+	_generate_random_terrain()
+	
+	print("Malha hexagonal criada: %d pontos, %d arestas" % [points.size(), edges.size()])
 	
 	# Criar labels para as units
 	unit1_label = Label.new()
-	unit1_label.text = "🚶🏻‍♀️"
+	unit1_label.text = "🚶🏻‍♀️"  # Emoji de pessoa caminhando
 	unit1_label.add_theme_font_size_override("font_size", 24)
-	unit1_label.add_theme_color_override("font_color", Color.RED)
+	unit1_label.modulate = Color(1.0, 0.0, 0.0)  # Vermelho usando modulate
 	add_child(unit1_label)
 	
 	unit2_label = Label.new()
-	unit2_label.text = "🚶🏻‍♀️"
+	unit2_label.text = "🚶🏻‍♀️"  # Emoji de pessoa caminhando
 	unit2_label.add_theme_font_size_override("font_size", 24)
-	unit2_label.add_theme_color_override("font_color", Color.MAGENTA)
+	unit2_label.modulate = Color(0.5, 0.0, 0.8)  # Violeta usando modulate
 	add_child(unit2_label)
+	
+	# Marcar pontas do mapa
+	_mark_map_corners()
 	
 	# Posicionar labels nos pontos iniciais
 	_update_units_visibility_and_position()
@@ -104,38 +103,53 @@ func _draw():
 	# Fundo branco
 	draw_rect(Rect2(0, 0, 800, 600), Color.WHITE)
 	
-	# Desenhar arestas (adjacentes ao jogador atual + hover)
+	# Desenhar arestas (com ou sem fog of war)
 	for i in range(edges.size()):
 		var edge = edges[i]
-		# Renderizar se adjacente ao jogador atual OU em hover
-		if _is_edge_adjacent_to_current_unit(edge) or hovered_edge == i:
+		# Renderizar baseado na fog of war
+		var should_render = false
+		if fog_of_war:
+			# Com fog: adjacentes ao jogador atual, hover OU dentro do domínio do jogador atual
+			should_render = _is_edge_adjacent_to_current_unit(edge) or hovered_edge == i or _is_edge_in_current_player_domain(edge)
+		else:
+			# Sem fog: todas as arestas
+			should_render = true
+		
+		if should_render:
 			var edge_points = edge.points
 			var p1 = points[edge_points[0]]
 			var p2 = points[edge_points[1]]
 			var color = _get_edge_color(edge.type)
 			if hovered_edge == i:
 				color = Color.MAGENTA
-			draw_line(p1, p2, color, 3)
+			draw_line(p1, p2, color, 5)  # Arestas mais grossas
 	
-	# Desenhar pontos (visíveis ao jogador atual + hover)
+	# Desenhar pontos (com ou sem fog of war)
 	for i in range(points.size()):
-		# Renderizar se é a unit atual, visível ao jogador atual OU em hover
 		var current_unit_pos = unit1_position if current_player == 1 else unit2_position
 		var enemy_unit_pos = unit2_position if current_player == 1 else unit1_position
 		
 		var should_render = false
 		
-		# Sempre renderizar a unit do jogador atual
-		if i == current_unit_pos:
-			should_render = true
-		# Renderizar unit inimiga apenas se estiver em ponto visível
-		elif i == enemy_unit_pos and _is_point_visible_to_current_unit(i):
-			should_render = true
-		# Renderizar pontos visíveis ao jogador atual
-		elif _is_point_visible_to_current_unit(i):
-			should_render = true
-		# Renderizar pontos em hover
-		elif hovered_point == i:
+		if fog_of_war:
+			# Com fog: renderizar baseado na visibilidade
+			# Sempre renderizar a unit do jogador atual
+			if i == current_unit_pos:
+				should_render = true
+			# Renderizar unit inimiga apenas se estiver em ponto visível
+			elif i == enemy_unit_pos and _is_point_visible_to_current_unit(i):
+				should_render = true
+			# Renderizar pontos visíveis ao jogador atual
+			elif _is_point_visible_to_current_unit(i):
+				should_render = true
+			# Renderizar pontos em hover
+			elif hovered_point == i:
+				should_render = true
+			# Renderizar pontos dentro do domínio do jogador atual
+			elif _is_point_in_current_player_domain(i):
+				should_render = true
+		else:
+			# Sem fog: renderizar todos os pontos
 			should_render = true
 		
 		if should_render:
@@ -149,6 +163,9 @@ func _draw():
 				color = Color.MAGENTA
 			
 			draw_circle(points[i], 8, color)
+	
+	# Desenhar domínios
+	_draw_domains()
 	
 	# Atualizar posição das unidades
 	_update_units_visibility_and_position()
@@ -192,8 +209,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_SPACE:
-			# Gerar terreno aleatório
-			_generate_random_terrain()
+			# Alternar fog of war
+			fog_of_war = not fog_of_war
+			var fog_status = "ATIVADA" if fog_of_war else "DESATIVADA"
+			print("🌫️ Fog of War %s" % fog_status)
 			queue_redraw()
 			get_viewport().set_input_as_handled()
 
@@ -211,17 +230,17 @@ func _point_near_line(point, line_start, line_end, tolerance):
 	var closest_point = line_start + t * line_vec
 	return point.distance_to(closest_point) <= tolerance
 
-## Obter cor da aresta baseada no tipo
+## Obter cor do terreno baseada no tipo (cores saturadas)
 func _get_edge_color(edge_type: EdgeType) -> Color:
 	match edge_type:
-		EdgeType.GREEN:
-			return Color.GREEN
-		EdgeType.GREEN_GRAY:
-			return Color(0.5, 0.7, 0.5)  # Verde acizentado
-		EdgeType.YELLOW_GRAY:
-			return Color(0.7, 0.7, 0.5)  # Amarelo acizentado
-		EdgeType.CYAN_GRAY:
-			return Color(0.5, 0.7, 0.7)  # Ciano acizentado
+		EdgeType.FIELD:
+			return Color.GREEN          # Verde: field
+		EdgeType.FOREST:
+			return Color(0.3, 0.6, 0.3) # Verde mais saturado: forest
+		EdgeType.MOUNTAIN:
+			return Color(0.6, 0.6, 0.3) # Amarelo mais saturado: mountain
+		EdgeType.WATER:
+			return Color(0.3, 0.6, 0.6) # Ciano mais saturado: water
 		_:
 			return Color.BLACK
 
@@ -255,9 +274,68 @@ func _is_point_visible_to_unit(point_index: int, unit_pos: int) -> bool:
 		var edge_points = edge.points
 		if (edge_points[0] == unit_pos and edge_points[1] == point_index) or \
 		   (edge_points[1] == unit_pos and edge_points[0] == point_index):
-			# Verde e Ciano permitem ver
-			if edge.type == EdgeType.GREEN or edge.type == EdgeType.CYAN_GRAY:
+			# Field e Water permitem ver
+			if edge.type == EdgeType.FIELD or edge.type == EdgeType.WATER:
 				return true
+	return false
+
+## Verificar se ponto está dentro do domínio do jogador atual
+func _is_point_in_current_player_domain(point_index: int) -> bool:
+	var domain_center = unit1_domain_center if current_player == 1 else unit2_domain_center
+	return _is_point_in_specific_domain(point_index, domain_center)
+
+## Verificar se aresta está dentro do domínio do jogador atual
+func _is_edge_in_current_player_domain(edge: Dictionary) -> bool:
+	var domain_center = unit1_domain_center if current_player == 1 else unit2_domain_center
+	var point1 = edge.points[0]
+	var point2 = edge.points[1]
+	
+	# Aresta está no domínio se ambos os pontos estiverem no domínio do jogador atual
+	return _is_point_in_specific_domain(point1, domain_center) and _is_point_in_specific_domain(point2, domain_center)
+
+## Verificar se ponto está dentro de algum domínio
+func _is_point_in_domain(point_index: int) -> bool:
+	# Verificar se o ponto está dentro do domínio da unit 1
+	if _is_point_in_specific_domain(point_index, unit1_domain_center):
+		return true
+	
+	# Verificar se o ponto está dentro do domínio da unit 2
+	if _is_point_in_specific_domain(point_index, unit2_domain_center):
+		return true
+	
+	return false
+
+## Verificar se ponto está dentro de um domínio específico
+func _is_point_in_specific_domain(point_index: int, domain_center: int) -> bool:
+	# O ponto está no domínio se for o centro ou um dos 6 vizinhos
+	if point_index == domain_center:
+		return true
+	
+	# Verificar se é um dos 6 pontos ao redor do centro
+	var domain_coord = hex_coords[domain_center]
+	var point_coord = hex_coords[point_index]
+	
+	for dir in range(6):
+		var neighbor_coord = domain_coord + _hex_direction(dir)
+		if point_coord.is_equal_approx(neighbor_coord):
+			return true
+	
+	return false
+
+## Verificar se aresta está dentro de algum domínio
+func _is_edge_in_domain(edge: Dictionary) -> bool:
+	# Aresta está no domínio se ambos os pontos estiverem no domínio
+	var point1 = edge.points[0]
+	var point2 = edge.points[1]
+	
+	# Verificar domínio da unit 1
+	if _is_point_in_specific_domain(point1, unit1_domain_center) and _is_point_in_specific_domain(point2, unit1_domain_center):
+		return true
+	
+	# Verificar domínio da unit 2
+	if _is_point_in_specific_domain(point1, unit2_domain_center) and _is_point_in_specific_domain(point2, unit2_domain_center):
+		return true
+	
 	return false
 
 ## Verificar se unit atual pode se mover para o ponto
@@ -276,29 +354,276 @@ func _can_unit_move_to_point(point_index: int, unit_pos: int) -> bool:
 		var edge_points = edge.points
 		if (edge_points[0] == unit_pos and edge_points[1] == point_index) or \
 		   (edge_points[1] == unit_pos and edge_points[0] == point_index):
-			# Verde e Verde acizentado permitem mover
-			if edge.type == EdgeType.GREEN or edge.type == EdgeType.GREEN_GRAY:
+			# Field e Forest permitem mover
+			if edge.type == EdgeType.FIELD or edge.type == EdgeType.FOREST:
 				return true
 	return false
 
-## Gerar terreno aleatório
+## Gerar terreno aleatório com proporções
 func _generate_random_terrain() -> void:
 	print("🌍 Gerando terreno aleatório...")
 	
-	# Gerar tipo aleatório para cada aresta
-	for i in range(edges.size()):
-		var random_type = randi() % 4  # 0-3
-		match random_type:
-			0:
-				edges[i].type = EdgeType.GREEN
-			1:
-				edges[i].type = EdgeType.GREEN_GRAY
-			2:
-				edges[i].type = EdgeType.YELLOW_GRAY
-			3:
-				edges[i].type = EdgeType.CYAN_GRAY
+	# Criar pool de tipos baseado nas proporções
+	var terrain_pool = []
+	# Field: 6/12 (50%)
+	for i in range(6):
+		terrain_pool.append(EdgeType.FIELD)
+	# Forest: 2/12 (16.7%)
+	for i in range(2):
+		terrain_pool.append(EdgeType.FOREST)
+	# Water: 2/12 (16.7%)
+	for i in range(2):
+		terrain_pool.append(EdgeType.WATER)
+	# Mountain: 2/12 (16.7%)
+	for i in range(2):
+		terrain_pool.append(EdgeType.MOUNTAIN)
 	
-	print("✨ Terreno aleatório gerado! Pressione ESPAÇO novamente para regenerar.")
+	# Embaralhar e aplicar aos edges
+	terrain_pool.shuffle()
+	for i in range(edges.size()):
+		var pool_index = i % terrain_pool.size()
+		edges[i].type = terrain_pool[pool_index]
+	
+	print("✨ Terreno aleatório gerado! Field: 50%, Forest/Water/Mountain: 16.7% cada")
+	print("Pressione ESPAÇO novamente para regenerar.")
+
+## Obter pontos externos (raio 3)
+func _get_outer_points() -> Array[int]:
+	var outer_points: Array[int] = []
+	for i in range(hex_coords.size()):
+		var coord = hex_coords[i]
+		var distance = max(abs(coord.x), abs(coord.y), abs(-coord.x - coord.y))
+		if distance == 3:
+			outer_points.append(i)
+	return outer_points
+
+## Gerar malha hexagonal
+func _generate_hex_grid() -> void:
+	points.clear()
+	hex_coords.clear()
+	edges.clear()
+	
+	# Gerar pontos em coordenadas axiais
+	var point_id = 0
+	for radius in range(4):  # Raio 0 a 3
+		if radius == 0:
+			# Centro
+			hex_coords.append(Vector2(0, 0))
+			points.append(_hex_to_pixel(0, 0))
+			point_id += 1
+		else:
+			# Pontos ao redor do centro
+			for i in range(6):  # 6 direções
+				for j in range(radius):  # Pontos ao longo de cada direção
+					var q = _hex_direction(i).x * (radius - j) + _hex_direction((i + 1) % 6).x * j
+					var r = _hex_direction(i).y * (radius - j) + _hex_direction((i + 1) % 6).y * j
+					hex_coords.append(Vector2(q, r))
+					points.append(_hex_to_pixel(q, r))
+					point_id += 1
+	
+	# Gerar arestas conectando vizinhos
+	_generate_hex_edges()
+
+## Converter coordenadas axiais para pixel (girado 60°)
+func _hex_to_pixel(q: float, r: float) -> Vector2:
+	# Coordenadas originais
+	var x = hex_size * (3.0/2.0 * q)
+	var y = hex_size * (sqrt(3.0)/2.0 * q + sqrt(3.0) * r)
+	
+	# Aplicar rotação de 60° (pi/3 radianos)
+	var angle = PI / 3.0  # 60 graus
+	var cos_angle = cos(angle)
+	var sin_angle = sin(angle)
+	
+	var rotated_x = x * cos_angle - y * sin_angle
+	var rotated_y = x * sin_angle + y * cos_angle
+	
+	return hex_center + Vector2(rotated_x, rotated_y)
+
+## Obter direção hexagonal
+func _hex_direction(direction: int) -> Vector2:
+	var directions = [
+		Vector2(1, 0), Vector2(1, -1), Vector2(0, -1),
+		Vector2(-1, 0), Vector2(-1, 1), Vector2(0, 1)
+	]
+	return directions[direction]
+
+## Gerar arestas hexagonais
+func _generate_hex_edges() -> void:
+	var edge_set = {}  # Para evitar duplicatas
+	
+	for i in range(hex_coords.size()):
+		var coord = hex_coords[i]
+		# Verificar 6 vizinhos
+		for dir in range(6):
+			var neighbor_coord = coord + _hex_direction(dir)
+			var neighbor_index = _find_hex_coord_index(neighbor_coord)
+			
+			if neighbor_index != -1:
+				# Criar ID único para a aresta (sempre menor índice primeiro)
+				var edge_id = "%d_%d" % [min(i, neighbor_index), max(i, neighbor_index)]
+				
+				if not edge_set.has(edge_id):
+					edges.append({"points": [i, neighbor_index], "type": EdgeType.FIELD})
+					edge_set[edge_id] = true
+
+## Encontrar índice de coordenada hexagonal
+func _find_hex_coord_index(coord: Vector2) -> int:
+	for i in range(hex_coords.size()):
+		if hex_coords[i].is_equal_approx(coord):
+			return i
+	return -1
+
+## Definir posições iniciais das unidades (spawn oficial)
+func _set_initial_unit_positions() -> void:
+	# Obter os 6 cantos do mapa
+	var corners = _get_map_corners()
+	
+	if corners.size() >= 2:
+		# Embaralhar e escolher 2 cantos aleatórios
+		corners.shuffle()
+		var corner1 = corners[0]
+		var corner2 = corners[1]
+		
+		# Encontrar ponto adjacente com 6 arestas
+		unit1_position = _find_adjacent_six_edge_point(corner1)
+		unit2_position = _find_adjacent_six_edge_point(corner2)
+		
+		# Definir centros dos domínios
+		unit1_domain_center = unit1_position
+		unit2_domain_center = unit2_position
+		
+		print("Unidades posicionadas no spawn oficial:")
+		print("Unit1 (Vermelha) em ponto %d: %s (6 arestas, adjacente ao canto %d)" % [unit1_position, hex_coords[unit1_position], corner1])
+		print("Unit2 (Violeta) em ponto %d: %s (6 arestas, adjacente ao canto %d)" % [unit2_position, hex_coords[unit2_position], corner2])
+		print("Domínios criados nos pontos de spawn")
+	else:
+		print("Erro: Não foi possível encontrar cantos suficientes")
+
+## Encontrar ponto adjacente com 6 arestas
+func _find_adjacent_six_edge_point(corner_index: int) -> int:
+	var corner_coord = hex_coords[corner_index]
+	
+	# Verificar todos os 6 vizinhos hexagonais do canto
+	for dir in range(6):
+		var neighbor_coord = corner_coord + _hex_direction(dir)
+		var neighbor_index = _find_hex_coord_index(neighbor_coord)
+		
+		if neighbor_index != -1:
+			# Contar arestas deste vizinho
+			var edge_count = 0
+			for edge in edges:
+				var edge_points = edge.points
+				if edge_points[0] == neighbor_index or edge_points[1] == neighbor_index:
+					edge_count += 1
+			
+			# Se tem 6 arestas, é um ponto válido
+			if edge_count == 6:
+				return neighbor_index
+	
+	# Se não encontrar nenhum vizinho com 6 arestas, retornar o próprio canto
+	return corner_index
+
+## Desenhar domínios hexagonais
+func _draw_domains() -> void:
+	# Desenhar domínio da unit 1 (vermelho)
+	if unit1_domain_center >= 0 and unit1_domain_center < points.size():
+		_draw_domain_hexagon(unit1_domain_center, Color(1.0, 0.0, 0.0))
+	
+	# Desenhar domínio da unit 2 (violeta)
+	if unit2_domain_center >= 0 and unit2_domain_center < points.size():
+		_draw_domain_hexagon(unit2_domain_center, Color(0.5, 0.0, 0.8))
+
+## Desenhar hexágono de domínio
+func _draw_domain_hexagon(center_index: int, color: Color) -> void:
+	# Verificar se o domínio deve ser visível (fog of war)
+	if fog_of_war and not _is_domain_visible(center_index):
+		return
+	
+	var center_pos = points[center_index]
+	# Calcular raio baseado na distância real entre pontos adjacentes
+	var radius = _get_edge_length(center_index)
+	
+	# Calcular os 6 vértices do hexágono
+	var vertices = []
+	for i in range(6):
+		var angle = (i * PI / 3.0) + (PI / 6.0)  # Começar com ponta para cima
+		var x = center_pos.x + radius * cos(angle)
+		var y = center_pos.y + radius * sin(angle)
+		vertices.append(Vector2(x, y))
+	
+	# Desenhar as 6 arestas do hexágono
+	for i in range(6):
+		var start = vertices[i]
+		var end = vertices[(i + 1) % 6]
+		draw_line(start, end, color, 4)  # Linha mais grossa
+
+## Obter comprimento real de uma aresta
+func _get_edge_length(point_index: int) -> float:
+	# Encontrar um ponto adjacente e calcular a distância
+	var point_coord = hex_coords[point_index]
+	for dir in range(6):
+		var neighbor_coord = point_coord + _hex_direction(dir)
+		var neighbor_index = _find_hex_coord_index(neighbor_coord)
+		if neighbor_index != -1:
+			# Calcular distância entre os pontos
+			var distance = points[point_index].distance_to(points[neighbor_index])
+			return distance
+	
+	# Fallback para hex_size se não encontrar vizinho
+	return hex_size
+
+## Verificar se domínio é visível ao jogador atual
+func _is_domain_visible(domain_center: int) -> bool:
+	# Domínio é visível se o centro ou qualquer ponto adjacente for visível
+	var current_unit_pos = unit1_position if current_player == 1 else unit2_position
+	
+	# Verificar se o centro do domínio é visível
+	if _is_point_visible_to_unit(domain_center, current_unit_pos):
+		return true
+	
+	# Verificar se algum ponto adjacente ao centro do domínio é visível
+	var domain_coord = hex_coords[domain_center]
+	for dir in range(6):
+		var neighbor_coord = domain_coord + _hex_direction(dir)
+		var neighbor_index = _find_hex_coord_index(neighbor_coord)
+		if neighbor_index != -1 and _is_point_visible_to_unit(neighbor_index, current_unit_pos):
+			return true
+	
+	return false
+
+## Detectar as seis pontas do mapa (pontos com apenas 3 arestas)
+func _get_map_corners() -> Array[int]:
+	var corners: Array[int] = []
+	
+	# Contar arestas conectadas a cada ponto
+	for i in range(points.size()):
+		var edge_count = 0
+		
+		# Contar quantas arestas conectam a este ponto
+		for edge in edges:
+			var edge_points = edge.points
+			if edge_points[0] == i or edge_points[1] == i:
+				edge_count += 1
+		
+		# Pontas do hexágono têm apenas 3 arestas
+		if edge_count == 3:
+			corners.append(i)
+	
+	return corners
+
+## Marcar pontas do mapa (pintar de magenta)
+func _mark_map_corners() -> void:
+	var corners = _get_map_corners()
+	
+	print("🔍 Pontas detectadas: %d pontos com 3 arestas" % corners.size())
+	for corner_index in corners:
+		print("  Ponta %d: coordenada %s" % [corner_index, hex_coords[corner_index]])
+	
+	# Armazenar índices das pontas para pintar de magenta
+	for corner_index in corners:
+		# As pontas serão pintadas de magenta na função _draw()
+		pass
 
 ## Criar interface do usuário
 func _create_ui() -> void:
@@ -347,7 +672,10 @@ func _update_units_visibility_and_position():
 		unit1_label.position = unit1_pos + Vector2(-12, -35)  # Centralizar emoji acima do ponto
 		
 		# Unit 1 sempre visível para jogador 1, visível para jogador 2 apenas se estiver em ponto visível
-		if current_player == 1:
+		if not fog_of_war:
+			# Sem fog: sempre visível
+			unit1_label.visible = true
+		elif current_player == 1:
 			unit1_label.visible = true
 		else:
 			unit1_label.visible = _is_point_visible_to_current_unit(unit1_position)
@@ -357,7 +685,10 @@ func _update_units_visibility_and_position():
 		unit2_label.position = unit2_pos + Vector2(-12, -35)  # Centralizar emoji acima do ponto
 		
 		# Unit 2 sempre visível para jogador 2, visível para jogador 1 apenas se estiver em ponto visível
-		if current_player == 2:
+		if not fog_of_war:
+			# Sem fog: sempre visível
+			unit2_label.visible = true
+		elif current_player == 2:
 			unit2_label.visible = true
 		else:
 			unit2_label.visible = _is_point_visible_to_current_unit(unit2_position)

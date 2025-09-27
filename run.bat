@@ -3,17 +3,21 @@ echo ===============================================
 echo           VAGABONDS ^& VALLEYS
 echo ===============================================
 echo.
-echo === HEXAGONO EQUILATERO ===
-echo 7 pontos e 12 arestas
+echo === MALHA HEXAGONAL EXPANDIDA (GIRADA 60°) ===
+echo 37 pontos, diametro 7, terreno aleatorio, rotacao padrao, cores saturadas
 echo Hover sobre pontos e arestas para destaque magenta
 echo Clique em pontos magentas para mover a unit
-echo Tipos de arestas: Verde (move+ve), Verde acizentado (move), Amarelo acizentado (bloqueado), Ciano acizentado (ve)
-echo Pressione ESPACO para gerar terreno aleatorio
+echo Tipos de terreno: Field (move+ve), Forest (move), Mountain (bloqueado), Water (ve)
+echo Proporcoes: Field 50%, Forest/Water/Mountain 16.7% cada
+echo Pressione ESPACO para alternar fog of war (debug)
 echo Hover em elementos nao renderizados os mostra em magenta
-echo Duas unidades: Vermelha (esquerda) e Violeta (direita)
+echo Duas unidades: Vermelha e Violeta (emojis coloridos, spawn oficial em pontos de 6 arestas)
+echo Dominios hexagonais: contorno grosso, raio=distancia real entre pontos, revelam terreno
+echo Propriedades de dominio: 7 pontos + 12 arestas sempre visiveis para o dono, separados por time
 echo Sistema de turnos: apenas jogador atual pode se mover
 echo Skip Turn troca jogador e restaura acoes
 echo Unidades ficam ocultas uma da outra a menos que estejam em ponto visivel
+echo Terreno aleatorio gerado automaticamente a cada inicio
 echo.
 echo Iniciando...
 echo.
