@@ -120,6 +120,21 @@
 **UNIT_SYSTEM**: systems/unit_system.gd | COMPLETE_MOVEMENT_LOGIC | ACTION_MANAGEMENT | POWER_CONSUMPTION
 **STATE_SYNC**: Game state passed to UnitSystem | Clean unit interface | Signal-based communication
 **CUMULATIVE_PROGRESS**: 8_SYSTEMS_CREATED | 550+_LINES_EXTRACTED | MODULAR_ARCHITECTURE | SOLID_FOUNDATION
-**NEXT_ACTION**: EXECUTE_STEP_9 | EXTRACT_DOMAIN_SYSTEM | HIGH_RISK | DOMAIN_POWER_LOGIC
+**STEP_9_BUG_FIXES**: ✅ COMPLETED | POWER_SYSTEM_SYNC_FIXED | DOMAIN_VISIBILITY_CORRECTED
+**POWER_SYNC_ISSUE**: PowerSystem ↔ GameManager ↔ MainFile | MULTIPLE_SOURCES_OF_TRUTH | FIXED_WITH_BIDIRECTIONAL_SYNC
+**DOMAIN_VISIBILITY_ISSUE**: _is_domain_visible() incomplete logic | ENEMY_DOMAINS_NOT_SHOWING | FIXED_WITH_ADDITIONAL_CHECKS
+**SYNC_ARCHITECTURE**: PowerSystem=SOURCE_OF_TRUTH | GameManager=COORDINATOR | MainFile=UI_CONSUMER | FALLBACKS_MAINTAINED
+**POWER_FLOW**: PowerSystem.generate/consume → GameManager.sync → MainFile.update_ui | REAL_TIME_UPDATES
+**DOMAIN_FLOW**: _is_domain_visible() enhanced | _is_point_in_current_player_domain() check added | PROPER_VISIBILITY
+**INITIALIZATION**: PowerSystem.initialize() + setup_domains() | COMPLETE_SETUP | GAME_STATE_SYNC
+**UI_UPDATES**: _update_name_positions() gets live values from PowerSystem | NO_MORE_STALE_DATA
+**TESTING_READY**: Power generation/consumption working | Domain visibility working | Both critical bugs resolved
+**CRITICAL_BUG_FIXES_FINAL**: ✅ ROBUST_SOLUTIONS_IMPLEMENTED | HYBRID_POWER_SYSTEM | ENHANCED_DOMAIN_VISIBILITY
+**DOMAIN_VISIBILITY_ENHANCED**: _calculate_hex_distance() added | 2-hex proximity rule | Multi-layer visibility checks
+**POWER_SYSTEM_HYBRID**: Local variables as base truth | PowerSystem sync with validation | Multiple fallbacks
+**DEBUG_EXTENSIVE**: Logs at all critical points | Method validation | State tracking | Error diagnosis
+**ROBUSTNESS_MAXIMUM**: Works even if autoloads fail | Validates methods before calling | Bidirectional sync
+**ARCHITECTURE_FINAL**: Local↔PowerSystem↔GameManager↔UI | Fallback chains | Validation layers
+**STATUS**: STEP_9_COMPLETE_WITH_ROBUST_FIXES | 9_SYSTEMS_FUNCTIONAL | MAXIMUM_ROBUSTNESS | PRODUCTION_READY
 
 *AUTO_UPDATE_ON_MILESTONES*

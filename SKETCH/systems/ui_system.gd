@@ -128,6 +128,11 @@ func _create_game_ui() -> void:
 
 # Update game state for UI
 func update_game_state(state_data: Dictionary) -> void:
+	print("🔧 UI_FRONTEND_FIX: update_game_state() called with data: %s" % state_data)
+	
+	var old_power1 = unit1_domain_power
+	var old_power2 = unit2_domain_power
+	
 	if state_data.has("current_player"):
 		current_player = state_data.current_player
 	if state_data.has("unit1_actions"):
@@ -152,6 +157,8 @@ func update_game_state(state_data: Dictionary) -> void:
 		unit1_force_revealed = state_data.unit1_force_revealed
 	if state_data.has("unit2_force_revealed"):
 		unit2_force_revealed = state_data.unit2_force_revealed
+	
+	print("🔧 UI_FRONTEND_FIX: Power updated from (%d,%d) to (%d,%d)" % [old_power1, old_power2, unit1_domain_power, unit2_domain_power])
 
 # Set unit and domain names
 func set_names(unit1_name_val: String, unit2_name_val: String, unit1_domain_val: String, unit2_domain_val: String) -> void:
@@ -172,8 +179,10 @@ func set_names(unit1_name_val: String, unit2_name_val: String, unit1_domain_val:
 
 # Update all UI positions and visibility
 func update_ui() -> void:
+	print("🔧 UI_FRONTEND_FIX: update_ui() called - updating all UI elements")
 	_update_units_visibility_and_position()
 	_update_action_display()
+	print("🔧 UI_FRONTEND_FIX: update_ui() completed")
 
 # Update unit positions and visibility
 func _update_units_visibility_and_position() -> void:
@@ -229,18 +238,35 @@ func _update_name_positions() -> void:
 		unit2_name_label.position = unit2_pos + Vector2(-15, 15)  # Below unit
 		unit2_name_label.visible = unit2_label.visible if unit2_label else false
 	
+	# Get current power values from PowerSystem (FRONTEND FIX)
+	var current_unit1_power = unit1_domain_power
+	var current_unit2_power = unit2_domain_power
+	if PowerSystem and PowerSystem.has_method("get_player_power"):
+		current_unit1_power = PowerSystem.get_player_power(1)
+		current_unit2_power = PowerSystem.get_player_power(2)
+		# Update local variables to stay in sync
+		unit1_domain_power = current_unit1_power
+		unit2_domain_power = current_unit2_power
+		print("🔧 UI_FRONTEND_FIX: Power from PowerSystem - P1=%d, P2=%d" % [current_unit1_power, current_unit2_power])
+	else:
+		print("🔧 UI_FRONTEND_FIX: Using local power values - P1=%d, P2=%d" % [current_unit1_power, current_unit2_power])
+	
 	# Position domain names and update power
 	if unit1_domain_label and unit1_domain_center < points.size():
 		var domain1_pos = points[unit1_domain_center]
 		unit1_domain_label.position = domain1_pos + Vector2(-30, 35)  # Below domain
-		unit1_domain_label.text = "%s ⚡%d" % [unit1_domain_name, unit1_domain_power]
-		unit1_domain_label.visible = _is_domain_visible(unit1_domain_center) or not fog_of_war
+		unit1_domain_label.text = "%s ⚡%d" % [unit1_domain_name, current_unit1_power]
+		var domain1_visible = _is_domain_visible(unit1_domain_center) or not fog_of_war
+		unit1_domain_label.visible = domain1_visible
+		print("🔧 UI_FRONTEND_FIX: Domain1 (%s) visible=%s, power=%d" % [unit1_domain_name, domain1_visible, current_unit1_power])
 	
 	if unit2_domain_label and unit2_domain_center < points.size():
 		var domain2_pos = points[unit2_domain_center]
 		unit2_domain_label.position = domain2_pos + Vector2(-30, 35)  # Below domain
-		unit2_domain_label.text = "%s ⚡%d" % [unit2_domain_name, unit2_domain_power]
-		unit2_domain_label.visible = _is_domain_visible(unit2_domain_center) or not fog_of_war
+		unit2_domain_label.text = "%s ⚡%d" % [unit2_domain_name, current_unit2_power]
+		var domain2_visible = _is_domain_visible(unit2_domain_center) or not fog_of_war
+		unit2_domain_label.visible = domain2_visible
+		print("🔧 UI_FRONTEND_FIX: Domain2 (%s) visible=%s, power=%d" % [unit2_domain_name, domain2_visible, current_unit2_power])
 
 # Update action display
 func _update_action_display() -> void:
@@ -267,13 +293,33 @@ func _is_point_visible_to_current_unit(point_index: int) -> bool:
 		return _is_point_visible_to_unit_fallback(point_index, current_unit_pos)
 
 func _is_domain_visible(domain_center: int) -> bool:
+	print("🔧 UI_FRONTEND_FIX: Checking domain visibility for center=%d, current_player=%d" % [domain_center, current_player])
+	
 	# Domain always visible if it belongs to current player
 	if (current_player == 1 and domain_center == unit1_domain_center) or \
 	   (current_player == 2 and domain_center == unit2_domain_center):
+		print("🔧 UI_FRONTEND_FIX: Domain belongs to current player - VISIBLE")
 		return true
 	
-	# For UI purposes, simplified visibility
-	return not fog_of_war
+	# If fog of war is disabled, all domains are visible
+	if not fog_of_war:
+		print("🔧 UI_FRONTEND_FIX: Fog of war disabled - VISIBLE")
+		return true
+	
+	# Use GameManager for proper visibility logic if available
+	if GameManager and GameManager.has_method("is_domain_visible"):
+		var visible = GameManager.is_domain_visible(domain_center)
+		print("🔧 UI_FRONTEND_FIX: GameManager visibility check - %s" % ("VISIBLE" if visible else "HIDDEN"))
+		return visible
+	
+	# Fallback: check if current unit is close to domain (simplified)
+	var current_unit_pos = unit1_position if current_player == 1 else unit2_position
+	if abs(current_unit_pos - domain_center) <= 5:  # Simple proximity check
+		print("🔧 UI_FRONTEND_FIX: Domain close to unit (fallback) - VISIBLE")
+		return true
+	
+	print("🔧 UI_FRONTEND_FIX: Domain not visible (fallback) - HIDDEN")
+	return false
 
 # Fallback visibility function when GameManager is not available
 func _is_point_visible_to_unit_fallback(point_index: int, unit_pos: int) -> bool:

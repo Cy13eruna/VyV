@@ -202,34 +202,58 @@ func get_path_type_between_points(point1: int, point2: int) -> int:
 
 # Check if domain has power for action
 func has_domain_power_for_action() -> bool:
-	var domain_center = unit1_domain_center if current_player == 1 else unit2_domain_center
-	var enemy_unit_pos = get_enemy_unit_position()
-	
-	# If domain center is occupied by enemy, actions are free
-	if enemy_unit_pos == domain_center:
-		print("⚡ Domain occupied! Free actions for original units.")
-		return true
-	
-	# Otherwise, check if has power
-	var current_power = unit1_domain_power if current_player == 1 else unit2_domain_power
-	return current_power > 0
+	# Use PowerSystem if available
+	if PowerSystem:
+		PowerSystem.update_game_state({
+			"current_player": current_player,
+			"unit1_position": unit1_position,
+			"unit2_position": unit2_position
+		})
+		return PowerSystem.has_domain_power_for_action()
+	else:
+		# Fallback to local implementation
+		var domain_center = unit1_domain_center if current_player == 1 else unit2_domain_center
+		var enemy_unit_pos = get_enemy_unit_position()
+		
+		# If domain center is occupied by enemy, actions are free
+		if enemy_unit_pos == domain_center:
+			print("⚡ Domain occupied! Free actions for original units.")
+			return true
+		
+		# Otherwise, check if has power
+		var current_power = unit1_domain_power if current_player == 1 else unit2_domain_power
+		return current_power > 0
 
 # Consume domain power
 func consume_domain_power() -> void:
-	var domain_center = unit1_domain_center if current_player == 1 else unit2_domain_center
-	var enemy_unit_pos = get_enemy_unit_position()
-	
-	# If center is occupied, don't consume power
-	if enemy_unit_pos == domain_center:
-		return
-	
-	# Consume 1 power
-	if current_player == 1:
-		unit1_domain_power = max(0, unit1_domain_power - 1)
-		print("⚡ Domain 1 consumed 1 power (Remaining: %d)" % unit1_domain_power)
+	# Use PowerSystem if available
+	if PowerSystem:
+		PowerSystem.update_game_state({
+			"current_player": current_player,
+			"unit1_position": unit1_position,
+			"unit2_position": unit2_position
+		})
+		PowerSystem.consume_domain_power()
+		# Sync back to GameManager
+		var power_state = PowerSystem.get_power_state()
+		unit1_domain_power = power_state.unit1_domain_power
+		unit2_domain_power = power_state.unit2_domain_power
 	else:
-		unit2_domain_power = max(0, unit2_domain_power - 1)
-		print("⚡ Domain 2 consumed 1 power (Remaining: %d)" % unit2_domain_power)
+		# Fallback to local implementation
+		var domain_center = unit1_domain_center if current_player == 1 else unit2_domain_center
+		var enemy_unit_pos = get_enemy_unit_position()
+		
+		# If center is occupied, don't consume power
+		if enemy_unit_pos == domain_center:
+			return
+		
+		# Consume 1 power
+		if current_player == 1:
+			unit1_domain_power = max(0, unit1_domain_power - 1)
+			print("⚡ Domain 1 consumed 1 power (Remaining: %d)" % unit1_domain_power)
+		else:
+			unit2_domain_power = max(0, unit2_domain_power - 1)
+			print("⚡ Domain 2 consumed 1 power (Remaining: %d)" % unit2_domain_power)
 
 # Consume action point
 func consume_action() -> void:
@@ -270,22 +294,36 @@ func start_current_player_turn() -> void:
 func generate_domain_power_for_current_player() -> void:
 	print("🔄 Player %d turn - Generating power ONLY for Player %d's domain" % [current_player, current_player])
 	
-	if current_player == 1:
-		# Domain 1: generate power if not occupied
-		if unit2_position != unit1_domain_center:
-			unit1_domain_power += 1
-			print("⚡ Domain 1 (%s) generated 1 power (Total: %d)" % [unit1_domain_name, unit1_domain_power])
-			power_generated.emit(1, unit1_domain_power)
-		else:
-			print("⚡ Domain 1 (%s) occupied - didn't generate power" % unit1_domain_name)
+	# Use PowerSystem if available
+	if PowerSystem:
+		PowerSystem.update_game_state({
+			"current_player": current_player,
+			"unit1_position": unit1_position,
+			"unit2_position": unit2_position
+		})
+		PowerSystem.generate_power_for_current_player()
+		# Sync back to GameManager
+		var power_state = PowerSystem.get_power_state()
+		unit1_domain_power = power_state.unit1_domain_power
+		unit2_domain_power = power_state.unit2_domain_power
 	else:
-		# Domain 2: generate power if not occupied
-		if unit1_position != unit2_domain_center:
-			unit2_domain_power += 1
-			print("⚡ Domain 2 (%s) generated 1 power (Total: %d)" % [unit2_domain_name, unit2_domain_power])
-			power_generated.emit(2, unit2_domain_power)
+		# Fallback to local implementation
+		if current_player == 1:
+			# Domain 1: generate power if not occupied
+			if unit2_position != unit1_domain_center:
+				unit1_domain_power += 1
+				print("⚡ Domain 1 (%s) generated 1 power (Total: %d)" % [unit1_domain_name, unit1_domain_power])
+				power_generated.emit(1, unit1_domain_power)
+			else:
+				print("⚡ Domain 1 (%s) occupied - didn't generate power" % unit1_domain_name)
 		else:
-			print("⚡ Domain 2 (%s) occupied - didn't generate power" % unit2_domain_name)
+			# Domain 2: generate power if not occupied
+			if unit1_position != unit2_domain_center:
+				unit2_domain_power += 1
+				print("⚡ Domain 2 (%s) generated 1 power (Total: %d)" % [unit2_domain_name, unit2_domain_power])
+				power_generated.emit(2, unit2_domain_power)
+			else:
+				print("⚡ Domain 2 (%s) occupied - didn't generate power" % unit2_domain_name)
 
 # Generate power for domains (legacy function - for fallback compatibility)
 func generate_domain_power() -> void:

@@ -122,7 +122,13 @@ func attempt_unit_movement(target_point: int) -> Dictionary:
 		return result
 	
 	# Check if domain has power
-	if not has_domain_power_for_action():
+	var has_power = false
+	if PowerSystem:
+		has_power = PowerSystem.has_domain_power_for_action()
+	else:
+		has_power = has_domain_power_for_action()
+	
+	if not has_power:
 		var result = {"success": false, "message": "Domain has no power"}
 		movement_blocked.emit(current_player, result.message)
 		return result
@@ -134,7 +140,10 @@ func attempt_unit_movement(target_point: int) -> Dictionary:
 		if not movement_result.success:
 			# Still consume action and power even if movement fails
 			consume_action()
-			consume_domain_power()
+			if PowerSystem:
+				PowerSystem.consume_domain_power()
+			else:
+				consume_domain_power()
 			movement_blocked.emit(current_player, movement_result.message)
 			return movement_result
 	
@@ -147,7 +156,10 @@ func attempt_unit_movement(target_point: int) -> Dictionary:
 	
 	# Consume action and power
 	consume_action()
-	consume_domain_power()
+	if PowerSystem:
+		PowerSystem.consume_domain_power()
+	else:
+		consume_domain_power()
 	
 	print("🚶🏻‍♀️ Unit %d moved from %d to %d" % [current_player, old_pos, target_point])
 	unit_moved.emit(current_player, old_pos, target_point)
@@ -270,22 +282,27 @@ func switch_player() -> void:
 
 # Generate power for current player's domain only
 func generate_power_for_current_player() -> void:
-	print("🔄 UnitSystem: Player %d turn - Generating power ONLY for Player %d's domain" % [current_player, current_player])
-	
-	if current_player == 1:
-		# Domain 1: generate power if not occupied
-		if unit2_position != unit1_domain_center:
-			unit1_domain_power += 1
-			print("⚡ Domain 1 (%s) generated 1 power (Total: %d)" % [unit1_domain_name, unit1_domain_power])
-		else:
-			print("⚡ Domain 1 (%s) occupied - didn't generate power" % unit1_domain_name)
+	if PowerSystem:
+		# Delegate to PowerSystem
+		PowerSystem.generate_power_for_current_player()
 	else:
-		# Domain 2: generate power if not occupied
-		if unit1_position != unit2_domain_center:
-			unit2_domain_power += 1
-			print("⚡ Domain 2 (%s) generated 1 power (Total: %d)" % [unit2_domain_name, unit2_domain_power])
+		# Fallback to local implementation
+		print("🔄 UnitSystem: Player %d turn - Generating power ONLY for Player %d's domain" % [current_player, current_player])
+		
+		if current_player == 1:
+			# Domain 1: generate power if not occupied
+			if unit2_position != unit1_domain_center:
+				unit1_domain_power += 1
+				print("⚡ Domain 1 (%s) generated 1 power (Total: %d)" % [unit1_domain_name, unit1_domain_power])
+			else:
+				print("⚡ Domain 1 (%s) occupied - didn't generate power" % unit1_domain_name)
 		else:
-			print("⚡ Domain 2 (%s) occupied - didn't generate power" % unit2_domain_name)
+			# Domain 2: generate power if not occupied
+			if unit1_position != unit2_domain_center:
+				unit2_domain_power += 1
+				print("⚡ Domain 2 (%s) generated 1 power (Total: %d)" % [unit2_domain_name, unit2_domain_power])
+			else:
+				print("⚡ Domain 2 (%s) occupied - didn't generate power" % unit2_domain_name)
 
 # Check and reset forced revelations
 func check_and_reset_forced_revelations() -> void:

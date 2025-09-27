@@ -56,8 +56,8 @@ var skip_turn_button: Button
 var action_label: Label
 
 func _ready():
-	print("🔥 STEP 8 - UnitSystem integration (ORIGINAL POSITIONING RESTORED)...")
-	print("🚶‍♀️ Testing units with 8 systems: GameConstants, TerrainSystem, HexGridSystem, GameManager, InputSystem, RenderSystem, UISystem, UnitSystem")
+	print("🔥 STEP 9 - PowerSystem integration...")
+	print("⚡ Testing power with 9 systems: GameConstants, TerrainSystem, HexGridSystem, GameManager, InputSystem, RenderSystem, UISystem, UnitSystem, PowerSystem")
 	print("🔥 Player 1 (RED) starts with 1 power")
 	print("🔥 Player 2 (VIOLET) starts with 1 power")
 	
@@ -111,6 +111,14 @@ func _ready():
 		UnitSystem.unit_moved.connect(_on_unit_moved)
 		UnitSystem.movement_blocked.connect(_on_movement_blocked)
 		print("🚶‍♀️ UnitSystem initialized and ready")
+	
+	# Initialize PowerSystem
+	if PowerSystem:
+		PowerSystem.initialize()
+		PowerSystem.power_generated.connect(_on_power_generated)
+		PowerSystem.power_consumed.connect(_on_power_consumed)
+		PowerSystem.domain_occupied.connect(_on_domain_occupied)
+		print("⚡ PowerSystem initialized and ready")
 	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
@@ -210,8 +218,9 @@ func _on_input_point_clicked(point_index: int) -> void:
 	
 	# Use UnitSystem if available
 	if UnitSystem:
-		# Update UnitSystem state
+		# Update UnitSystem and PowerSystem state
 		_update_unit_system_state()
+		_update_power_system_state()
 		
 		# Attempt movement through UnitSystem
 		var movement_result = UnitSystem.attempt_unit_movement(point_index)
@@ -280,6 +289,26 @@ func _on_unit_moved(unit_id: int, from_point: int, to_point: int) -> void:
 func _on_movement_blocked(unit_id: int, reason: String) -> void:
 	print("⚠️ UnitSystem: Unit %d movement blocked - %s" % [unit_id, reason])
 
+## PowerSystem signal callbacks
+func _on_power_generated(player_id: int, domain_name: String, new_total: int) -> void:
+	print("⚡ PowerSystem: Player %d (%s) generated power (Total: %d)" % [player_id, domain_name, new_total])
+	# Update local state
+	if player_id == 1:
+		unit1_domain_power = new_total
+	else:
+		unit2_domain_power = new_total
+
+func _on_power_consumed(player_id: int, domain_name: String, remaining: int) -> void:
+	print("⚡ PowerSystem: Player %d (%s) consumed power (Remaining: %d)" % [player_id, domain_name, remaining])
+	# Update local state
+	if player_id == 1:
+		unit1_domain_power = remaining
+	else:
+		unit2_domain_power = remaining
+
+func _on_domain_occupied(player_id: int, domain_name: String, occupied_by: int) -> void:
+	print("⚡ PowerSystem: Player %d (%s) domain occupied by Player %d" % [player_id, domain_name, occupied_by])
+
 ## Update UnitSystem state
 func _update_unit_system_state() -> void:
 	if UnitSystem:
@@ -290,6 +319,16 @@ func _update_unit_system_state() -> void:
 			"unit2_domain_power": unit2_domain_power
 		}
 		UnitSystem.update_game_state(unit_state)
+
+## Update PowerSystem state
+func _update_power_system_state() -> void:
+	if PowerSystem:
+		var power_state = {
+			"current_player": current_player,
+			"unit1_position": unit1_position,
+			"unit2_position": unit2_position
+		}
+		PowerSystem.update_game_state(power_state)
 
 ## Sync local state from UnitSystem
 func _sync_from_unit_system() -> void:
@@ -326,6 +365,10 @@ func _set_initial_unit_positions_with_system() -> void:
 			
 			# Setup UnitSystem with names
 			UnitSystem.setup_units(unit1_position, unit2_position, unit1_name, unit2_name, unit1_domain_name, unit2_domain_name)
+			
+			# Setup PowerSystem with domain data
+			if PowerSystem:
+				PowerSystem.setup_domains(unit1_domain_center, unit2_domain_center, unit1_domain_name, unit2_domain_name)
 			
 			# Setup GameManager with unit data
 			if GameManager:
@@ -384,7 +427,14 @@ func _handle_movement_fallback(point_index: int) -> void:
 		var current_actions = unit1_actions if current_player == 1 else unit2_actions
 		if current_actions > 0:
 			# Check if domain has enough power
-			if not _has_domain_power_for_action():
+			var has_power = false
+			if PowerSystem:
+				_update_power_system_state()
+				has_power = PowerSystem.has_domain_power_for_action()
+			else:
+				has_power = _has_domain_power_for_action()
+			
+			if not has_power:
 				print("⚡ No power! Domain doesn't have power to perform action.")
 				return
 			
@@ -396,7 +446,10 @@ func _handle_movement_fallback(point_index: int) -> void:
 				print("🚶🏻‍♀️ Unit %d moving from point %d to point %d (Actions: %d → %d)" % [current_player, old_pos, point_index, current_actions, current_actions - 1])
 				
 				# Consume domain power
-				_consume_domain_power()
+				if PowerSystem:
+					PowerSystem.consume_domain_power()
+				else:
+					_consume_domain_power()
 				
 				if current_player == 1:
 					unit1_position = point_index
@@ -408,7 +461,10 @@ func _handle_movement_fallback(point_index: int) -> void:
 				# Movement failed due to hidden unit
 				print("⚠️ Movement blocked! %s" % movement_result.message)
 				# Consume power and lose action anyway
-				_consume_domain_power()
+				if PowerSystem:
+					PowerSystem.consume_domain_power()
+				else:
+					_consume_domain_power()
 				if current_player == 1:
 					unit1_actions -= 1
 				else:
@@ -441,7 +497,11 @@ func _handle_skip_turn_fallback() -> void:
 	_check_and_reset_forced_revelations()
 	
 	# NOW generate power for the NEW current player
-	_generate_power_for_current_player_only()
+	if PowerSystem:
+		_update_power_system_state()
+		PowerSystem.generate_power_for_current_player()
+	else:
+		_generate_power_for_current_player_only()
 
 ## Fallback rendering function
 func _draw_fallback() -> void:
@@ -1234,18 +1294,23 @@ func _get_edge_length(point_index: int) -> float:
 	# Fallback to hex_size if no neighbor found
 	return hex_size
 
-## Check if domain is visible to current player
+## Check if domain is visible to current player (ENHANCED)
 func _is_domain_visible(domain_center: int) -> bool:
+	print("🔧 FIXED: Checking domain visibility for center=%d, current_player=%d" % [domain_center, current_player])
+	
 	# Domain always visible if it belongs to current player
 	if (current_player == 1 and domain_center == unit1_domain_center) or \
 	   (current_player == 2 and domain_center == unit2_domain_center):
+		print("🔧 FIXED: Domain belongs to current player - VISIBLE")
 		return true
 	
 	# Enemy domain visible if center or any adjacent point is visible
 	var current_unit_pos = unit1_position if current_player == 1 else unit2_position
+	print("🔧 FIXED: Checking enemy domain visibility from unit pos=%d" % current_unit_pos)
 	
 	# Check if domain center is visible
 	if _is_point_visible_to_unit(domain_center, current_unit_pos):
+		print("🔧 FIXED: Domain center is visible - VISIBLE")
 		return true
 	
 	# Check if any point adjacent to domain center is visible
@@ -1254,8 +1319,16 @@ func _is_domain_visible(domain_center: int) -> bool:
 		var neighbor_coord = domain_coord + _hex_direction(dir)
 		var neighbor_index = _find_hex_coord_index(neighbor_coord)
 		if neighbor_index != -1 and _is_point_visible_to_unit(neighbor_index, current_unit_pos):
+			print("🔧 FIXED: Adjacent point %d is visible - VISIBLE" % neighbor_index)
 			return true
 	
+	# ENHANCED: Check if current unit is within 2 hexes of domain center
+	var distance = _hex_distance(hex_coords[current_unit_pos], hex_coords[domain_center])
+	if distance <= 2:
+		print("🔧 FIXED: Domain within 2 hexes (distance=%d) - VISIBLE" % distance)
+		return true
+	
+	print("🔧 FIXED: Domain not visible - HIDDEN")
 	return false
 
 ## Detect the six map corners (points with only 3 edges) - WITH DEBUG
@@ -1316,14 +1389,19 @@ func _on_skip_turn_pressed() -> void:
 	
 	# Use UnitSystem if available
 	if UnitSystem:
-		# Update UnitSystem state
+		# Update UnitSystem and PowerSystem state
 		_update_unit_system_state()
+		_update_power_system_state()
 		
 		# Switch player through UnitSystem
 		UnitSystem.switch_player()
 		
-		# Generate power for new current player
-		UnitSystem.generate_power_for_current_player()
+		# Generate power for new current player through PowerSystem
+		if PowerSystem:
+			PowerSystem.generate_power_for_current_player()
+		else:
+			# Fallback to UnitSystem
+			UnitSystem.generate_power_for_current_player()
 		
 		# Sync local state from UnitSystem
 		_sync_from_unit_system()
@@ -1395,18 +1473,35 @@ func _update_name_positions() -> void:
 		unit2_name_label.position = unit2_pos + Vector2(-15, 15)  # Below unit
 		unit2_name_label.visible = unit2_label.visible  # Same visibility as unit
 	
+	# Get current power values from PowerSystem (FIXED)
+	var current_unit1_power = unit1_domain_power
+	var current_unit2_power = unit2_domain_power
+	if PowerSystem and PowerSystem.has_method("get_player_power"):
+		current_unit1_power = PowerSystem.get_player_power(1)
+		current_unit2_power = PowerSystem.get_player_power(2)
+		# Update local variables to stay in sync
+		unit1_domain_power = current_unit1_power
+		unit2_domain_power = current_unit2_power
+		print("🔧 FIXED: Power from PowerSystem - P1=%d, P2=%d" % [current_unit1_power, current_unit2_power])
+	else:
+		print("🔧 FIXED: Using local power values - P1=%d, P2=%d" % [current_unit1_power, current_unit2_power])
+	
 	# Position domain names and update power
 	if unit1_domain_label:
 		var domain1_pos = points[unit1_domain_center]
 		unit1_domain_label.position = domain1_pos + Vector2(-30, 35)  # Below domain
-		unit1_domain_label.text = "%s ⚡%d" % [unit1_domain_name, unit1_domain_power]
-		unit1_domain_label.visible = _is_domain_visible(unit1_domain_center) or not fog_of_war
+		unit1_domain_label.text = "%s ⚡%d" % [unit1_domain_name, current_unit1_power]
+		var domain1_visible = _is_domain_visible(unit1_domain_center) or not fog_of_war
+		unit1_domain_label.visible = domain1_visible
+		print("🔧 FIXED: Domain1 (%s) visible=%s, power=%d" % [unit1_domain_name, domain1_visible, current_unit1_power])
 	
 	if unit2_domain_label:
 		var domain2_pos = points[unit2_domain_center]
 		unit2_domain_label.position = domain2_pos + Vector2(-30, 35)  # Below domain
-		unit2_domain_label.text = "%s ⚡%d" % [unit2_domain_name, unit2_domain_power]
-		unit2_domain_label.visible = _is_domain_visible(unit2_domain_center) or not fog_of_war
+		unit2_domain_label.text = "%s ⚡%d" % [unit2_domain_name, current_unit2_power]
+		var domain2_visible = _is_domain_visible(unit2_domain_center) or not fog_of_war
+		unit2_domain_label.visible = domain2_visible
+		print("🔧 FIXED: Domain2 (%s) visible=%s, power=%d" % [unit2_domain_name, domain2_visible, current_unit2_power])
 
 ## Check and reset forced revelations
 func _check_and_reset_forced_revelations() -> void:
