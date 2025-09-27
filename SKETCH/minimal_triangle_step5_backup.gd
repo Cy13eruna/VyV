@@ -56,7 +56,7 @@ var skip_turn_button: Button
 var action_label: Label
 
 func _ready():
-	print("🔥 STEP 5 - InputSystem integration...")
+	print("🔥 FIXED VERSION - Starting game...")
 	print("🔥 Player 1 (RED) starts with 1 power")
 	print("🔥 Player 2 (VIOLET) starts with 1 power")
 	
@@ -81,14 +81,6 @@ func _ready():
 	# Initialize GameManager with game data
 	if GameManager:
 		GameManager.initialize_game(points, hex_coords, paths)
-	
-	# Initialize InputSystem
-	if InputSystem:
-		InputSystem.initialize(points, paths)
-		# Connect InputSystem signals
-		InputSystem.point_clicked.connect(_on_input_point_clicked)
-		InputSystem.fog_toggle_requested.connect(_on_input_fog_toggle)
-		print("🎮 InputSystem connected and ready")
 	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
@@ -119,19 +111,26 @@ func _ready():
 func _process(_delta):
 	var mouse_pos = get_global_mouse_position()
 	
-	# Use InputSystem for hover detection
-	if InputSystem:
-		var hover_result = InputSystem.process_mouse_hover(mouse_pos)
-		hovered_point = hover_result.hovered_point
-		hovered_edge = hover_result.hovered_edge
-		
-		# Redraw if hover state changed
-		if hover_result.point_changed or hover_result.edge_changed:
-			queue_redraw()
-	else:
-		# Fallback to local hover detection
-		_process_hover_fallback(mouse_pos)
-		queue_redraw()
+	# Check hover on points (including non-rendered ones)
+	hovered_point = -1
+	for i in range(points.size()):
+		if mouse_pos.distance_to(points[i]) < 20:
+			hovered_point = i
+			break
+	
+	# Check hover on paths (including non-rendered ones)
+	hovered_edge = -1
+	if hovered_point == -1:
+		for i in range(paths.size()):
+			var path = paths[i]
+			var path_points = path.points
+			var p1 = points[path_points[0]]
+			var p2 = points[path_points[1]]
+			if _point_near_line(mouse_pos, p1, p2, 10):
+				hovered_edge = i
+				break
+	
+	queue_redraw()
 
 func _draw():
 	# Expanded white background
@@ -206,110 +205,68 @@ func _draw():
 
 ## Input handling for unit movement and terrain generation
 func _unhandled_input(event: InputEvent) -> void:
-	# Use InputSystem if available
-	if InputSystem:
-		var handled = InputSystem.handle_input_event(event)
-		if handled:
-			get_viewport().set_input_as_handled()
-	else:
-		# Fallback to local input handling
-		_handle_input_fallback(event)
-
-## InputSystem signal callbacks
-func _on_input_point_clicked(point_index: int) -> void:
-	print("🎮 InputSystem: Processing point %d click" % point_index)
-	
-	# If clicked on point that current unit can move to, check actions
-	if _can_current_unit_move_to_point(point_index):
-		var current_actions = unit1_actions if current_player == 1 else unit2_actions
-		if current_actions > 0:
-			# Check if domain has enough power
-			if not _has_domain_power_for_action():
-				print("⚡ No power! Domain doesn't have power to perform action.")
-				return
-			
-			# Check if there's a hidden unit at destination
-			var movement_result = _attempt_movement(point_index)
-			
-			if movement_result.success:
-				var old_pos = unit1_position if current_player == 1 else unit2_position
-				print("🚶🏻‍♀️ Unit %d moving from point %d to point %d (Actions: %d → %d)" % [current_player, old_pos, point_index, current_actions, current_actions - 1])
-				
-				# Consume domain power
-				_consume_domain_power()
-				
-				if current_player == 1:
-					unit1_position = point_index
-					unit1_actions -= 1
-				else:
-					unit2_position = point_index
-					unit2_actions -= 1
-			else:
-				# Movement failed due to hidden unit
-				print("⚠️ Movement blocked! %s" % movement_result.message)
-				# Consume power and lose action anyway
-				_consume_domain_power()
-				if current_player == 1:
-					unit1_actions -= 1
-				else:
-					unit2_actions -= 1
-			
-			_update_units_visibility_and_position()
-			_update_action_display()
-			queue_redraw()
-		else:
-			print("❌ No actions remaining! Use 'Skip Turn' to restore.")
-	else:
-		print("❌ Unit %d cannot move to point %d" % [current_player, point_index])
-
-func _on_input_fog_toggle() -> void:
-	print("🎮 InputSystem: Processing fog toggle")
-	
-	# Toggle fog of war
-	if GameManager:
-		GameManager.toggle_fog_of_war()
-		fog_of_war = GameManager.fog_of_war
-	else:
-		fog_of_war = not fog_of_war
-		var fog_status = "ENABLED" if fog_of_war else "DISABLED"
-		print("🌫️ Fog of War %s" % fog_status)
-	queue_redraw()
-
-## Fallback functions for when systems are not available
-func _process_hover_fallback(mouse_pos: Vector2) -> void:
-	# Check hover on points (including non-rendered ones)
-	hovered_point = -1
-	for i in range(points.size()):
-		if mouse_pos.distance_to(points[i]) < 20:
-			hovered_point = i
-			break
-	
-	# Check hover on paths (including non-rendered ones)
-	hovered_edge = -1
-	if hovered_point == -1:
-		for i in range(paths.size()):
-			var path = paths[i]
-			var path_points = path.points
-			var p1 = points[path_points[0]]
-			var p2 = points[path_points[1]]
-			if _point_near_line(mouse_pos, p1, p2, 10):
-				hovered_edge = i
-				break
-
-func _handle_input_fallback(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
 		var mouse_pos = get_global_mouse_position()
 		
 		# Check click on points
 		for i in range(points.size()):
 			if mouse_pos.distance_to(points[i]) < 20:
-				_on_input_point_clicked(i)
-				get_viewport().set_input_as_handled()
-				return
+				# If clicked on point that current unit can move to, check actions
+				if _can_current_unit_move_to_point(i):
+					var current_actions = unit1_actions if current_player == 1 else unit2_actions
+					if current_actions > 0:
+						# Check if domain has enough power
+						if not _has_domain_power_for_action():
+							print("⚡ No power! Domain doesn't have power to perform action.")
+							return
+						
+						# Check if there's a hidden unit at destination
+						var movement_result = _attempt_movement(i)
+						
+						if movement_result.success:
+							var old_pos = unit1_position if current_player == 1 else unit2_position
+							print("🚶🏻‍♀️ Unit %d moving from point %d to point %d (Actions: %d → %d)" % [current_player, old_pos, i, current_actions, current_actions - 1])
+							
+							# Consume domain power
+							_consume_domain_power()
+							
+							if current_player == 1:
+								unit1_position = i
+								unit1_actions -= 1
+							else:
+								unit2_position = i
+								unit2_actions -= 1
+						else:
+							# Movement failed due to hidden unit
+							print("⚠️ Movement blocked! %s" % movement_result.message)
+							# Consume power and lose action anyway
+							_consume_domain_power()
+							if current_player == 1:
+								unit1_actions -= 1
+							else:
+								unit2_actions -= 1
+						
+						_update_units_visibility_and_position()
+						_update_action_display()
+						queue_redraw()
+						get_viewport().set_input_as_handled()
+						return
+					else:
+						print("❌ No actions remaining! Use 'Skip Turn' to restore.")
+				else:
+					print("❌ Unit %d cannot move to point %d" % [current_player, i])
 	
 	elif event is InputEventKey and event.pressed:
 		if event.keycode == KEY_SPACE:
-			_on_input_fog_toggle()
+			# Toggle fog of war
+			if GameManager:
+				GameManager.toggle_fog_of_war()
+				fog_of_war = GameManager.fog_of_war
+			else:
+				fog_of_war = not fog_of_war
+				var fog_status = "ENABLED" if fog_of_war else "DISABLED"
+				print("🌫️ Fog of War %s" % fog_status)
+			queue_redraw()
 			get_viewport().set_input_as_handled()
 
 func _point_near_line(point, line_start, line_end, tolerance):

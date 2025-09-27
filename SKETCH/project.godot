@@ -10,6 +10,7 @@ GameConstants="*res://data/constants.gd"
 TerrainSystem="*res://systems/terrain_system.gd"
 HexGridSystem="*res://systems/hex_grid_system.gd"
 GameManager="*res://systems/game_manager.gd"
+InputSystem="*res://systems/input_system.gd"
 
 [rendering]
 
