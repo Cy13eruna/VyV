@@ -1,1 +1,1 @@
-Agora adicione outro triangulo. Faça com que os dois triangulos compartilhem uma aresta e dois pontos formando assim um paralelgramo
+Como podes ver a entidade atomica do nosso sistema são pontos e arestas. Triangulo não será mais uma entidade mas sim um método de organização de pontos e arestas

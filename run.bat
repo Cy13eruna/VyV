@@ -3,7 +3,8 @@ echo ===============================================
 echo           VAGABONDS ^& VALLEYS
 echo ===============================================
 echo.
-echo === TRIANGULO MINIMALISTA ===
+echo === HEXAGONO EQUILATERO ===
+echo 7 pontos e 12 arestas
 echo Hover sobre pontos e arestas para destaque magenta
 echo.
 echo Iniciando...
