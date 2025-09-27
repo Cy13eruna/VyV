@@ -56,7 +56,7 @@ var skip_turn_button: Button
 var action_label: Label
 
 func _ready():
-	print("Generating expanded hexagonal grid...")
+	print("🎮 CLEAN VERSION - Generating expanded hexagonal grid...")
 	
 	# Generate hexagonal grid using HexGridSystem
 	if HexGridSystem:
@@ -104,7 +104,7 @@ func _ready():
 	# Create UI
 	_create_ui()
 	
-	# Player 1 starts with initial power (already has 1), no need to generate more initially
+	print("🎮 CLEAN VERSION - Ready! Player 1 starts with 1 power, Player 2 starts with 1 power")
 
 func _process(_delta):
 	var mouse_pos = get_global_mouse_position()
@@ -302,21 +302,10 @@ func _is_path_adjacent_to_current_unit(path: Dictionary) -> bool:
 	var path_points = path.points
 	return path_points[0] == current_unit_pos or path_points[1] == current_unit_pos
 
-## Check if path is adjacent to any unit (for hover)
-func _is_path_adjacent_to_unit(path: Dictionary) -> bool:
-	# Path is adjacent if one of the points has any unit
-	var path_points = path.points
-	return path_points[0] == unit1_position or path_points[1] == unit1_position or \
-		   path_points[0] == unit2_position or path_points[1] == unit2_position
-
 ## Check if point is visible to current player
 func _is_point_visible_to_current_unit(point_index: int) -> bool:
 	var current_unit_pos = unit1_position if current_player == 1 else unit2_position
 	return _is_point_visible_to_unit(point_index, current_unit_pos)
-
-## Check if point is visible to any unit (for hover)
-func _is_point_visible_to_any_unit(point_index: int) -> bool:
-	return _is_point_visible_to_unit(point_index, unit1_position) or _is_point_visible_to_unit(point_index, unit2_position)
 
 ## Check if point is visible to a specific unit
 func _is_point_visible_to_unit(point_index: int, unit_pos: int) -> bool:
@@ -412,49 +401,31 @@ func _consume_domain_power() -> void:
 		unit2_domain_power = max(0, unit2_domain_power - 1)
 		print("⚡ Domain 2 consumed 1 power (Remaining: %d)" % unit2_domain_power)
 
-## Generate power for current player's domain only
+## Generate power for current player's domain only - CLEAN VERSION
 func _generate_domain_power_for_current_player() -> void:
-	print("🔄 Player %d turn - Generating power ONLY for Player %d's domain" % [current_player, current_player])
+	print("🔄 CLEAN: Player %d turn - Generating power ONLY for Player %d's domain" % [current_player, current_player])
 	
 	if current_player == 1:
 		# Domain 1: generate power if not occupied
 		if unit2_position != unit1_domain_center:
 			unit1_domain_power += 1
-			print("⚡ Domain 1 (%s) generated 1 power (Total: %d)" % [unit1_domain_name, unit1_domain_power])
+			print("⚡ CLEAN: Domain 1 (%s) generated 1 power (Total: %d)" % [unit1_domain_name, unit1_domain_power])
 		else:
-			print("⚡ Domain 1 (%s) occupied - didn't generate power" % unit1_domain_name)
+			print("⚡ CLEAN: Domain 1 (%s) occupied - didn't generate power" % unit1_domain_name)
 	else:
 		# Domain 2: generate power if not occupied
 		if unit1_position != unit2_domain_center:
 			unit2_domain_power += 1
-			print("⚡ Domain 2 (%s) generated 1 power (Total: %d)" % [unit2_domain_name, unit2_domain_power])
+			print("⚡ CLEAN: Domain 2 (%s) generated 1 power (Total: %d)" % [unit2_domain_name, unit2_domain_power])
 		else:
-			print("⚡ Domain 2 (%s) occupied - didn't generate power" % unit2_domain_name)
+			print("⚡ CLEAN: Domain 2 (%s) occupied - didn't generate power" % unit2_domain_name)
 
-## Start turn for current player (generates power)
+## Start turn for current player (generates power) - CLEAN VERSION
 func _start_current_player_turn() -> void:
-	print("🎯 Player %d starting their turn" % current_player)
+	print("🎯 CLEAN: Player %d starting their turn" % current_player)
 	
 	# Generate power for current player's domain at start of their turn
 	_generate_domain_power_for_current_player()
-
-## Generate power for domains (legacy function - for compatibility)
-func _generate_domain_power() -> void:
-	print("🔄 New round - Generating power for domains")
-	
-	# Domain 1: generate power if not occupied
-	if unit2_position != unit1_domain_center:
-		unit1_domain_power += 1
-		print("⚡ Domain 1 (%s) generated 1 power (Total: %d)" % [unit1_domain_name, unit1_domain_power])
-	else:
-		print("⚡ Domain 1 (%s) occupied - didn't generate power" % unit1_domain_name)
-	
-	# Domain 2: generate power if not occupied
-	if unit1_position != unit2_domain_center:
-		unit2_domain_power += 1
-		print("⚡ Domain 2 (%s) generated 1 power (Total: %d)" % [unit2_domain_name, unit2_domain_power])
-	else:
-		print("⚡ Domain 2 (%s) occupied - didn't generate power" % unit2_domain_name)
 
 ## Check if point is within current player's domain
 func _is_point_in_current_player_domain(point_index: int) -> bool:
@@ -470,18 +441,6 @@ func _is_path_in_current_player_domain(path: Dictionary) -> bool:
 	# Path is in domain if both points are in current player's domain
 	return _is_point_in_specific_domain(point1, domain_center) and _is_point_in_specific_domain(point2, domain_center)
 
-## Check if point is within any domain
-func _is_point_in_domain(point_index: int) -> bool:
-	# Check if point is within unit 1's domain
-	if _is_point_in_specific_domain(point_index, unit1_domain_center):
-		return true
-	
-	# Check if point is within unit 2's domain
-	if _is_point_in_specific_domain(point_index, unit2_domain_center):
-		return true
-	
-	return false
-
 ## Check if point is within a specific domain
 func _is_point_in_specific_domain(point_index: int, domain_center: int) -> bool:
 	# Point is in domain if it's the center or one of the 6 neighbors
@@ -496,22 +455,6 @@ func _is_point_in_specific_domain(point_index: int, domain_center: int) -> bool:
 		var neighbor_coord = domain_coord + _hex_direction(dir)
 		if point_coord.is_equal_approx(neighbor_coord):
 			return true
-	
-	return false
-
-## Check if path is within any domain
-func _is_path_in_domain(path: Dictionary) -> bool:
-	# Path is in domain if both points are in the domain
-	var point1 = path.points[0]
-	var point2 = path.points[1]
-	
-	# Check unit 1's domain
-	if _is_point_in_specific_domain(point1, unit1_domain_center) and _is_point_in_specific_domain(point2, unit1_domain_center):
-		return true
-	
-	# Check unit 2's domain
-	if _is_point_in_specific_domain(point1, unit2_domain_center) and _is_point_in_specific_domain(point2, unit2_domain_center):
-		return true
 	
 	return false
 
@@ -564,20 +507,6 @@ func _generate_random_terrain() -> void:
 		paths[i].type = terrain_pool[pool_index]
 	
 	print("✨ Random terrain generated! Field: 50%, Forest/Water/Mountain: 16.7% each")
-	print("Press SPACE again to regenerate.")
-
-## Get outer points (radius 3) - now using HexGridSystem
-func _get_outer_points() -> Array[int]:
-	if HexGridSystem:
-		return HexGridSystem.get_outer_points(hex_coords, 3)
-	else:
-		var outer_points: Array[int] = []
-		for i in range(hex_coords.size()):
-			var coord = hex_coords[i]
-			var distance = max(abs(coord.x), abs(coord.y), abs(-coord.x - coord.y))
-			if distance == 3:
-				outer_points.append(i)
-		return outer_points
 
 ## Generate hexagonal grid
 func _generate_hex_grid() -> void:
@@ -887,11 +816,6 @@ func _mark_map_corners() -> void:
 	print("🔍 Corners detected: %d points with 3 paths" % corners.size())
 	for corner_index in corners:
 		print("  Corner %d: coordinate %s" % [corner_index, hex_coords[corner_index]])
-	
-	# Store corner indices to paint magenta
-	for corner_index in corners:
-		# Corners will be painted magenta in _draw() function
-		pass
 
 ## Create user interface
 func _create_ui() -> void:
@@ -910,8 +834,10 @@ func _create_ui() -> void:
 	action_label.add_theme_font_size_override("font_size", 14)
 	add_child(action_label)
 
-## Skip Turn button callback
+## Skip Turn button callback - CLEAN VERSION
 func _on_skip_turn_pressed() -> void:
+	print("🎮 CLEAN: Skip Turn pressed by Player %d" % current_player)
+	
 	if GameManager:
 		# Use GameManager for turn switching
 		GameManager.switch_player()
@@ -926,7 +852,7 @@ func _on_skip_turn_pressed() -> void:
 		unit2_domain_power = game_state.unit2_domain_power
 	else:
 		# Fallback to local implementation
-		print("⏭️ Player %d skipping turn - Switching to player %d" % [current_player, 3 - current_player])
+		print("⏭️ CLEAN: Player %d skipping turn - Switching to player %d" % [current_player, 3 - current_player])
 		
 		# Switch player
 		current_player = 3 - current_player  # 1 -> 2, 2 -> 1

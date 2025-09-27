@@ -9,6 +9,7 @@ config/features=PackedStringArray("4.4", "GL Compatibility")
 GameConstants="*res://data/constants.gd"
 TerrainSystem="*res://systems/terrain_system.gd"
 HexGridSystem="*res://systems/hex_grid_system.gd"
+GameManager="*res://systems/game_manager.gd"
 
 [rendering]
 

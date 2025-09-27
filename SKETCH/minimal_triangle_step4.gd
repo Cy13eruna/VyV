@@ -103,8 +103,6 @@ func _ready():
 	
 	# Create UI
 	_create_ui()
-	
-	# Player 1 starts with initial power (already has 1), no need to generate more initially
 
 func _process(_delta):
 	var mouse_pos = get_global_mouse_position()
@@ -412,33 +410,7 @@ func _consume_domain_power() -> void:
 		unit2_domain_power = max(0, unit2_domain_power - 1)
 		print("⚡ Domain 2 consumed 1 power (Remaining: %d)" % unit2_domain_power)
 
-## Generate power for current player's domain only
-func _generate_domain_power_for_current_player() -> void:
-	print("🔄 Player %d turn - Generating power ONLY for Player %d's domain" % [current_player, current_player])
-	
-	if current_player == 1:
-		# Domain 1: generate power if not occupied
-		if unit2_position != unit1_domain_center:
-			unit1_domain_power += 1
-			print("⚡ Domain 1 (%s) generated 1 power (Total: %d)" % [unit1_domain_name, unit1_domain_power])
-		else:
-			print("⚡ Domain 1 (%s) occupied - didn't generate power" % unit1_domain_name)
-	else:
-		# Domain 2: generate power if not occupied
-		if unit1_position != unit2_domain_center:
-			unit2_domain_power += 1
-			print("⚡ Domain 2 (%s) generated 1 power (Total: %d)" % [unit2_domain_name, unit2_domain_power])
-		else:
-			print("⚡ Domain 2 (%s) occupied - didn't generate power" % unit2_domain_name)
-
-## Start turn for current player (generates power)
-func _start_current_player_turn() -> void:
-	print("🎯 Player %d starting their turn" % current_player)
-	
-	# Generate power for current player's domain at start of their turn
-	_generate_domain_power_for_current_player()
-
-## Generate power for domains (legacy function - for compatibility)
+## Generate power for domains (once per round)
 func _generate_domain_power() -> void:
 	print("🔄 New round - Generating power for domains")
 	
@@ -915,21 +887,21 @@ func _on_skip_turn_pressed() -> void:
 	if GameManager:
 		# Use GameManager for turn switching
 		GameManager.switch_player()
-		# Start the new player's turn (generates power)
-		GameManager.start_current_player_turn()
 		# Update local state from GameManager
 		var game_state = GameManager.get_game_state()
 		current_player = game_state.current_player
 		unit1_actions = game_state.unit1_actions
 		unit2_actions = game_state.unit2_actions
-		unit1_domain_power = game_state.unit1_domain_power
-		unit2_domain_power = game_state.unit2_domain_power
 	else:
 		# Fallback to local implementation
 		print("⏭️ Player %d skipping turn - Switching to player %d" % [current_player, 3 - current_player])
 		
 		# Switch player
 		current_player = 3 - current_player  # 1 -> 2, 2 -> 1
+		
+		# Generate power for domains at start of round (when returning to player 1)
+		if current_player == 1:
+			_generate_domain_power()
 		
 		# Restore actions for new player
 		if current_player == 1:
@@ -939,9 +911,6 @@ func _on_skip_turn_pressed() -> void:
 		
 		# Reset forced revelations if units are no longer visible
 		_check_and_reset_forced_revelations()
-		
-		# Start the new player's turn (generates power)
-		_start_current_player_turn()
 	
 	_update_action_display()
 	queue_redraw()
