@@ -1,5 +1,8 @@
-Bom. Dessa vez apareceram vários problemas...
-Vou listar todos que eu achei, mas é possível que passe alguns despercebidos:
-- nome do domínio adversário não aparece quando o domínio está visível
-- sistema de gasto/geração de poder parou de funcionar. Congelado em 1 de poder
-Vamos começar por esses dois problemas. Depois vemos os demais...
+Vejo que alguns arquivos ainda são bem monolíticos. Vamos quebrá-los e organizar essa bagunça...
+LIsto os arquivos monolíticos que precisam ser refatorados:
+- main_game
+- game_manager
+- render_system
+- ui_system
+- unit_system
+Crie um roteiro e inicie a refatoração

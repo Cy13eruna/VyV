@@ -10,5 +10,5 @@ if exist ".godot" (
     rmdir /s /q ".godot"
 )
 
-"C:\Program Files\Godot\Godot_v4.4.1-stable_win64.exe" --path . minimal_triangle_fixed.tscn
+"C:\Program Files\Godot\Godot_v4.4.1-stable_win64.exe" --path . main_game.tscn
 pause
