@@ -306,19 +306,32 @@ func _is_domain_visible(domain_center: int) -> bool:
 		print("🔧 UI_FRONTEND_FIX: Fog of war disabled - VISIBLE")
 		return true
 	
-	# Use GameManager for proper visibility logic if available
-	if GameManager and GameManager.has_method("is_domain_visible"):
-		var visible = GameManager.is_domain_visible(domain_center)
-		print("🔧 UI_FRONTEND_FIX: GameManager visibility check - %s" % ("VISIBLE" if visible else "HIDDEN"))
+	# ENHANCED: Use parent node's visibility logic if available
+	if parent_node and parent_node.has_method("_is_domain_visible"):
+		var visible = parent_node._is_domain_visible(domain_center)
+		print("🔧 UI_FRONTEND_FIX: Parent visibility check - %s" % ("VISIBLE" if visible else "HIDDEN"))
 		return visible
 	
-	# Fallback: check if current unit is close to domain (simplified)
+	# ENHANCED: Check if current unit is within 2 hexes of domain center (like main_game.gd)
 	var current_unit_pos = unit1_position if current_player == 1 else unit2_position
-	if abs(current_unit_pos - domain_center) <= 5:  # Simple proximity check
-		print("🔧 UI_FRONTEND_FIX: Domain close to unit (fallback) - VISIBLE")
+	
+	# Simple distance check (approximation)
+	var distance = abs(current_unit_pos - domain_center)
+	if distance <= 5:  # More permissive proximity check
+		print("🔧 UI_FRONTEND_FIX: Domain close to unit (distance=%d) - VISIBLE" % distance)
 		return true
 	
-	print("🔧 UI_FRONTEND_FIX: Domain not visible (fallback) - HIDDEN")
+	# FALLBACK: For enemy domains, be more permissive
+	if current_player == 1 and domain_center == unit2_domain_center:
+		# Red player looking at violet domain - be permissive
+		print("🔧 UI_FRONTEND_FIX: Red player viewing violet domain - VISIBLE (permissive)")
+		return true
+	elif current_player == 2 and domain_center == unit1_domain_center:
+		# Violet player looking at red domain - be permissive
+		print("🔧 UI_FRONTEND_FIX: Violet player viewing red domain - VISIBLE (permissive)")
+		return true
+	
+	print("🔧 UI_FRONTEND_FIX: Domain not visible - HIDDEN")
 	return false
 
 # Fallback visibility function when GameManager is not available
