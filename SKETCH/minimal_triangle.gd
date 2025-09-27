@@ -1,14 +1,14 @@
 extends Node2D
 
-# Pontos do hexágono equilátero (7 pontos: 6 vértices + 1 centro)
+# Pontos do hexágono equilátero girado 30° (7 pontos: 6 vértices + 1 centro)
 var points = [
 	Vector2(400, 200),                    # 0: Centro
-	Vector2(400, 50),                     # 1: Topo
-	Vector2(530, 125),                    # 2: Topo direito
-	Vector2(530, 275),                    # 3: Inferior direito
-	Vector2(400, 350),                    # 4: Inferior
-	Vector2(270, 275),                    # 5: Inferior esquerdo
-	Vector2(270, 125)                     # 6: Topo esquerdo
+	Vector2(530, 200),                    # 1: Direita
+	Vector2(465, 312.5),                  # 2: Inferior direito
+	Vector2(335, 312.5),                  # 3: Inferior esquerdo
+	Vector2(270, 200),                    # 4: Esquerda
+	Vector2(335, 87.5),                   # 5: Superior esquerdo
+	Vector2(465, 87.5)                    # 6: Superior direito
 ]
 
 # Tipos de arestas
@@ -19,22 +19,22 @@ enum EdgeType {
 	CYAN_GRAY       # Ciano acizentado: vê mas não move
 }
 
-# Arestas do hexágono com tipos (12 arestas: 6 perímetro + 6 radiais)
+# Arestas do hexágono girado com tipos (12 arestas: 6 perímetro + 6 radiais)
 var edges = [
 	# Perímetro do hexágono (6 arestas)
-	{"points": [1, 2], "type": EdgeType.GREEN},      # Topo -> Topo direito
-	{"points": [2, 3], "type": EdgeType.GREEN_GRAY}, # Topo direito -> Inferior direito
-	{"points": [3, 4], "type": EdgeType.YELLOW_GRAY},# Inferior direito -> Inferior
-	{"points": [4, 5], "type": EdgeType.CYAN_GRAY},  # Inferior -> Inferior esquerdo
-	{"points": [5, 6], "type": EdgeType.GREEN},      # Inferior esquerdo -> Topo esquerdo
-	{"points": [6, 1], "type": EdgeType.GREEN_GRAY}, # Topo esquerdo -> Topo
+	{"points": [1, 2], "type": EdgeType.GREEN},      # Direita -> Inferior direito
+	{"points": [2, 3], "type": EdgeType.GREEN_GRAY}, # Inferior direito -> Inferior esquerdo
+	{"points": [3, 4], "type": EdgeType.YELLOW_GRAY},# Inferior esquerdo -> Esquerda
+	{"points": [4, 5], "type": EdgeType.CYAN_GRAY},  # Esquerda -> Superior esquerdo
+	{"points": [5, 6], "type": EdgeType.GREEN},      # Superior esquerdo -> Superior direito
+	{"points": [6, 1], "type": EdgeType.GREEN_GRAY}, # Superior direito -> Direita
 	# Arestas radiais do centro (6 arestas)
-	{"points": [0, 1], "type": EdgeType.GREEN},      # Centro -> Topo
-	{"points": [0, 2], "type": EdgeType.GREEN_GRAY}, # Centro -> Topo direito
-	{"points": [0, 3], "type": EdgeType.YELLOW_GRAY},# Centro -> Inferior direito
-	{"points": [0, 4], "type": EdgeType.CYAN_GRAY},  # Centro -> Inferior
-	{"points": [0, 5], "type": EdgeType.GREEN},      # Centro -> Inferior esquerdo
-	{"points": [0, 6], "type": EdgeType.GREEN_GRAY}  # Centro -> Topo esquerdo
+	{"points": [0, 1], "type": EdgeType.GREEN},      # Centro -> Direita
+	{"points": [0, 2], "type": EdgeType.GREEN_GRAY}, # Centro -> Inferior direito
+	{"points": [0, 3], "type": EdgeType.YELLOW_GRAY},# Centro -> Inferior esquerdo
+	{"points": [0, 4], "type": EdgeType.CYAN_GRAY},  # Centro -> Esquerda
+	{"points": [0, 5], "type": EdgeType.GREEN},      # Centro -> Superior esquerdo
+	{"points": [0, 6], "type": EdgeType.GREEN_GRAY}  # Centro -> Superior direito
 ]
 
 # Estado do hover

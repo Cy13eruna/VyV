@@ -1,2 +1,1 @@
-Agora faça com que a unidade tenha uma pontuação chamada 'action' (ação) que sera igual a 1. Para andar, a unidade gastará esse ponto.
-Adicione um botão flutuante no canto superior direito escrito 'skip turn' que quando eu clicar nele a unidade restaurará seu ponto de ação (não cumulativo. todo turno resetará para 1)
+Agora gire o hexagono em 30 graus

@@ -51,6 +51,7 @@
 **HOVER_SYSTEM**: Non-rendered elements show magenta on hover | exploration preview
 **ACTION_SYSTEM**: unit_actions=1 per turn | movement costs 1 action | Skip Turn button restores
 **UI_ELEMENTS**: Skip Turn button (top-right) | Actions label | _on_skip_turn_pressed() callback
-**STATUS**: ATOMIC_SYSTEM_WITH_ACTION_POINTS
+**HEXAGON_ROTATED**: 30° rotation applied | flat-top → pointy-top orientation | coordinates recalculated
+**STATUS**: ATOMIC_SYSTEM_WITH_ROTATED_HEXAGON
 
 *AUTO_UPDATE_ON_MILESTONES*
