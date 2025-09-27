@@ -56,8 +56,8 @@ var skip_turn_button: Button
 var action_label: Label
 
 func _ready():
-	print("🔥 STEP 8 - UnitSystem integration (ORIGINAL POSITIONING RESTORED)...")
-	print("🚶‍♀️ Testing units with 8 systems: GameConstants, TerrainSystem, HexGridSystem, GameManager, InputSystem, RenderSystem, UISystem, UnitSystem")
+	print("🔥 STEP 7 - UISystem integration (FOG OF WAR FIXED)...")
+	print("💻 Testing UI with 7 systems: GameConstants, TerrainSystem, HexGridSystem, GameManager, InputSystem, RenderSystem, UISystem")
 	print("🔥 Player 1 (RED) starts with 1 power")
 	print("🔥 Player 2 (VIOLET) starts with 1 power")
 	
@@ -71,10 +71,7 @@ func _ready():
 		_generate_hex_grid()
 	
 	# Set initial unit positions
-	if UnitSystem:
-		_set_initial_unit_positions_with_system()
-	else:
-		_set_initial_unit_positions()
+	_set_initial_unit_positions()
 	
 	# Generate random terrain automatically using TerrainSystem
 	if TerrainSystem:
@@ -104,13 +101,6 @@ func _ready():
 		UISystem.initialize(self, points)
 		UISystem.skip_turn_requested.connect(_on_ui_skip_turn)
 		print("💻 UISystem initialized and ready")
-	
-	# Initialize UnitSystem
-	if UnitSystem:
-		UnitSystem.initialize(points, hex_coords, paths)
-		UnitSystem.unit_moved.connect(_on_unit_moved)
-		UnitSystem.movement_blocked.connect(_on_movement_blocked)
-		print("🚶‍♀️ UnitSystem initialized and ready")
 	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
@@ -208,177 +198,6 @@ func _unhandled_input(event: InputEvent) -> void:
 func _on_input_point_clicked(point_index: int) -> void:
 	print("🎮 InputSystem: Processing point %d click" % point_index)
 	
-	# Use UnitSystem if available
-	if UnitSystem:
-		# Update UnitSystem state
-		_update_unit_system_state()
-		
-		# Attempt movement through UnitSystem
-		var movement_result = UnitSystem.attempt_unit_movement(point_index)
-		
-		if movement_result.success:
-			# Update local state from UnitSystem
-			_sync_from_unit_system()
-		else:
-			print("⚠️ %s" % movement_result.message)
-			# Still sync state in case actions/power were consumed
-			_sync_from_unit_system()
-		
-		# Update UI
-		if UISystem:
-			_update_ui_system_state()
-			UISystem.update_ui()
-		else:
-			_update_units_visibility_and_position()
-			_update_action_display()
-		queue_redraw()
-	else:
-		# Fallback to local movement logic
-		_handle_movement_fallback(point_index)
-
-func _on_input_fog_toggle() -> void:
-	print("🎮 InputSystem: Processing fog toggle")
-	
-	# Toggle fog of war
-	if GameManager:
-		GameManager.toggle_fog_of_war()
-		fog_of_war = GameManager.fog_of_war
-	else:
-		fog_of_war = not fog_of_war
-		var fog_status = "ENABLED" if fog_of_war else "DISABLED"
-		print("🌫️ Fog of War %s" % fog_status)
-	queue_redraw()
-
-## UISystem signal callback
-func _on_ui_skip_turn() -> void:
-	print("💻 UISystem: Skip Turn requested")
-	_on_skip_turn_pressed()
-
-## Update UISystem state
-func _update_ui_system_state() -> void:
-	if UISystem:
-		var ui_state = {
-			"current_player": current_player,
-			"unit1_actions": unit1_actions,
-			"unit2_actions": unit2_actions,
-			"unit1_domain_power": unit1_domain_power,
-			"unit2_domain_power": unit2_domain_power,
-			"fog_of_war": fog_of_war,
-			"unit1_position": unit1_position,
-			"unit2_position": unit2_position,
-			"unit1_domain_center": unit1_domain_center,
-			"unit2_domain_center": unit2_domain_center,
-			"unit1_force_revealed": unit1_force_revealed,
-			"unit2_force_revealed": unit2_force_revealed
-		}
-		UISystem.update_game_state(ui_state)
-
-## UnitSystem signal callbacks
-func _on_unit_moved(unit_id: int, from_point: int, to_point: int) -> void:
-	print("🚶‍♀️ UnitSystem: Unit %d moved from %d to %d" % [unit_id, from_point, to_point])
-
-func _on_movement_blocked(unit_id: int, reason: String) -> void:
-	print("⚠️ UnitSystem: Unit %d movement blocked - %s" % [unit_id, reason])
-
-## Update UnitSystem state
-func _update_unit_system_state() -> void:
-	if UnitSystem:
-		var unit_state = {
-			"current_player": current_player,
-			"fog_of_war": fog_of_war,
-			"unit1_domain_power": unit1_domain_power,
-			"unit2_domain_power": unit2_domain_power
-		}
-		UnitSystem.update_game_state(unit_state)
-
-## Sync local state from UnitSystem
-func _sync_from_unit_system() -> void:
-	if UnitSystem:
-		var unit_state = UnitSystem.get_unit_state()
-		current_player = unit_state.current_player
-		unit1_position = unit_state.unit1_position
-		unit2_position = unit_state.unit2_position
-		unit1_actions = unit_state.unit1_actions
-		unit2_actions = unit_state.unit2_actions
-		unit1_domain_power = unit_state.unit1_domain_power
-		unit2_domain_power = unit_state.unit2_domain_power
-		unit1_force_revealed = unit_state.unit1_force_revealed
-		unit2_force_revealed = unit_state.unit2_force_revealed
-
-## Set initial unit positions with UnitSystem - ORIGINAL WORKING VERSION
-func _set_initial_unit_positions_with_system() -> void:
-	# Get the 6 map corners using HexGridSystem
-	var corners = HexGridSystem.get_map_corners(paths, points.size()) if HexGridSystem else _get_map_corners()
-	
-	if UnitSystem:
-		# Ensure UnitSystem has the grid data before positioning
-		UnitSystem.initialize(points, hex_coords, paths)
-		var result = UnitSystem.set_initial_positions(corners)
-		if result.success:
-			# Sync positions from UnitSystem
-			unit1_position = result.unit1_position
-			unit2_position = result.unit2_position
-			unit1_domain_center = result.unit1_domain_center
-			unit2_domain_center = result.unit2_domain_center
-			
-			# Generate names for domains and units
-			_generate_domain_and_unit_names()
-			
-			# Setup UnitSystem with names
-			UnitSystem.setup_units(unit1_position, unit2_position, unit1_name, unit2_name, unit1_domain_name, unit2_domain_name)
-			
-			# Setup GameManager with unit data
-			if GameManager:
-				GameManager.setup_units(unit1_position, unit2_position, unit1_name, unit2_name, unit1_domain_name, unit2_domain_name)
-			
-			print("Units positioned at official spawn:")
-			print("Unit1 (Red) '%s' at point %d: %s (Domain: %s)" % [unit1_name, unit1_position, hex_coords[unit1_position], unit1_domain_name])
-			print("Unit2 (Violet) '%s' at point %d: %s (Domain: %s)" % [unit2_name, unit2_position, hex_coords[unit2_position], unit2_domain_name])
-			print("Domains created at spawn points")
-		else:
-			print("Error: Could not set initial positions")
-			# Fallback to local method
-			_set_initial_unit_positions()
-
-## Fallback functions for when systems are not available
-func _process_hover_fallback(mouse_pos: Vector2) -> void:
-	# Check hover on points (including non-rendered ones)
-	hovered_point = -1
-	for i in range(points.size()):
-		if mouse_pos.distance_to(points[i]) < 20:
-			hovered_point = i
-			break
-	
-	# Check hover on paths (including non-rendered ones)
-	hovered_edge = -1
-	if hovered_point == -1:
-		for i in range(paths.size()):
-			var path = paths[i]
-			var path_points = path.points
-			var p1 = points[path_points[0]]
-			var p2 = points[path_points[1]]
-			if _point_near_line(mouse_pos, p1, p2, 10):
-				hovered_edge = i
-				break
-
-func _handle_input_fallback(event: InputEvent) -> void:
-	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-		var mouse_pos = get_global_mouse_position()
-		
-		# Check click on points
-		for i in range(points.size()):
-			if mouse_pos.distance_to(points[i]) < 20:
-				_on_input_point_clicked(i)
-				get_viewport().set_input_as_handled()
-				return
-	
-	elif event is InputEventKey and event.pressed:
-			if event.keycode == KEY_SPACE:
-				_on_input_fog_toggle()
-				get_viewport().set_input_as_handled()
-
-## Fallback movement handling
-func _handle_movement_fallback(point_index: int) -> void:
 	# If clicked on point that current unit can move to, check actions
 	if _can_current_unit_move_to_point(point_index):
 		var current_actions = unit1_actions if current_player == 1 else unit2_actions
@@ -426,22 +245,79 @@ func _handle_movement_fallback(point_index: int) -> void:
 	else:
 		print("❌ Unit %d cannot move to point %d" % [current_player, point_index])
 
-func _handle_skip_turn_fallback() -> void:
-	# Switch player FIRST
-	current_player = 3 - current_player  # 1 -> 2, 2 -> 1
-	print("🔥 FIXED: Switched to Player %d" % current_player)
+func _on_input_fog_toggle() -> void:
+	print("🎮 InputSystem: Processing fog toggle")
 	
-	# Restore actions for new player
-	if current_player == 1:
-		unit1_actions = 1
+	# Toggle fog of war
+	if GameManager:
+		GameManager.toggle_fog_of_war()
+		fog_of_war = GameManager.fog_of_war
 	else:
-		unit2_actions = 1
+		fog_of_war = not fog_of_war
+		var fog_status = "ENABLED" if fog_of_war else "DISABLED"
+		print("🌫️ Fog of War %s" % fog_status)
+	queue_redraw()
+
+## UISystem signal callback
+func _on_ui_skip_turn() -> void:
+	print("💻 UISystem: Skip Turn requested")
+	_on_skip_turn_pressed()
+
+## Update UISystem state
+func _update_ui_system_state() -> void:
+	if UISystem:
+		var ui_state = {
+			"current_player": current_player,
+			"unit1_actions": unit1_actions,
+			"unit2_actions": unit2_actions,
+			"unit1_domain_power": unit1_domain_power,
+			"unit2_domain_power": unit2_domain_power,
+			"fog_of_war": fog_of_war,
+			"unit1_position": unit1_position,
+			"unit2_position": unit2_position,
+			"unit1_domain_center": unit1_domain_center,
+			"unit2_domain_center": unit2_domain_center,
+			"unit1_force_revealed": unit1_force_revealed,
+			"unit2_force_revealed": unit2_force_revealed
+		}
+		UISystem.update_game_state(ui_state)
+
+## Fallback functions for when systems are not available
+func _process_hover_fallback(mouse_pos: Vector2) -> void:
+	# Check hover on points (including non-rendered ones)
+	hovered_point = -1
+	for i in range(points.size()):
+		if mouse_pos.distance_to(points[i]) < 20:
+			hovered_point = i
+			break
 	
-	# Reset forced revelations if units are no longer visible
-	_check_and_reset_forced_revelations()
+	# Check hover on paths (including non-rendered ones)
+	hovered_edge = -1
+	if hovered_point == -1:
+		for i in range(paths.size()):
+			var path = paths[i]
+			var path_points = path.points
+			var p1 = points[path_points[0]]
+			var p2 = points[path_points[1]]
+			if _point_near_line(mouse_pos, p1, p2, 10):
+				hovered_edge = i
+				break
+
+func _handle_input_fallback(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		var mouse_pos = get_global_mouse_position()
+		
+		# Check click on points
+		for i in range(points.size()):
+			if mouse_pos.distance_to(points[i]) < 20:
+				_on_input_point_clicked(i)
+				get_viewport().set_input_as_handled()
+				return
 	
-	# NOW generate power for the NEW current player
-	_generate_power_for_current_player_only()
+	elif event is InputEventKey and event.pressed:
+		if event.keycode == KEY_SPACE:
+			_on_input_fog_toggle()
+			get_viewport().set_input_as_handled()
 
 ## Fallback rendering function
 func _draw_fallback() -> void:
@@ -848,7 +724,7 @@ func _find_hex_coord_index(coord: Vector2) -> int:
 			return i
 	return -1
 
-## Set initial unit positions (official spawn) - ORIGINAL WORKING VERSION
+## Set initial unit positions (official spawn)
 func _set_initial_unit_positions() -> void:
 	# Get the 6 map corners using HexGridSystem
 	var corners = HexGridSystem.get_map_corners(paths, points.size()) if HexGridSystem else _get_map_corners()
@@ -880,38 +756,6 @@ func _set_initial_unit_positions() -> void:
 		print("Domains created at spawn points")
 	else:
 		print("Error: Could not find enough corners")
-
-## Fallback positioning method
-func _set_initial_unit_positions_fallback() -> void:
-	print("⚠️ Using fallback positioning method...")
-	
-	# Get the 6 map corners using HexGridSystem
-	var corners = HexGridSystem.get_map_corners(paths, points.size()) if HexGridSystem else _get_map_corners()
-	
-	if corners.size() >= 2:
-		# Shuffle and choose 2 random corners
-		corners.shuffle()
-		var corner1 = corners[0]
-		var corner2 = corners[1]
-		
-		# Find adjacent point with 6 edges
-		unit1_position = _find_adjacent_six_edge_point(corner1)
-		unit2_position = _find_adjacent_six_edge_point(corner2)
-		
-		# Set domain centers
-		unit1_domain_center = unit1_position
-		unit2_domain_center = unit2_position
-		
-		# Generate names for domains and units
-		_generate_domain_and_unit_names()
-		
-		# Setup GameManager with unit data
-		if GameManager:
-				GameManager.setup_units(unit1_position, unit2_position, unit1_name, unit2_name, unit1_domain_name, unit2_domain_name)
-		
-		print("Fallback positioning complete")
-	else:
-		print("Error: Could not find enough corners even in fallback")
 
 ## Generate names for domains and units
 func _generate_domain_and_unit_names() -> void:
@@ -986,22 +830,9 @@ func _create_name_labels() -> void:
 	unit2_name_label.add_theme_color_override("font_color", Color(0.5, 0.0, 0.8))
 	add_child(unit2_name_label)
 
-## Find best adjacent point for domain - FIXED VERSION
+## Find adjacent point with 6 edges
 func _find_adjacent_six_edge_point(corner_index: int) -> int:
-	print("🏰 FIXED: Finding best domain position for corner %d at %s" % [corner_index, hex_coords[corner_index]])
 	var corner_coord = hex_coords[corner_index]
-	
-	# First, count paths for the corner itself
-	var corner_path_count = 0
-	for path in paths:
-		var path_points = path.points
-		if path_points[0] == corner_index or path_points[1] == corner_index:
-			corner_path_count += 1
-	print("🏰 FIXED: Corner %d has %d paths" % [corner_index, corner_path_count])
-	
-	# Look for best neighbor (prioritize more connections)
-	var best_neighbor = -1
-	var best_connections = 0
 	
 	# Check all 6 hexagonal neighbors of the corner
 	for dir in range(6):
@@ -1016,174 +847,12 @@ func _find_adjacent_six_edge_point(corner_index: int) -> int:
 				if path_points[0] == neighbor_index or path_points[1] == neighbor_index:
 					path_count += 1
 			
-			print("🏰 FIXED: Neighbor %d at %s has %d paths" % [neighbor_index, neighbor_coord, path_count])
-			
-			# Accept neighbors with 4, 5, or 6 connections (not corners with 3)
-			if path_count >= 4 and path_count > best_connections:
-				best_neighbor = neighbor_index
-				best_connections = path_count
-				print("🏰 FIXED: New best neighbor %d with %d connections" % [neighbor_index, path_count])
-	
-	# If found a good neighbor, use it
-	if best_neighbor != -1:
-		print("✅ FIXED: Using neighbor %d with %d connections for corner %d" % [best_neighbor, best_connections, corner_index])
-		return best_neighbor
-	
-	# If no good neighbor found, look for points at distance 2 (raio 1 points with 6 connections)
-	print("🔍 FIXED: No good neighbor found, searching raio 1 points...")
-	for i in range(points.size()):
-		var point_coord = hex_coords[i]
-		var distance = _hex_distance(corner_coord, point_coord)
-		
-		# Look for points at distance 2 (raio 1)
-		if distance == 2:
-			# Count connections
-			var path_count = 0
-			for path in paths:
-				var path_points = path.points
-				if path_points[0] == i or path_points[1] == i:
-					path_count += 1
-			
-			# Raio 1 points should have 6 connections
+			# If it has 6 paths, it's a valid point
 			if path_count == 6:
-				print("✅ FIXED: Found raio 1 point %d with 6 connections at distance 2" % i)
-				return i
+				return neighbor_index
 	
-	# Ultimate fallback: return the corner itself (should never happen now)
-	print("❌ FIXED: No suitable point found, using corner %d as fallback" % corner_index)
+	# If no neighbor with 6 paths found, return the corner itself
 	return corner_index
-
-## Calculate hexagonal distance between two coordinates
-func _hex_distance(coord1: Vector2, coord2: Vector2) -> int:
-	# Axial coordinate distance formula
-	return int((abs(coord1.x - coord2.x) + abs(coord1.x + coord1.y - coord2.x - coord2.y) + abs(coord1.y - coord2.y)) / 2)
-
-## Analyze grid connectivity for debugging
-func _analyze_grid_connectivity() -> void:
-	print("🔍 GRID ANALYSIS - Analyzing %d points:" % points.size())
-	
-	# Count points by connectivity
-	var connectivity_count = {}
-	var point_connectivity = []
-	
-	for i in range(points.size()):
-		var path_count = 0
-		for path in paths:
-			var path_points = path.points
-			if path_points[0] == i or path_points[1] == i:
-				path_count += 1
-		
-		point_connectivity.append({"index": i, "connections": path_count, "coord": hex_coords[i]})
-		
-		if not connectivity_count.has(path_count):
-			connectivity_count[path_count] = 0
-		connectivity_count[path_count] += 1
-	
-	# Print connectivity summary
-	print("📊 Connectivity Summary:")
-	for connections in connectivity_count.keys():
-		print("  %d connections: %d points" % [connections, connectivity_count[connections]])
-	
-	# Print corners (3 connections)
-	print("🔴 Corners (3 connections):")
-	for point_data in point_connectivity:
-		if point_data.connections == 3:
-			print("  Point %d: %s" % [point_data.index, point_data.coord])
-	
-	# Print good domain spots (4+ connections)
-	print("🟢 Good domain spots (4+ connections):")
-	for point_data in point_connectivity:
-		if point_data.connections >= 4:
-			print("  Point %d: %d connections at %s" % [point_data.index, point_data.connections, point_data.coord])
-	
-	# Print best domain spots (6 connections)
-	print("🌟 Best domain spots (6 connections):")
-	for point_data in point_connectivity:
-		if point_data.connections == 6:
-			print("  Point %d: 6 connections at %s" % [point_data.index, point_data.coord])
-
-## Find best domain positions - INTELLIGENT APPROACH
-func _find_best_domain_positions() -> Array:
-	print("🏰 INTELLIGENT DOMAIN POSITIONING - Finding best spots...")
-	
-	# Get all corners first
-	var corners = _get_map_corners()
-	print("🔴 Found %d corners: %s" % [corners.size(), corners])
-	
-	# Analyze all points and their suitability for domains
-	var candidates = []
-	
-	for i in range(points.size()):
-		# Count connections
-		var connections = 0
-		for path in paths:
-			var path_points = path.points
-			if path_points[0] == i or path_points[1] == i:
-				connections += 1
-		
-		# Skip corners (3 connections)
-		if connections == 3:
-			continue
-		
-		# Only consider points with 4+ connections
-		if connections >= 4:
-			# Calculate minimum distance to any corner
-			var min_corner_distance = 999
-			for corner in corners:
-				var distance = _hex_distance(hex_coords[i], hex_coords[corner])
-				min_corner_distance = min(min_corner_distance, distance)
-			
-			candidates.append({
-				"index": i,
-				"connections": connections,
-				"coord": hex_coords[i],
-				"corner_distance": min_corner_distance,
-				"score": connections * 10 + (4 - min_corner_distance)  # Prefer more connections and closer to corners
-			})
-	
-	# Sort candidates by score (higher is better)
-	candidates.sort_custom(func(a, b): return a.score > b.score)
-	
-	print("🏆 Top domain candidates:")
-	for i in range(min(10, candidates.size())):
-		var candidate = candidates[i]
-		print("  %d. Point %d: %d connections, distance %d from corners, score %d at %s" % [
-			i + 1, candidate.index, candidate.connections, candidate.corner_distance, candidate.score, candidate.coord
-		])
-	
-	# Select two best positions that are far enough apart
-	var selected_positions = []
-	
-	for candidate in candidates:
-		var too_close = false
-		
-		# Check if too close to already selected positions
-		for selected in selected_positions:
-			var distance = _hex_distance(candidate.coord, hex_coords[selected])
-			if distance < 3:  # Minimum distance of 3 hexes
-				too_close = true
-				break
-		
-		if not too_close:
-			selected_positions.append(candidate.index)
-			print("🏰 Selected domain position: Point %d (%d connections) at %s" % [
-				candidate.index, candidate.connections, candidate.coord
-			])
-			
-			if selected_positions.size() >= 2:
-				break
-	
-	# Fallback if we couldn't find 2 good positions
-	if selected_positions.size() < 2:
-		print("⚠️ Warning: Only found %d good positions, using fallback..." % selected_positions.size())
-		for candidate in candidates:
-			if not selected_positions.has(candidate.index):
-				selected_positions.append(candidate.index)
-				if selected_positions.size() >= 2:
-					break
-	
-	print("🏁 Final domain positions: %s" % selected_positions)
-	return selected_positions
 
 ## Draw hexagonal domains
 func _draw_domains() -> void:
@@ -1258,10 +927,9 @@ func _is_domain_visible(domain_center: int) -> bool:
 	
 	return false
 
-## Detect the six map corners (points with only 3 edges) - WITH DEBUG
+## Detect the six map corners (points with only 3 edges)
 func _get_map_corners() -> Array[int]:
 	var corners: Array[int] = []
-	print("🔍 DEBUG: Detecting corners from %d points..." % points.size())
 	
 	# Count paths connected to each point
 	for i in range(points.size()):
@@ -1273,16 +941,10 @@ func _get_map_corners() -> Array[int]:
 			if path_points[0] == i or path_points[1] == i:
 				path_count += 1
 		
-		# Debug: print all points with their path counts
-		if path_count <= 4:  # Only show points with low connectivity
-			print("🔍 DEBUG: Point %d at %s has %d paths" % [i, hex_coords[i], path_count])
-		
 		# Hexagon corners have only 3 paths
 		if path_count == 3:
 			corners.append(i)
-			print("🔴 DEBUG: Found corner %d at %s" % [i, hex_coords[i]])
 	
-	print("🔍 DEBUG: Total corners found: %d" % corners.size())
 	return corners
 
 ## Mark map corners (paint magenta)
@@ -1314,22 +976,21 @@ func _create_ui() -> void:
 func _on_skip_turn_pressed() -> void:
 	print("🔥 FIXED: Player %d clicked Skip Turn" % current_player)
 	
-	# Use UnitSystem if available
-	if UnitSystem:
-		# Update UnitSystem state
-		_update_unit_system_state()
-		
-		# Switch player through UnitSystem
-		UnitSystem.switch_player()
-		
-		# Generate power for new current player
-		UnitSystem.generate_power_for_current_player()
-		
-		# Sync local state from UnitSystem
-		_sync_from_unit_system()
+	# Switch player FIRST
+	current_player = 3 - current_player  # 1 -> 2, 2 -> 1
+	print("🔥 FIXED: Switched to Player %d" % current_player)
+	
+	# Restore actions for new player
+	if current_player == 1:
+		unit1_actions = 1
 	else:
-		# Fallback to local logic
-		_handle_skip_turn_fallback()
+		unit2_actions = 1
+	
+	# Reset forced revelations if units are no longer visible
+	_check_and_reset_forced_revelations()
+	
+	# NOW generate power for the NEW current player
+	_generate_power_for_current_player_only()
 	
 	if UISystem:
 		_update_ui_system_state()

@@ -13,6 +13,7 @@ GameManager="*res://systems/game_manager.gd"
 InputSystem="*res://systems/input_system.gd"
 RenderSystem="*res://systems/render_system.gd"
 UISystem="*res://systems/ui_system.gd"
+UnitSystem="*res://systems/unit_system.gd"
 
 [rendering]
 

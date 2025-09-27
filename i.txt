@@ -1,0 +1,1 @@
+Quase perfeito! Domínios estão spawnando na ponta do mapa. Mova eles para o ponto mais proximo que tenha ligação com seis arestas. Define isso como uma configuração inicial do jogo
