@@ -78,6 +78,9 @@
 **PATHS_RENAME**: Edges renamed to paths | thicker (8px) | more saturated colors | better visibility
 **DOMAIN_SELF_VISIBILITY**: Own domains always visible | _is_domain_visible() enhanced | domain entities always shown
 **FOREST_MECHANICS**: Hidden unit revelation in forest | _attempt_movement() fixed | uses label visibility | action lost on discovery
-**STATUS**: ATOMIC_SYSTEM_WITH_FIXED_FOREST_MECHANICS
+**VISUAL_REVELATION**: Force revealed flags | unit1_force_revealed + unit2_force_revealed | persistent visual revelation
+**POWER_SYSTEM**: Domain power economy | 1 power/ROUND generation | 1 power/action cost | occupation stops generation
+**EXPANDED_BACKGROUND**: White background extended beyond visible area | Rect2(-200, -200, 1200, 1000)
+**STATUS**: ATOMIC_SYSTEM_WITH_ROUND_POWER
 
 *AUTO_UPDATE_ON_MILESTONES*

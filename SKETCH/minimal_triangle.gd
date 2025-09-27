@@ -43,6 +43,14 @@ var unit2_domain_label: Label # Label do nome do domínio 2
 var unit1_name_label: Label   # Label do nome da unit 1
 var unit2_name_label: Label   # Label do nome da unit 2
 
+# Revelação forçada (para mecânica de floresta)
+var unit1_force_revealed = false  # Unit 1 foi revelada forçadamente
+var unit2_force_revealed = false  # Unit 2 foi revelada forçadamente
+
+# Sistema de Poder
+var unit1_domain_power = 1  # Poder acumulado do domínio 1 (começa com 1)
+var unit2_domain_power = 1  # Poder acumulado do domínio 2 (começa com 1)
+
 # UI
 var skip_turn_button: Button
 var action_label: Label
@@ -108,8 +116,8 @@ func _process(_delta):
 	queue_redraw()
 
 func _draw():
-	# Fundo branco
-	draw_rect(Rect2(0, 0, 800, 600), Color.WHITE)
+	# Fundo branco expandido
+	draw_rect(Rect2(-200, -200, 1200, 1000), Color.WHITE)
 	
 	# Desenhar paths (com ou sem fog of war)
 	for i in range(paths.size()):
@@ -190,12 +198,20 @@ func _unhandled_input(event: InputEvent) -> void:
 				if _can_current_unit_move_to_point(i):
 					var current_actions = unit1_actions if current_player == 1 else unit2_actions
 					if current_actions > 0:
+						# Verificar se o domínio tem poder suficiente
+						if not _has_domain_power_for_action():
+							print("⚡ Sem poder! Domínio não tem poder para realizar ação.")
+							return
+						
 						# Verificar se há unidade oculta no destino
 						var movement_result = _attempt_movement(i)
 						
 						if movement_result.success:
 							var old_pos = unit1_position if current_player == 1 else unit2_position
 							print("🚶🏻‍♀️ Unit %d movendo do ponto %d para ponto %d (Ações: %d → %d)" % [current_player, old_pos, i, current_actions, current_actions - 1])
+							
+							# Consumir poder do domínio
+							_consume_domain_power()
 							
 							if current_player == 1:
 								unit1_position = i
@@ -206,7 +222,8 @@ func _unhandled_input(event: InputEvent) -> void:
 						else:
 							# Movimento falhou devido a unidade oculta
 							print("⚠️ Movimento bloqueado! %s" % movement_result.message)
-							# Perder ação mesmo assim
+							# Consumir poder e perder ação mesmo assim
+							_consume_domain_power()
 							if current_player == 1:
 								unit1_actions -= 1
 							else:
@@ -315,11 +332,11 @@ func _attempt_movement(target_point: int) -> Dictionary:
 		if path_type == EdgeType.FOREST and not enemy_was_visible:
 			# Revelar a unidade inimiga na floresta
 			print("🔍 Unidade inimiga revelada na floresta!")
-			# Forçar visibilidade da unidade inimiga
+			# Marcar unidade inimiga como revelada forçadamente
 			if current_player == 1:
-				unit2_label.visible = true
+				unit2_force_revealed = true
 			else:
-				unit1_label.visible = true
+				unit1_force_revealed = true
 			return {"success": false, "message": "Unidade inimiga descoberta na floresta! Movimento cancelado."}
 		else:
 			# Movimento bloqueado por unidade visível ou terreno não-floresta
@@ -338,6 +355,57 @@ func _get_path_type_between_points(point1: int, point2: int) -> EdgeType:
 	
 	# Se não encontrar path, retornar MOUNTAIN (bloqueado)
 	return EdgeType.MOUNTAIN
+
+## Verificar se o domínio tem poder para realizar ação
+func _has_domain_power_for_action() -> bool:
+	# Verificar se o centro do domínio está ocupado por inimigo
+	var domain_center = unit1_domain_center if current_player == 1 else unit2_domain_center
+	var enemy_unit_pos = unit2_position if current_player == 1 else unit1_position
+	
+	# Se o centro do domínio estiver ocupado por inimigo, ações são gratuitas
+	if enemy_unit_pos == domain_center:
+		print("⚡ Domínio ocupado! Ações gratuitas para unidades originais.")
+		return true
+	
+	# Caso contrário, verificar se tem poder
+	var current_power = unit1_domain_power if current_player == 1 else unit2_domain_power
+	return current_power > 0
+
+## Consumir poder do domínio
+func _consume_domain_power() -> void:
+	# Verificar se o centro do domínio está ocupado por inimigo
+	var domain_center = unit1_domain_center if current_player == 1 else unit2_domain_center
+	var enemy_unit_pos = unit2_position if current_player == 1 else unit1_position
+	
+	# Se o centro estiver ocupado, não consumir poder
+	if enemy_unit_pos == domain_center:
+		return
+	
+	# Consumir 1 poder
+	if current_player == 1:
+		unit1_domain_power = max(0, unit1_domain_power - 1)
+		print("⚡ Domínio 1 consumiu 1 poder (Restante: %d)" % unit1_domain_power)
+	else:
+		unit2_domain_power = max(0, unit2_domain_power - 1)
+		print("⚡ Domínio 2 consumiu 1 poder (Restante: %d)" % unit2_domain_power)
+
+## Gerar poder para os domínios (uma vez por rodada)
+func _generate_domain_power() -> void:
+	print("🔄 Nova rodada - Gerando poder para domínios")
+	
+	# Domínio 1: gerar poder se não estiver ocupado
+	if unit2_position != unit1_domain_center:
+		unit1_domain_power += 1
+		print("⚡ Domínio 1 (%s) gerou 1 poder (Total: %d)" % [unit1_domain_name, unit1_domain_power])
+	else:
+		print("⚡ Domínio 1 (%s) ocupado - não gerou poder" % unit1_domain_name)
+	
+	# Domínio 2: gerar poder se não estiver ocupado
+	if unit1_position != unit2_domain_center:
+		unit2_domain_power += 1
+		print("⚡ Domínio 2 (%s) gerou 1 poder (Total: %d)" % [unit2_domain_name, unit2_domain_power])
+	else:
+		print("⚡ Domínio 2 (%s) ocupado - não gerou poder" % unit2_domain_name)
 
 ## Verificar se ponto está dentro do domínio do jogador atual
 func _is_point_in_current_player_domain(point_index: int) -> bool:
@@ -790,11 +858,18 @@ func _on_skip_turn_pressed() -> void:
 	# Trocar jogador
 	current_player = 3 - current_player  # 1 -> 2, 2 -> 1
 	
+	# Gerar poder para os domínios no início da rodada (quando volta ao jogador 1)
+	if current_player == 1:
+		_generate_domain_power()
+	
 	# Restaurar ações do novo jogador
 	if current_player == 1:
 		unit1_actions = 1
 	else:
 		unit2_actions = 1
+	
+	# Resetar revelações forçadas se as unidades não estiverem mais visíveis
+	_check_and_reset_forced_revelations()
 	
 	_update_action_display()
 	queue_redraw()
@@ -818,6 +893,9 @@ func _update_units_visibility_and_position():
 			unit1_label.visible = true
 		elif current_player == 1:
 			unit1_label.visible = true
+		elif unit1_force_revealed:
+			# Unit 1 foi revelada forçadamente (mecânica de floresta)
+			unit1_label.visible = true
 		else:
 			unit1_label.visible = _is_point_visible_to_current_unit(unit1_position)
 	
@@ -830,6 +908,9 @@ func _update_units_visibility_and_position():
 			# Sem fog: sempre visível
 			unit2_label.visible = true
 		elif current_player == 2:
+			unit2_label.visible = true
+		elif unit2_force_revealed:
+			# Unit 2 foi revelada forçadamente (mecânica de floresta)
 			unit2_label.visible = true
 		else:
 			unit2_label.visible = _is_point_visible_to_current_unit(unit2_position)
@@ -850,13 +931,29 @@ func _update_name_positions() -> void:
 		unit2_name_label.position = unit2_pos + Vector2(-15, 15)  # Abaixo da unit
 		unit2_name_label.visible = unit2_label.visible  # Mesma visibilidade da unit
 	
-	# Posicionar nomes dos domínios
+	# Posicionar nomes dos domínios e atualizar poder
 	if unit1_domain_label:
 		var domain1_pos = points[unit1_domain_center]
-		unit1_domain_label.position = domain1_pos + Vector2(-20, 35)  # Abaixo do domínio
+		unit1_domain_label.position = domain1_pos + Vector2(-30, 35)  # Abaixo do domínio
+		unit1_domain_label.text = "%s ⚡%d" % [unit1_domain_name, unit1_domain_power]
 		unit1_domain_label.visible = _is_domain_visible(unit1_domain_center) or not fog_of_war
 	
 	if unit2_domain_label:
 		var domain2_pos = points[unit2_domain_center]
-		unit2_domain_label.position = domain2_pos + Vector2(-20, 35)  # Abaixo do domínio
+		unit2_domain_label.position = domain2_pos + Vector2(-30, 35)  # Abaixo do domínio
+		unit2_domain_label.text = "%s ⚡%d" % [unit2_domain_name, unit2_domain_power]
 		unit2_domain_label.visible = _is_domain_visible(unit2_domain_center) or not fog_of_war
+
+## Verificar e resetar revelações forçadas
+func _check_and_reset_forced_revelations() -> void:
+	# Resetar unit1_force_revealed se ela não estiver naturalmente visível
+	if unit1_force_revealed and current_player == 2:
+		if not _is_point_visible_to_current_unit(unit1_position):
+			unit1_force_revealed = false
+			print("🔍 Unit 1 não é mais visível - resetando revelação forçada")
+	
+	# Resetar unit2_force_revealed se ela não estiver naturalmente visível
+	if unit2_force_revealed and current_player == 1:
+		if not _is_point_visible_to_current_unit(unit2_position):
+			unit2_force_revealed = false
+			print("🔍 Unit 2 não é mais visível - resetando revelação forçada")

@@ -1,6 +1,2 @@
-Agora iremos implementar POWER (poder).
-O que é poder: uma pontuação que todo domínio irá acumular.
-Todo turno o domínio produz 1 poder. Cumulativo ao longo dos turnos
-Uma unidade precisa gastar 1 poder para realizar 1 ação. Caso seu domínio de origem não tenha poder, ela não poderá fazer sua ação.
-Mostre a quantidade de poder do domínio ao lado do nome detalhe.
-Se uma unidade adversária ocupar o ponto central do domínio ele irá parar de gerar poder, porém as unidades originadas ali poderão desempenhar ações sem gastar poder.
+Os domínios estão produzindo poder na vez dos oponentes. Eles produzem 1 poder por rodada e não por turno, corrijo.
+No mais aumente o fundo branco para bem fora da área visivel da janela
