@@ -120,11 +120,6 @@ func _ready():
 		PowerSystem.domain_occupied.connect(_on_domain_occupied)
 		print("⚡ PowerSystem initialized and ready")
 	
-	# Initialize VisibilitySystem
-	if VisibilitySystem:
-		VisibilitySystem.initialize(points, hex_coords, paths)
-		print("👁️ VisibilitySystem initialized and ready")
-	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
 	# Create UI elements using UISystem or fallback
@@ -223,10 +218,9 @@ func _on_input_point_clicked(point_index: int) -> void:
 	
 	# Use UnitSystem if available
 	if UnitSystem:
-		# Update UnitSystem, PowerSystem and VisibilitySystem state
+		# Update UnitSystem and PowerSystem state
 		_update_unit_system_state()
 		_update_power_system_state()
-		_update_visibility_system_state()
 		
 		# Attempt movement through UnitSystem
 		var movement_result = UnitSystem.attempt_unit_movement(point_index)
@@ -335,21 +329,6 @@ func _update_power_system_state() -> void:
 			"unit2_position": unit2_position
 		}
 		PowerSystem.update_game_state(power_state)
-
-## Update VisibilitySystem state
-func _update_visibility_system_state() -> void:
-	if VisibilitySystem:
-		var visibility_state = {
-			"current_player": current_player,
-			"fog_of_war": fog_of_war,
-			"unit1_position": unit1_position,
-			"unit2_position": unit2_position,
-			"unit1_domain_center": unit1_domain_center,
-			"unit2_domain_center": unit2_domain_center,
-			"unit1_force_revealed": unit1_force_revealed,
-			"unit2_force_revealed": unit2_force_revealed
-		}
-		VisibilitySystem.update_game_state(visibility_state)
 
 ## Sync local state from UnitSystem
 func _sync_from_unit_system() -> void:
@@ -515,16 +494,7 @@ func _handle_skip_turn_fallback() -> void:
 		unit2_actions = 1
 	
 	# Reset forced revelations if units are no longer visible
-	# Reset forced revelations if units are no longer visible
-	if VisibilitySystem:
-		_update_visibility_system_state()
-		var changes = VisibilitySystem.check_and_reset_forced_revelations()
-		if changes.unit1_changed:
-			unit1_force_revealed = false
-		if changes.unit2_changed:
-			unit2_force_revealed = false
-	else:
-		_check_and_reset_forced_revelations()
+	_check_and_reset_forced_revelations()
 	
 	# NOW generate power for the NEW current player
 	if PowerSystem:
@@ -545,7 +515,7 @@ func _draw_fallback() -> void:
 		var should_render = false
 		if fog_of_war:
 			# With fog: adjacent to current player, hover OR within current player's domain
-			should_render = _is_path_adjacent_to_current_unit(path) or hovered_edge == i or (VisibilitySystem.is_path_in_current_player_domain(path) if VisibilitySystem else _is_path_in_current_player_domain(path))
+			should_render = _is_path_adjacent_to_current_unit(path) or hovered_edge == i or _is_path_in_current_player_domain(path)
 		else:
 			# Without fog: all paths
 			should_render = true
@@ -572,18 +542,16 @@ func _draw_fallback() -> void:
 			if i == current_unit_pos:
 				should_render = true
 			# Render enemy unit only if it's on a visible point
-			# Render enemy unit only if it's on a visible point
-			elif i == enemy_unit_pos and (VisibilitySystem.is_point_visible_to_current_unit(i) if VisibilitySystem else _is_point_visible_to_current_unit(i)):
+			elif i == enemy_unit_pos and _is_point_visible_to_current_unit(i):
 				should_render = true
 			# Render points visible to current player
-			elif (VisibilitySystem.is_point_visible_to_current_unit(i) if VisibilitySystem else _is_point_visible_to_current_unit(i)):
+			elif _is_point_visible_to_current_unit(i):
 				should_render = true
 			# Render points on hover
 			elif hovered_point == i:
 				should_render = true
 			# Render points within current player's domain
-			# Render points within current player's domain
-			elif (VisibilitySystem.is_point_in_current_player_domain(i) if VisibilitySystem else _is_point_in_current_player_domain(i)):
+			elif _is_point_in_current_player_domain(i):
 				should_render = true
 		else:
 			# Without fog: render all points
@@ -1290,7 +1258,7 @@ func _draw_domains() -> void:
 ## Draw domain hexagon
 func _draw_domain_hexagon(center_index: int, color: Color) -> void:
 	# Check if domain should be visible (fog of war)
-	if fog_of_war and not (VisibilitySystem.is_domain_visible(center_index) if VisibilitySystem else _is_domain_visible(center_index)):
+	if fog_of_war and not _is_domain_visible(center_index):
 		return
 	
 	var center_pos = points[center_index]
@@ -1471,7 +1439,7 @@ func _update_units_visibility_and_position():
 			# Unit 1 was forcefully revealed (forest mechanics)
 			unit1_label.visible = true
 		else:
-			unit1_label.visible = (VisibilitySystem.is_point_visible_to_current_unit(unit1_position) if VisibilitySystem else _is_point_visible_to_current_unit(unit1_position))
+			unit1_label.visible = _is_point_visible_to_current_unit(unit1_position)
 	
 	if unit2_label:
 		var unit2_pos = points[unit2_position]
@@ -1487,7 +1455,7 @@ func _update_units_visibility_and_position():
 			# Unit 2 was forcefully revealed (forest mechanics)
 			unit2_label.visible = true
 		else:
-			unit2_label.visible = (VisibilitySystem.is_point_visible_to_current_unit(unit2_position) if VisibilitySystem else _is_point_visible_to_current_unit(unit2_position))
+			unit2_label.visible = _is_point_visible_to_current_unit(unit2_position)
 	
 	# Update name positions
 	_update_name_positions()
@@ -1523,7 +1491,7 @@ func _update_name_positions() -> void:
 		var domain1_pos = points[unit1_domain_center]
 		unit1_domain_label.position = domain1_pos + Vector2(-30, 35)  # Below domain
 		unit1_domain_label.text = "%s ⚡%d" % [unit1_domain_name, current_unit1_power]
-		var domain1_visible = (VisibilitySystem.is_domain_visible(unit1_domain_center) if VisibilitySystem else _is_domain_visible(unit1_domain_center)) or not fog_of_war
+		var domain1_visible = _is_domain_visible(unit1_domain_center) or not fog_of_war
 		unit1_domain_label.visible = domain1_visible
 		print("🔧 FIXED: Domain1 (%s) visible=%s, power=%d" % [unit1_domain_name, domain1_visible, current_unit1_power])
 	
@@ -1531,7 +1499,7 @@ func _update_name_positions() -> void:
 		var domain2_pos = points[unit2_domain_center]
 		unit2_domain_label.position = domain2_pos + Vector2(-30, 35)  # Below domain
 		unit2_domain_label.text = "%s ⚡%d" % [unit2_domain_name, current_unit2_power]
-		var domain2_visible = (VisibilitySystem.is_domain_visible(unit2_domain_center) if VisibilitySystem else _is_domain_visible(unit2_domain_center)) or not fog_of_war
+		var domain2_visible = _is_domain_visible(unit2_domain_center) or not fog_of_war
 		unit2_domain_label.visible = domain2_visible
 		print("🔧 FIXED: Domain2 (%s) visible=%s, power=%d" % [unit2_domain_name, domain2_visible, current_unit2_power])
 

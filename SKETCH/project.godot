@@ -15,6 +15,7 @@ RenderSystem="*res://systems/render_system.gd"
 UISystem="*res://systems/ui_system.gd"
 UnitSystem="*res://systems/unit_system.gd"
 PowerSystem="*res://systems/power_system.gd"
+VisibilitySystem="*res://systems/visibility_system.gd"
 
 [rendering]
 

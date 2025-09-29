@@ -136,5 +136,12 @@
 **ROBUSTNESS_MAXIMUM**: Works even if autoloads fail | Validates methods before calling | Bidirectional sync
 **ARCHITECTURE_FINAL**: Local↔PowerSystem↔GameManager↔UI | Fallback chains | Validation layers
 **STATUS**: STEP_9_COMPLETE_WITH_ROBUST_FIXES | 9_SYSTEMS_FUNCTIONAL | MAXIMUM_ROBUSTNESS | PRODUCTION_READY
+**STEP_10_COMPLETED**: ✅ VISIBILITY_SYSTEM_EXTRACTED | FOG_OF_WAR_CENTRALIZED | DOMAIN_VISIBILITY_MODULAR
+**VISIBILITY_SYSTEM**: systems/visibility_system.gd | COMPLETE_FOG_LOGIC | DOMAIN_VISIBILITY | FORCED_REVELATIONS
+**INTEGRATION_SUCCESS**: VisibilitySystem.is_point_visible_to_current_unit() | is_domain_visible() | check_and_reset_forced_revelations()
+**AUTOLOAD_ADDED**: VisibilitySystem autoload configured | Signal-based communication | Fallback compatibility
+**LINES_EXTRACTED**: ~200 lines moved to VisibilitySystem | Centralized visibility logic | Cleaner main_game.gd
+**CUMULATIVE_PROGRESS**: 10_SYSTEMS_CREATED | VISIBILITY_MODULARIZED | PHASE_3_STEP_1_COMPLETE
+**NEXT_TARGET**: STEP_11_MOVEMENT_SYSTEM | Extract movement validation & collision detection
 
 *AUTO_UPDATE_ON_MILESTONES*
