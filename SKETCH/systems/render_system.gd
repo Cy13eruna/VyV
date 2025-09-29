@@ -22,6 +22,20 @@ var unit2_position: int = 0
 var unit1_domain_center: int = 0
 var unit2_domain_center: int = 0
 
+# Unit and domain names
+var unit1_name: String = ""
+var unit2_name: String = ""
+var unit1_domain_name: String = ""
+var unit2_domain_name: String = ""
+
+# Domain power
+var unit1_domain_power: int = 1
+var unit2_domain_power: int = 1
+
+# Unit labels for visibility check
+var unit1_label: Label
+var unit2_label: Label
+
 # Initialize render system with game data
 func initialize(game_points: Array, game_hex_coords: Array, game_paths: Array) -> void:
 	points = game_points
@@ -47,6 +61,22 @@ func update_state(state_data: Dictionary) -> void:
 		unit1_domain_center = state_data.unit1_domain_center
 	if state_data.has("unit2_domain_center"):
 		unit2_domain_center = state_data.unit2_domain_center
+	if state_data.has("unit1_name"):
+		unit1_name = state_data.unit1_name
+	if state_data.has("unit2_name"):
+		unit2_name = state_data.unit2_name
+	if state_data.has("unit1_domain_name"):
+		unit1_domain_name = state_data.unit1_domain_name
+	if state_data.has("unit2_domain_name"):
+		unit2_domain_name = state_data.unit2_domain_name
+	if state_data.has("unit1_domain_power"):
+		unit1_domain_power = state_data.unit1_domain_power
+	if state_data.has("unit2_domain_power"):
+		unit2_domain_power = state_data.unit2_domain_power
+	if state_data.has("unit1_label"):
+		unit1_label = state_data.unit1_label
+	if state_data.has("unit2_label"):
+		unit2_label = state_data.unit2_label
 
 # Main rendering function
 func render_game(canvas: CanvasItem) -> void:
@@ -61,6 +91,9 @@ func render_game(canvas: CanvasItem) -> void:
 	
 	# Draw domains
 	_draw_domains(canvas)
+	
+	# Draw unit names directly as part of rendering
+	_draw_unit_names(canvas)
 
 # Draw white background
 func _draw_background(canvas: CanvasItem) -> void:
@@ -195,6 +228,72 @@ func _draw_domain_hexagon(canvas: CanvasItem, center_index: int, color: Color) -
 		var start = vertices[i]
 		var end = vertices[(i + 1) % 6]
 		canvas.draw_line(start, end, color, 4)
+	
+	# Draw domain name and power as part of domain rendering
+	_draw_domain_text(canvas, center_index, center_pos, color)
+
+# Draw domain text directly on screen (FRONT END)
+func _draw_domain_text(canvas: CanvasItem, center_index: int, center_pos: Vector2, color: Color) -> void:
+	print("🎨 RenderSystem: Drawing domain text for center_index=%d" % center_index)
+	
+	# Get current power values from PowerSystem (DYNAMIC UPDATE)
+	var current_unit1_power = unit1_domain_power
+	var current_unit2_power = unit2_domain_power
+	if PowerSystem and PowerSystem.has_method("get_player_power"):
+		current_unit1_power = PowerSystem.get_player_power(1)
+		current_unit2_power = PowerSystem.get_player_power(2)
+		print("🎨 RenderSystem: Power from PowerSystem - P1=%d, P2=%d" % [current_unit1_power, current_unit2_power])
+	else:
+		print("🎨 RenderSystem: Using local power values - P1=%d, P2=%d" % [current_unit1_power, current_unit2_power])
+	
+	# Determine which domain this is and draw its name/power directly
+	if center_index == unit1_domain_center and unit1_domain_name != "":
+		# Domain 1 - draw name and power directly on screen
+		var text = "%s ⚡%d" % [unit1_domain_name, current_unit1_power]
+		var text_pos = center_pos + Vector2(-30, 35)  # Below domain
+		# REMOVED: Text background - now transparent
+		# Draw the actual text using Godot's built-in font
+		var font = ThemeDB.fallback_font
+		var font_size = 12
+		canvas.draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.RED)
+		print("🎨 RenderSystem: Drew Domain1 text '%s' at %s" % [text, text_pos])
+	
+	elif center_index == unit2_domain_center and unit2_domain_name != "":
+		# Domain 2 - draw name and power directly on screen
+		var text = "%s ⚡%d" % [unit2_domain_name, current_unit2_power]
+		var text_pos = center_pos + Vector2(-30, 35)  # Below domain
+		# REMOVED: Text background - now transparent
+		# Draw the actual text using Godot's built-in font
+		var font = ThemeDB.fallback_font
+		var font_size = 12
+		canvas.draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.5, 0.0, 0.8))
+		print("🎨 RenderSystem: Drew Domain2 text '%s' at %s" % [text, text_pos])
+
+# Draw unit names directly on screen (FRONT END)
+func _draw_unit_names(canvas: CanvasItem) -> void:
+	print("🔍 RenderSystem: _draw_unit_names called")
+	
+	# Draw unit 1 name ONLY if unit is visible
+	print("🔍 RenderSystem: unit1_label exists=%s, visible=%s" % [unit1_label != null, unit1_label.visible if unit1_label else false])
+	if unit1_label and unit1_label.visible and unit1_name != "":
+		var unit1_pos = points[unit1_position]
+		var text_pos = unit1_pos + Vector2(-15, 15)  # Below unit
+		# Draw the actual text using Godot's built-in font
+		var font = ThemeDB.fallback_font
+		var font_size = 10
+		canvas.draw_string(font, text_pos, unit1_name, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.RED)
+		print("🎨 RenderSystem: Drew Unit1 name '%s' at %s" % [unit1_name, text_pos])
+	
+	# Draw unit 2 name ONLY if unit is visible
+	print("🔍 RenderSystem: unit2_label exists=%s, visible=%s" % [unit2_label != null, unit2_label.visible if unit2_label else false])
+	if unit2_label and unit2_label.visible and unit2_name != "":
+		var unit2_pos = points[unit2_position]
+		var text_pos = unit2_pos + Vector2(-15, 15)  # Below unit
+		# Draw the actual text using Godot's built-in font
+		var font = ThemeDB.fallback_font
+		var font_size = 10
+		canvas.draw_string(font, text_pos, unit2_name, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.5, 0.0, 0.8))
+		print("🎨 RenderSystem: Drew Unit2 name '%s' at %s" % [unit2_name, text_pos])
 
 # Utility functions for rendering logic
 func _is_path_adjacent_to_current_unit(path: Dictionary) -> bool:

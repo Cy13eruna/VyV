@@ -51,9 +51,9 @@ func initialize(game_parent: Node2D, game_points: Array) -> void:
 # Create all UI elements
 func create_ui_elements() -> void:
 	_create_unit_labels()
-	_create_name_labels()
+	# REMOVED: _create_name_labels() - Names now drawn directly in RenderSystem
 	_create_game_ui()
-	print("🖥️ UISystem: All UI elements created")
+	print("💻 UISystem: All UI elements created (names handled by RenderSystem)")
 
 # Create unit emoji labels
 func _create_unit_labels() -> void:
@@ -73,39 +73,7 @@ func _create_unit_labels() -> void:
 	parent_node.add_child(unit2_label)
 	ui_element_created.emit("unit2_label", unit2_label)
 
-# Create name labels for units and domains
-func _create_name_labels() -> void:
-	# Domain 1 label
-	unit1_domain_label = Label.new()
-	unit1_domain_label.text = unit1_domain_name
-	unit1_domain_label.add_theme_font_size_override("font_size", 12)
-	unit1_domain_label.add_theme_color_override("font_color", Color(1.0, 0.0, 0.0))
-	parent_node.add_child(unit1_domain_label)
-	ui_element_created.emit("unit1_domain_label", unit1_domain_label)
-	
-	# Domain 2 label
-	unit2_domain_label = Label.new()
-	unit2_domain_label.text = unit2_domain_name
-	unit2_domain_label.add_theme_font_size_override("font_size", 12)
-	unit2_domain_label.add_theme_color_override("font_color", Color(0.5, 0.0, 0.8))
-	parent_node.add_child(unit2_domain_label)
-	ui_element_created.emit("unit2_domain_label", unit2_domain_label)
-	
-	# Unit 1 name label
-	unit1_name_label = Label.new()
-	unit1_name_label.text = unit1_name
-	unit1_name_label.add_theme_font_size_override("font_size", 10)
-	unit1_name_label.add_theme_color_override("font_color", Color(1.0, 0.0, 0.0))
-	parent_node.add_child(unit1_name_label)
-	ui_element_created.emit("unit1_name_label", unit1_name_label)
-	
-	# Unit 2 name label
-	unit2_name_label = Label.new()
-	unit2_name_label.text = unit2_name
-	unit2_name_label.add_theme_font_size_override("font_size", 10)
-	unit2_name_label.add_theme_color_override("font_color", Color(0.5, 0.0, 0.8))
-	parent_node.add_child(unit2_name_label)
-	ui_element_created.emit("unit2_name_label", unit2_name_label)
+# REMOVED: _create_name_labels() - Names now drawn directly in RenderSystem
 
 # Create game UI (buttons, action display)
 func _create_game_ui() -> void:
@@ -219,55 +187,9 @@ func _update_units_visibility_and_position() -> void:
 		else:
 			unit2_label.visible = _is_point_visible_to_current_unit(unit2_position)
 	
-	# Update name positions
-	_update_name_positions()
+	# REMOVED: Name positioning - now handled by RenderSystem
 
-# Update name label positions
-func _update_name_positions() -> void:
-	if points.size() == 0:
-		return
-	
-	# Position unit names
-	if unit1_name_label and unit1_position < points.size():
-		var unit1_pos = points[unit1_position]
-		unit1_name_label.position = unit1_pos + Vector2(-15, 15)  # Below unit
-		unit1_name_label.visible = unit1_label.visible if unit1_label else false
-	
-	if unit2_name_label and unit2_position < points.size():
-		var unit2_pos = points[unit2_position]
-		unit2_name_label.position = unit2_pos + Vector2(-15, 15)  # Below unit
-		unit2_name_label.visible = unit2_label.visible if unit2_label else false
-	
-	# Get current power values from PowerSystem (FRONTEND FIX)
-	var current_unit1_power = unit1_domain_power
-	var current_unit2_power = unit2_domain_power
-	if PowerSystem and PowerSystem.has_method("get_player_power"):
-		current_unit1_power = PowerSystem.get_player_power(1)
-		current_unit2_power = PowerSystem.get_player_power(2)
-		# Update local variables to stay in sync
-		unit1_domain_power = current_unit1_power
-		unit2_domain_power = current_unit2_power
-		print("🔧 UI_FRONTEND_FIX: Power from PowerSystem - P1=%d, P2=%d" % [current_unit1_power, current_unit2_power])
-	else:
-		print("🔧 UI_FRONTEND_FIX: Using local power values - P1=%d, P2=%d" % [current_unit1_power, current_unit2_power])
-	
-	# Position domain names and update power
-	if unit1_domain_label and unit1_domain_center < points.size():
-		var domain1_pos = points[unit1_domain_center]
-		unit1_domain_label.position = domain1_pos + Vector2(-30, 35)  # Below domain
-		unit1_domain_label.text = "%s ⚡%d" % [unit1_domain_name, current_unit1_power]
-		var domain1_visible = _is_domain_visible(unit1_domain_center) or not fog_of_war
-		unit1_domain_label.visible = domain1_visible
-		print("🔧 UI_FRONTEND_FIX: Domain1 (%s) visible=%s, power=%d" % [unit1_domain_name, domain1_visible, current_unit1_power])
-	
-	if unit2_domain_label and unit2_domain_center < points.size():
-		var domain2_pos = points[unit2_domain_center]
-		unit2_domain_label.position = domain2_pos + Vector2(-30, 35)  # Below domain
-		unit2_domain_label.text = "%s ⚡%d" % [unit2_domain_name, current_unit2_power]
-		var domain2_visible = _is_domain_visible(unit2_domain_center) or not fog_of_war
-		unit2_domain_label.visible = domain2_visible
-		print("🔧 UI_FRONTEND_FIX: Domain2 (%s) visible=%s, power=%d" % [unit2_domain_name, domain2_visible, current_unit2_power])
-
+# REMOVED: _update_name_positions() - Names now handled by RenderSystem
 # Update action display
 func _update_action_display() -> void:
 	if action_label:

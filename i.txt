@@ -1,8 +1,1 @@
-Vejo que alguns arquivos ainda são bem monolíticos. Vamos quebrá-los e organizar essa bagunça...
-Listo os arquivos monolíticos que precisam ser refatorados:
-- main_game
-- game_manager
-- render_system
-- ui_system
-- unit_system
-Crie um roteiro e retome a refatoração. Pode começar lsitando com "passo 10" para mantermos a sequencia anterior
+Boa! Conseguiste! Podes prosseguir com a refatoração!

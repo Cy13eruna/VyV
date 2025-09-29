@@ -38,7 +38,10 @@ var unit1_domain_name = ""   # Name of unit 1's domain
 var unit2_domain_name = ""   # Name of unit 2's domain
 var unit1_name = ""          # Name of unit 1
 var unit2_name = ""          # Name of unit 2
-# REMOVED: Labels for names - now drawn directly on screen as part of domain/unit rendering
+var unit1_domain_label: Label # Label for domain 1 name
+var unit2_domain_label: Label # Label for domain 2 name
+var unit1_name_label: Label   # Label for unit 1 name
+var unit2_name_label: Label   # Label for unit 2 name
 
 # Forced revelation (for forest mechanics)
 var unit1_force_revealed = false  # Unit 1 was forcefully revealed
@@ -142,23 +145,22 @@ func _ready():
 		FallbackSystem.initialize(points, hex_coords, paths)
 		print("🔄 FallbackSystem initialized and ready")
 	
-	# Initialize DrawingSystem
-	if DrawingSystem:
-		DrawingSystem.initialize(points, hex_coords, paths)
-		print("🎨 DrawingSystem initialized and ready")
-	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
 	# Create UI elements using UISystem or fallback
 	if UISystem:
-		# REMOVED: Names are now drawn directly, not through UISystem
+		# Set names first
+		UISystem.set_names(unit1_name, unit2_name, unit1_domain_name, unit2_domain_name)
 		# Create all UI elements
 		UISystem.create_ui_elements()
-		# Get references to UI elements (only unit labels and buttons)
+		# Get references to UI elements
 		var ui_elements = UISystem.get_ui_elements()
 		unit1_label = ui_elements.unit1_label
 		unit2_label = ui_elements.unit2_label
-		# REMOVED: name and domain labels - now drawn directly
+		unit1_name_label = ui_elements.unit1_name_label
+		unit2_name_label = ui_elements.unit2_name_label
+		unit1_domain_label = ui_elements.unit1_domain_label
+		unit2_domain_label = ui_elements.unit2_domain_label
 		skip_turn_button = ui_elements.skip_turn_button
 		action_label = ui_elements.action_label
 	else:
@@ -218,15 +220,7 @@ func _draw():
 			"unit1_position": unit1_position,
 			"unit2_position": unit2_position,
 			"unit1_domain_center": unit1_domain_center,
-			"unit2_domain_center": unit2_domain_center,
-			"unit1_name": unit1_name,
-			"unit2_name": unit2_name,
-			"unit1_domain_name": unit1_domain_name,
-			"unit2_domain_name": unit2_domain_name,
-			"unit1_domain_power": unit1_domain_power,
-			"unit2_domain_power": unit2_domain_power,
-			"unit1_label": unit1_label,
-			"unit2_label": unit2_label
+			"unit2_domain_center": unit2_domain_center
 		}
 		RenderSystem.update_state(render_state)
 		
@@ -436,19 +430,6 @@ func _update_fallback_system_state() -> void:
 		}
 		FallbackSystem.update_game_state(fallback_state)
 
-## Update DrawingSystem state
-func _update_drawing_system_state() -> void:
-	if DrawingSystem:
-		var drawing_state = {
-			"current_player": current_player,
-			"fog_of_war": fog_of_war,
-			"unit1_domain_center": unit1_domain_center,
-			"unit2_domain_center": unit2_domain_center,
-			"unit1_domain_name": unit1_domain_name,
-			"unit2_domain_name": unit2_domain_name
-		}
-		DrawingSystem.update_game_state(drawing_state)
-
 ## Sync local state from UnitSystem
 func _sync_from_unit_system() -> void:
 	if UnitSystem:
@@ -525,7 +506,7 @@ func _process_hover_fallback(mouse_pos: Vector2) -> void:
 			var path_points = path.points
 			var p1 = points[path_points[0]]
 			var p2 = points[path_points[1]]
-			if (DrawingSystem.point_near_line(mouse_pos, p1, p2, 10) if DrawingSystem else _point_near_line(mouse_pos, p1, p2, 10)):
+			if _point_near_line(mouse_pos, p1, p2, 10):
 				hovered_edge = i
 				break
 
@@ -667,13 +648,7 @@ func _draw_fallback() -> void:
 			var path_points = path.points
 			var p1 = points[path_points[0]]
 			var p2 = points[path_points[1]]
-			var color
-			if DrawingSystem:
-				color = DrawingSystem.get_path_color(path.type)
-			elif TerrainSystem:
-				color = TerrainSystem.get_path_color(path.type)
-			else:
-				color = _get_path_color(path.type)
+			var color = TerrainSystem.get_path_color(path.type) if TerrainSystem else _get_path_color(path.type)
 			if hovered_edge == i:
 				color = Color.MAGENTA
 			draw_line(p1, p2, color, 8)  # Even thicker paths
@@ -721,14 +696,7 @@ func _draw_fallback() -> void:
 			draw_circle(points[i], 8, color)
 	
 	# Draw domains
-	if DrawingSystem:
-		_update_drawing_system_state()
-		DrawingSystem.draw_domains(self)
-	else:
-		_draw_domains()
-	
-	# Draw unit names directly as part of rendering
-	_draw_unit_names()
+	_draw_domains()
 
 ## Fallback UI creation
 func _create_ui_fallback() -> void:
@@ -746,7 +714,7 @@ func _create_ui_fallback() -> void:
 	add_child(unit2_label)
 	
 	# Create name labels
-	# REMOVED: Name labels - now drawn directly as part of rendering
+	_create_name_labels()
 	
 	# Create UI
 	_create_ui()
@@ -1171,9 +1139,8 @@ func _generate_domain_and_unit_names() -> void:
 	unit1_name = unit_names[domain1_index][0]
 	unit2_name = unit_names[domain2_index][0]
 	
-	print("🔍 DEBUG: Names generated - unit1_name='%s', unit2_name='%s', unit1_domain_name='%s', unit2_domain_name='%s'" % [unit1_name, unit2_name, unit1_domain_name, unit2_domain_name])
-	
-	# REMOVED: Name labels creation - now drawn directly
+	# Create labels for names
+	_create_name_labels()
 
 ## Get domain index based on initial
 func _get_domain_index(domain_name: String) -> int:
@@ -1187,7 +1154,35 @@ func _get_domain_index(domain_name: String) -> int:
 		"F": return 5
 		_: return 0
 
-# REMOVED: _create_name_labels() - Names now drawn directly as part of rendering
+## Create labels for names
+func _create_name_labels() -> void:
+	# Domain 1 label
+	unit1_domain_label = Label.new()
+	unit1_domain_label.text = unit1_domain_name
+	unit1_domain_label.add_theme_font_size_override("font_size", 12)
+	unit1_domain_label.add_theme_color_override("font_color", Color(1.0, 0.0, 0.0))
+	add_child(unit1_domain_label)
+	
+	# Domain 2 label
+	unit2_domain_label = Label.new()
+	unit2_domain_label.text = unit2_domain_name
+	unit2_domain_label.add_theme_font_size_override("font_size", 12)
+	unit2_domain_label.add_theme_color_override("font_color", Color(0.5, 0.0, 0.8))
+	add_child(unit2_domain_label)
+	
+	# Unit 1 label
+	unit1_name_label = Label.new()
+	unit1_name_label.text = unit1_name
+	unit1_name_label.add_theme_font_size_override("font_size", 10)
+	unit1_name_label.add_theme_color_override("font_color", Color(1.0, 0.0, 0.0))
+	add_child(unit1_name_label)
+	
+	# Unit 2 label
+	unit2_name_label = Label.new()
+	unit2_name_label.text = unit2_name
+	unit2_name_label.add_theme_font_size_override("font_size", 10)
+	unit2_name_label.add_theme_color_override("font_color", Color(0.5, 0.0, 0.8))
+	add_child(unit2_name_label)
 
 ## Find best adjacent point for domain - FIXED VERSION
 func _find_adjacent_six_edge_point(corner_index: int) -> int:
@@ -1400,25 +1395,13 @@ func _draw_domains() -> void:
 
 ## Draw domain hexagon
 func _draw_domain_hexagon(center_index: int, color: Color) -> void:
-	print("🔍 DEBUG: _draw_domain_hexagon called for center_index=%d" % center_index)
 	# Check if domain should be visible (fog of war)
-	var domain_visible = true
-	if fog_of_war:
-		domain_visible = (VisibilitySystem.is_domain_visible(center_index) if VisibilitySystem else _is_domain_visible(center_index))
-	print("🔍 DEBUG: fog_of_war=%s, domain_visible=%s" % [fog_of_war, domain_visible])
-	if fog_of_war and not domain_visible:
-		print("🔍 DEBUG: Domain not visible, skipping rendering")
+	if fog_of_war and not (VisibilitySystem.is_domain_visible(center_index) if VisibilitySystem else _is_domain_visible(center_index)):
 		return
 	
 	var center_pos = points[center_index]
 	# Calculate radius based on real distance between adjacent points
-	var radius
-	if DrawingSystem:
-		radius = DrawingSystem.get_edge_length(center_index)
-	elif GridGenerationSystem:
-		radius = GridGenerationSystem.get_edge_length(center_index, points, hex_coords)
-	else:
-		radius = _get_edge_length(center_index)
+	var radius = (GridGenerationSystem.get_edge_length(center_index, points, hex_coords) if GridGenerationSystem else _get_edge_length(center_index))
 	
 	# Calculate the 6 vertices of the hexagon
 	var vertices = []
@@ -1433,47 +1416,6 @@ func _draw_domain_hexagon(center_index: int, color: Color) -> void:
 		var start = vertices[i]
 		var end = vertices[(i + 1) % 6]
 		draw_line(start, end, color, 4)  # Thicker line
-	
-	# Draw domain name and power directly as part of domain rendering
-	_draw_domain_text(center_index, center_pos, color)
-
-## Draw domain text directly on screen (FRONT END)
-func _draw_domain_text(center_index: int, center_pos: Vector2, color: Color) -> void:
-	print("🔍 DEBUG: _draw_domain_text called for center_index=%d" % center_index)
-	# Get current power values
-	var current_unit1_power = unit1_domain_power
-	var current_unit2_power = unit2_domain_power
-	if PowerSystem and PowerSystem.has_method("get_player_power"):
-		current_unit1_power = PowerSystem.get_player_power(1)
-		current_unit2_power = PowerSystem.get_player_power(2)
-		# Update local variables to stay in sync
-		unit1_domain_power = current_unit1_power
-		unit2_domain_power = current_unit2_power
-	
-	# Determine which domain this is and draw its name/power directly
-	if center_index == unit1_domain_center:
-		# Domain 1 - draw name and power directly on screen
-		var text = "%s ⚡%d" % [unit1_domain_name, current_unit1_power]
-		var text_pos = center_pos + Vector2(-30, 35)  # Below domain
-		# Draw text background for readability
-		draw_rect(Rect2(text_pos - Vector2(5, 15), Vector2(text.length() * 8, 20)), Color.WHITE)
-		# Draw the actual text using Godot's built-in font
-		var font = ThemeDB.fallback_font
-		var font_size = 12
-		draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.RED)
-		print("🎨 FRONT END: Drawing Domain1 text '%s' at %s" % [text, text_pos])
-	
-	elif center_index == unit2_domain_center:
-		# Domain 2 - draw name and power directly on screen
-		var text = "%s ⚡%d" % [unit2_domain_name, current_unit2_power]
-		var text_pos = center_pos + Vector2(-30, 35)  # Below domain
-		# Draw text background for readability
-		draw_rect(Rect2(text_pos - Vector2(5, 15), Vector2(text.length() * 8, 20)), Color.WHITE)
-		# Draw the actual text using Godot's built-in font
-		var font = ThemeDB.fallback_font
-		var font_size = 12
-		draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.5, 0.0, 0.8))
-		print("🎨 FRONT END: Drawing Domain2 text '%s' at %s" % [text, text_pos])
 
 ## Get real length of an edge
 func _get_edge_length(point_index: int) -> float:
@@ -1665,38 +1607,51 @@ func _update_units_visibility_and_position():
 		else:
 			unit2_label.visible = (VisibilitySystem.is_point_visible_to_current_unit(unit2_position) if VisibilitySystem else _is_point_visible_to_current_unit(unit2_position))
 	
-	# REMOVED: Name positioning - now drawn directly as part of rendering
+	# Update name positions
+	_update_name_positions()
 
-## Draw unit names directly on screen (FRONT END)
-func _draw_unit_names() -> void:
-	print("🔍 DEBUG: _draw_unit_names called")
-	# Draw unit 1 name ONLY if unit is visible
-	print("🔍 DEBUG: unit1_label exists=%s, visible=%s" % [unit1_label != null, unit1_label.visible if unit1_label else false])
-	if unit1_label and unit1_label.visible:
+## Update name positions
+func _update_name_positions() -> void:
+	# Position unit names
+	if unit1_name_label:
 		var unit1_pos = points[unit1_position]
-		var text_pos = unit1_pos + Vector2(-15, 15)  # Below unit
-		# Draw text background for readability
-		draw_rect(Rect2(text_pos - Vector2(5, 5), Vector2(unit1_name.length() * 6, 15)), Color.WHITE)
-		# Draw the actual text using Godot's built-in font
-		var font = ThemeDB.fallback_font
-		var font_size = 10
-		draw_string(font, text_pos, unit1_name, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color.RED)
-		print("🎨 FRONT END: Drawing Unit1 name '%s' at %s" % [unit1_name, text_pos])
+		unit1_name_label.position = unit1_pos + Vector2(-15, 15)  # Below unit
+		unit1_name_label.visible = unit1_label.visible  # Same visibility as unit
 	
-	# Draw unit 2 name ONLY if unit is visible
-	print("🔍 DEBUG: unit2_label exists=%s, visible=%s" % [unit2_label != null, unit2_label.visible if unit2_label else false])
-	if unit2_label and unit2_label.visible:
+	if unit2_name_label:
 		var unit2_pos = points[unit2_position]
-		var text_pos = unit2_pos + Vector2(-15, 15)  # Below unit
-		# Draw text background for readability
-		draw_rect(Rect2(text_pos - Vector2(5, 5), Vector2(unit2_name.length() * 6, 15)), Color.WHITE)
-		# Draw the actual text using Godot's built-in font
-		var font = ThemeDB.fallback_font
-		var font_size = 10
-		draw_string(font, text_pos, unit2_name, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(0.5, 0.0, 0.8))
-		print("🎨 FRONT END: Drawing Unit2 name '%s' at %s" % [unit2_name, text_pos])
-
-# REMOVED: _update_name_positions() - Names now drawn directly as part of rendering
+		unit2_name_label.position = unit2_pos + Vector2(-15, 15)  # Below unit
+		unit2_name_label.visible = unit2_label.visible  # Same visibility as unit
+	
+	# Get current power values from PowerSystem (FIXED)
+	var current_unit1_power = unit1_domain_power
+	var current_unit2_power = unit2_domain_power
+	if PowerSystem and PowerSystem.has_method("get_player_power"):
+		current_unit1_power = PowerSystem.get_player_power(1)
+		current_unit2_power = PowerSystem.get_player_power(2)
+		# Update local variables to stay in sync
+		unit1_domain_power = current_unit1_power
+		unit2_domain_power = current_unit2_power
+		print("🔧 FIXED: Power from PowerSystem - P1=%d, P2=%d" % [current_unit1_power, current_unit2_power])
+	else:
+		print("🔧 FIXED: Using local power values - P1=%d, P2=%d" % [current_unit1_power, current_unit2_power])
+	
+	# Position domain names and update power
+	if unit1_domain_label:
+		var domain1_pos = points[unit1_domain_center]
+		unit1_domain_label.position = domain1_pos + Vector2(-30, 35)  # Below domain
+		unit1_domain_label.text = "%s ⚡%d" % [unit1_domain_name, current_unit1_power]
+		var domain1_visible = (VisibilitySystem.is_domain_visible(unit1_domain_center) if VisibilitySystem else _is_domain_visible(unit1_domain_center)) or not fog_of_war
+		unit1_domain_label.visible = domain1_visible
+		print("🔧 FIXED: Domain1 (%s) visible=%s, power=%d" % [unit1_domain_name, domain1_visible, current_unit1_power])
+	
+	if unit2_domain_label:
+		var domain2_pos = points[unit2_domain_center]
+		unit2_domain_label.position = domain2_pos + Vector2(-30, 35)  # Below domain
+		unit2_domain_label.text = "%s ⚡%d" % [unit2_domain_name, current_unit2_power]
+		var domain2_visible = (VisibilitySystem.is_domain_visible(unit2_domain_center) if VisibilitySystem else _is_domain_visible(unit2_domain_center)) or not fog_of_war
+		unit2_domain_label.visible = domain2_visible
+		print("🔧 FIXED: Domain2 (%s) visible=%s, power=%d" % [unit2_domain_name, domain2_visible, current_unit2_power])
 
 ## Check and reset forced revelations
 func _check_and_reset_forced_revelations() -> void:
