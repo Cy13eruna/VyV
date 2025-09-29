@@ -66,36 +66,6 @@ var performance_monitor = {
 var profiling_enabled = true
 var fps_label: Label
 
-# Caching System (Step 18)
-var coordinate_cache = {
-	"distances": {},
-	"neighbors": {},
-	"directions": {},
-	"pixels": {},
-	"initialized": false
-}
-var visibility_cache = {
-	"player1_visible_points": [],
-	"player2_visible_points": [],
-	"player1_visible_paths": [],
-	"player2_visible_paths": [],
-	"cache_valid": false,
-	"last_unit1_pos": -1,
-	"last_unit2_pos": -1
-}
-var movement_cache = {
-	"valid_moves": {},
-	"path_types": {},
-	"movement_costs": {},
-	"cache_valid": true
-}
-var render_cache = {
-	"last_render_state": {},
-	"state_changed": true,
-	"cached_colors": {},
-	"cached_ui_data": {}
-}
-
 func _ready():
 	# V&V Game initialization
 	
@@ -218,11 +188,12 @@ func _ready():
 		UISystem.update_ui()
 	else:
 		_update_units_visibility_and_position()
-		_create_ui()
 	
-	# Initialize caching systems
-	_initialize_coordinate_cache()
-	_initialize_movement_cache()
+	# Performance profiling - end draw timing
+	if profiling_enabled:
+		var draw_end_time = Time.get_ticks_msec()
+		performance_monitor.draw_time = draw_end_time - draw_start_time
+		performance_monitor.frame_count += 1
 	
 	# Initialize performance monitoring
 	if profiling_enabled:
@@ -1821,180 +1792,3 @@ func toggle_performance_monitoring() -> void:
 	profiling_enabled = not profiling_enabled
 	if fps_label:
 		fps_label.visible = profiling_enabled
-
-## Caching System Functions (Step 18)
-
-# Initialize coordinate cache with pre-calculated values
-func _initialize_coordinate_cache() -> void:
-	if coordinate_cache.initialized:
-		return
-	
-	print("⚡ Initializing coordinate cache...")
-	var start_time = Time.get_ticks_msec()
-	
-	# Pre-calculate distances between all points
-	for i in range(points.size()):
-		for j in range(points.size()):
-			var key = "%d_%d" % [i, j]
-			coordinate_cache.distances[key] = _hex_distance(hex_coords[i], hex_coords[j])
-	
-	# Pre-calculate neighbors for each point
-	for i in range(points.size()):
-		coordinate_cache.neighbors[i] = _calculate_neighbors(i)
-	
-	# Pre-calculate pixel positions (already done, but cache the mapping)
-	for i in range(points.size()):
-		coordinate_cache.pixels[i] = points[i]
-	
-	coordinate_cache.initialized = true
-	var end_time = Time.get_ticks_msec()
-	print("⚡ Coordinate cache initialized in %dms" % (end_time - start_time))
-
-# Get cached distance between two points
-func _get_cached_distance(point1: int, point2: int) -> int:
-	var key = "%d_%d" % [point1, point2]
-	if coordinate_cache.distances.has(key):
-		return coordinate_cache.distances[key]
-	# Fallback to calculation if not cached
-	return _hex_distance(hex_coords[point1], hex_coords[point2])
-
-# Calculate neighbors for a point
-func _calculate_neighbors(point_index: int) -> Array:
-	var neighbors = []
-	for path in paths:
-		var path_points = path.points
-		if path_points[0] == point_index:
-			neighbors.append(path_points[1])
-		elif path_points[1] == point_index:
-			neighbors.append(path_points[0])
-	return neighbors
-
-# Get cached neighbors for a point
-func _get_cached_neighbors(point_index: int) -> Array:
-	if coordinate_cache.neighbors.has(point_index):
-		return coordinate_cache.neighbors[point_index]
-	# Fallback to calculation if not cached
-	return _calculate_neighbors(point_index)
-
-# Initialize movement cache
-func _initialize_movement_cache() -> void:
-	print("⚡ Initializing movement cache...")
-	var start_time = Time.get_ticks_msec()
-	
-	# Pre-calculate path types between connected points
-	for path in paths:
-		var p1 = path.points[0]
-		var p2 = path.points[1]
-		var key = "%d_%d" % [min(p1, p2), max(p1, p2)]
-		movement_cache.path_types[key] = path.type
-	
-	var end_time = Time.get_ticks_msec()
-	print("⚡ Movement cache initialized in %dms" % (end_time - start_time))
-
-# Get cached path type between two points
-func _get_cached_path_type(point1: int, point2: int) -> EdgeType:
-	var key = "%d_%d" % [min(point1, point2), max(point1, point2)]
-	if movement_cache.path_types.has(key):
-		return movement_cache.path_types[key]
-	# Fallback to original function
-	return _get_path_type_between_points(point1, point2)
-
-# Get cached valid moves for a unit position
-func _get_cached_valid_moves(unit_pos: int) -> Array:
-	if not movement_cache.valid_moves.has(unit_pos):
-		movement_cache.valid_moves[unit_pos] = _calculate_valid_moves_for_position(unit_pos)
-	return movement_cache.valid_moves[unit_pos]
-
-# Calculate valid moves for a position
-func _calculate_valid_moves_for_position(unit_pos: int) -> Array:
-	var valid_moves = []
-	var neighbors = _get_cached_neighbors(unit_pos)
-	
-	for neighbor in neighbors:
-		var path_type = _get_cached_path_type(unit_pos, neighbor)
-		# Field and Forest allow movement
-		var field_type = GameConstants.EdgeType.FIELD if GameConstants else EdgeType.FIELD
-		var forest_type = GameConstants.EdgeType.FOREST if GameConstants else EdgeType.FOREST
-		if path_type == field_type or path_type == forest_type:
-			valid_moves.append(neighbor)
-	
-	return valid_moves
-
-# Invalidate movement cache when needed
-func _invalidate_movement_cache() -> void:
-	movement_cache.valid_moves.clear()
-	movement_cache.cache_valid = false
-
-# Update visibility cache when units move
-func _update_visibility_cache() -> void:
-	# Check if cache needs updating
-	if unit1_position == visibility_cache.last_unit1_pos and \
-	   unit2_position == visibility_cache.last_unit2_pos and \
-	   visibility_cache.cache_valid:
-		return  # Cache is still valid
-	
-	print("⚡ Updating visibility cache...")
-	var start_time = Time.get_ticks_msec()
-	
-	# Recalculate visibility for both players
-	_recalculate_visibility_for_player(1)
-	_recalculate_visibility_for_player(2)
-	
-	# Update cache state
-	visibility_cache.last_unit1_pos = unit1_position
-	visibility_cache.last_unit2_pos = unit2_position
-	visibility_cache.cache_valid = true
-	
-	var end_time = Time.get_ticks_msec()
-	print("⚡ Visibility cache updated in %dms" % (end_time - start_time))
-
-# Recalculate visibility for a specific player
-func _recalculate_visibility_for_player(player_id: int) -> void:
-	var unit_pos = unit1_position if player_id == 1 else unit2_position
-	var visible_points = []
-	var visible_paths = []
-	
-	# Calculate visible points
-	for i in range(points.size()):
-		if _is_point_visible_to_unit(i, unit_pos):
-			visible_points.append(i)
-	
-	# Calculate visible paths
-	for i in range(paths.size()):
-		var path = paths[i]
-		if _is_path_visible_to_unit(path, unit_pos):
-			visible_paths.append(i)
-	
-	# Store in cache
-	if player_id == 1:
-		visibility_cache.player1_visible_points = visible_points
-		visibility_cache.player1_visible_paths = visible_paths
-	else:
-		visibility_cache.player2_visible_points = visible_points
-		visibility_cache.player2_visible_paths = visible_paths
-
-# Check if path is visible to unit
-func _is_path_visible_to_unit(path: Dictionary, unit_pos: int) -> bool:
-	var p1 = path.points[0]
-	var p2 = path.points[1]
-	return _is_point_visible_to_unit(p1, unit_pos) or _is_point_visible_to_unit(p2, unit_pos)
-
-# Get cached visible points for current player
-func _get_cached_visible_points() -> Array:
-	_update_visibility_cache()
-	if current_player == 1:
-		return visibility_cache.player1_visible_points
-	else:
-		return visibility_cache.player2_visible_points
-
-# Get cached visible paths for current player
-func _get_cached_visible_paths() -> Array:
-	_update_visibility_cache()
-	if current_player == 1:
-		return visibility_cache.player1_visible_paths
-	else:
-		return visibility_cache.player2_visible_paths
-
-# Invalidate visibility cache when needed
-func _invalidate_visibility_cache() -> void:
-	visibility_cache.cache_valid = false

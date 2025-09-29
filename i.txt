@@ -1,1 +1,1 @@
-Boa! Conseguiste! Podes prosseguir com a refatoração!
+Primeiramente limpe SKETCH. Há muitos arquivos ultrapassados e inúteis. Deixe apenas o essencial para o jogo rodar. Eu já fiz um backup, então não se preocupe em excluir tudo que for necessário

@@ -52,52 +52,11 @@ var unit2_domain_power = 1  # Accumulated power of domain 2 (starts with 1)
 var skip_turn_button: Button
 var action_label: Label
 
-# Performance Profiling (Step 17)
-var performance_monitor = {
-	"frame_times": [],
-	"draw_time": 0.0,
-	"process_time": 0.0,
-	"input_time": 0.0,
-	"frame_count": 0,
-	"start_time": 0.0,
-	"last_fps_update": 0.0,
-	"current_fps": 0.0
-}
-var profiling_enabled = true
-var fps_label: Label
-
-# Caching System (Step 18)
-var coordinate_cache = {
-	"distances": {},
-	"neighbors": {},
-	"directions": {},
-	"pixels": {},
-	"initialized": false
-}
-var visibility_cache = {
-	"player1_visible_points": [],
-	"player2_visible_points": [],
-	"player1_visible_paths": [],
-	"player2_visible_paths": [],
-	"cache_valid": false,
-	"last_unit1_pos": -1,
-	"last_unit2_pos": -1
-}
-var movement_cache = {
-	"valid_moves": {},
-	"path_types": {},
-	"movement_costs": {},
-	"cache_valid": true
-}
-var render_cache = {
-	"last_render_state": {},
-	"state_changed": true,
-	"cached_colors": {},
-	"cached_ui_data": {}
-}
-
 func _ready():
-	# V&V Game initialization
+	print("🔥 STEP 9 - PowerSystem integration...")
+	print("⚡ Testing power with 9 systems: GameConstants, TerrainSystem, HexGridSystem, GameManager, InputSystem, RenderSystem, UISystem, UnitSystem, PowerSystem")
+	print("🔥 Player 1 (RED) starts with 1 power")
+	print("🔥 Player 2 (VIOLET) starts with 1 power")
 	
 	# Generate hexagonal grid using GridGenerationSystem or HexGridSystem
 	if GridGenerationSystem:
@@ -135,25 +94,25 @@ func _ready():
 		# Connect InputSystem signals
 		InputSystem.point_clicked.connect(_on_input_point_clicked)
 		InputSystem.fog_toggle_requested.connect(_on_input_fog_toggle)
-		# InputSystem ready
+		print("🎮 InputSystem connected and ready")
 	
 	# Initialize RenderSystem
 	if RenderSystem:
 		RenderSystem.initialize(points, hex_coords, paths)
-		# RenderSystem ready
+		print("🎨 RenderSystem initialized and ready")
 	
 	# Initialize UISystem
 	if UISystem:
 		UISystem.initialize(self, points)
 		UISystem.skip_turn_requested.connect(_on_ui_skip_turn)
-		# UISystem ready
+		print("💻 UISystem initialized and ready")
 	
 	# Initialize UnitSystem
 	if UnitSystem:
 		UnitSystem.initialize(points, hex_coords, paths)
 		UnitSystem.unit_moved.connect(_on_unit_moved)
 		UnitSystem.movement_blocked.connect(_on_movement_blocked)
-		# UnitSystem ready
+		print("🚶‍♀️ UnitSystem initialized and ready")
 	
 	# Initialize PowerSystem
 	if PowerSystem:
@@ -161,32 +120,32 @@ func _ready():
 		PowerSystem.power_generated.connect(_on_power_generated)
 		PowerSystem.power_consumed.connect(_on_power_consumed)
 		PowerSystem.domain_occupied.connect(_on_domain_occupied)
-		# PowerSystem ready
+		print("⚡ PowerSystem initialized and ready")
 	
 	# Initialize VisibilitySystem
 	if VisibilitySystem:
 		VisibilitySystem.initialize(points, hex_coords, paths)
-		# VisibilitySystem ready
+		print("👁️ VisibilitySystem initialized and ready")
 	
 	# Initialize MovementSystem
 	if MovementSystem:
 		MovementSystem.initialize(points, hex_coords, paths)
-		# MovementSystem ready
+		print("🚶‍♂️ MovementSystem initialized and ready")
 	
 	# Initialize GridGenerationSystem
 	if GridGenerationSystem:
 		GridGenerationSystem.initialize()
-		# GridGenerationSystem ready
+		print("🔢 GridGenerationSystem initialized and ready")
 	
 	# Initialize FallbackSystem
 	if FallbackSystem:
 		FallbackSystem.initialize(points, hex_coords, paths)
-		# FallbackSystem ready
+		print("🔄 FallbackSystem initialized and ready")
 	
 	# Initialize DrawingSystem
 	if DrawingSystem:
 		DrawingSystem.initialize(points, hex_coords, paths)
-		# DrawingSystem ready
+		print("🎨 DrawingSystem initialized and ready")
 	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
@@ -220,19 +179,9 @@ func _ready():
 		_update_units_visibility_and_position()
 		_create_ui()
 	
-	# Initialize caching systems
-	_initialize_coordinate_cache()
-	_initialize_movement_cache()
-	
-	# Initialize performance monitoring
-	if profiling_enabled:
-		_initialize_performance_monitoring()
 	print("🔥 FIXED VERSION - Game ready! Current player: %d" % current_player)
 
 func _process(_delta):
-	# Performance profiling - start timing
-	var process_start_time = Time.get_ticks_msec() if profiling_enabled else 0
-	
 	var mouse_pos = get_global_mouse_position()
 	
 	# Use InputSystem for hover detection
@@ -256,17 +205,8 @@ func _process(_delta):
 		else:
 			_process_hover_fallback(mouse_pos)
 			queue_redraw()
-	
-	# Performance profiling - end timing
-	if profiling_enabled:
-		var process_end_time = Time.get_ticks_msec()
-		performance_monitor.process_time = process_end_time - process_start_time
-		_update_performance_stats()
 
 func _draw():
-	# Performance profiling - start draw timing
-	var draw_start_time = Time.get_ticks_msec() if profiling_enabled else 0
-	
 	# Use RenderSystem if available
 	if RenderSystem:
 		# Update RenderSystem state
@@ -326,7 +266,7 @@ func _unhandled_input(event: InputEvent) -> void:
 
 ## InputSystem signal callbacks
 func _on_input_point_clicked(point_index: int) -> void:
-	# Processing point click
+	print("🎮 InputSystem: Processing point %d click" % point_index)
 	
 	# Use UnitSystem if available
 	if UnitSystem:
@@ -360,7 +300,7 @@ func _on_input_point_clicked(point_index: int) -> void:
 		_handle_movement_fallback(point_index)
 
 func _on_input_fog_toggle() -> void:
-	# Processing fog toggle
+	print("🎮 InputSystem: Processing fog toggle")
 	
 	# Toggle fog of war
 	if GameManager:
@@ -603,22 +543,6 @@ func _handle_input_fallback(event: InputEvent) -> void:
 	elif event is InputEventKey and event.pressed:
 			if event.keycode == KEY_SPACE:
 				_on_input_fog_toggle()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_P:
-				# Toggle performance monitoring
-				toggle_performance_monitoring()
-				get_viewport().set_input_as_handled()
-			elif event.keycode == KEY_R:
-				# Print performance report
-				if profiling_enabled:
-					var report = _get_performance_report()
-					print("📊 PERFORMANCE REPORT:")
-					print("  FPS: %.1f" % report.fps)
-					print("  Draw Time: %.1fms" % report.draw_time_ms)
-					print("  Process Time: %.1fms" % report.process_time_ms)
-					print("  Total Frame Time: %.1fms" % report.total_frame_time_ms)
-					print("  Target Frame Time: %.1fms" % report.target_frame_time_ms)
-					print("  Performance Ratio: %.2f" % report.performance_ratio)
 				get_viewport().set_input_as_handled()
 
 ## Fallback movement handling
@@ -1247,7 +1171,7 @@ func _generate_domain_and_unit_names() -> void:
 	unit1_name = unit_names[domain1_index][0]
 	unit2_name = unit_names[domain2_index][0]
 	
-	# Names generated successfully
+	print("🔍 DEBUG: Names generated - unit1_name='%s', unit2_name='%s', unit1_domain_name='%s', unit2_domain_name='%s'" % [unit1_name, unit2_name, unit1_domain_name, unit2_domain_name])
 	
 	# REMOVED: Name labels creation - now drawn directly
 
@@ -1339,7 +1263,7 @@ func _hex_distance(coord1: Vector2, coord2: Vector2) -> int:
 
 ## Analyze grid connectivity for debugging
 func _analyze_grid_connectivity() -> void:
-	# Analyzing grid connectivity
+	print("🔍 GRID ANALYSIS - Analyzing %d points:" % points.size())
 	
 	# Count points by connectivity
 	var connectivity_count = {}
@@ -1358,11 +1282,32 @@ func _analyze_grid_connectivity() -> void:
 			connectivity_count[path_count] = 0
 		connectivity_count[path_count] += 1
 	
-	# Connectivity analysis complete
+	# Print connectivity summary
+	print("📊 Connectivity Summary:")
+	for connections in connectivity_count.keys():
+		print("  %d connections: %d points" % [connections, connectivity_count[connections]])
+	
+	# Print corners (3 connections)
+	print("🔴 Corners (3 connections):")
+	for point_data in point_connectivity:
+		if point_data.connections == 3:
+			print("  Point %d: %s" % [point_data.index, point_data.coord])
+	
+	# Print good domain spots (4+ connections)
+	print("🟢 Good domain spots (4+ connections):")
+	for point_data in point_connectivity:
+		if point_data.connections >= 4:
+			print("  Point %d: %d connections at %s" % [point_data.index, point_data.connections, point_data.coord])
+	
+	# Print best domain spots (6 connections)
+	print("🌟 Best domain spots (6 connections):")
+	for point_data in point_connectivity:
+		if point_data.connections == 6:
+			print("  Point %d: 6 connections at %s" % [point_data.index, point_data.coord])
 
 ## Find best domain positions - INTELLIGENT APPROACH
 func _find_best_domain_positions() -> Array:
-	# Finding optimal domain positions
+	print("🏰 INTELLIGENT DOMAIN POSITIONING - Finding best spots...")
 	
 	# Get all corners first
 	var corners = _get_map_corners()
@@ -1455,13 +1400,14 @@ func _draw_domains() -> void:
 
 ## Draw domain hexagon
 func _draw_domain_hexagon(center_index: int, color: Color) -> void:
-	# Debug print removed for production
+	print("🔍 DEBUG: _draw_domain_hexagon called for center_index=%d" % center_index)
 	# Check if domain should be visible (fog of war)
 	var domain_visible = true
 	if fog_of_war:
 		domain_visible = (VisibilitySystem.is_domain_visible(center_index) if VisibilitySystem else _is_domain_visible(center_index))
-	# Domain visibility check
+	print("🔍 DEBUG: fog_of_war=%s, domain_visible=%s" % [fog_of_war, domain_visible])
 	if fog_of_war and not domain_visible:
+		print("🔍 DEBUG: Domain not visible, skipping rendering")
 		return
 	
 	var center_pos = points[center_index]
@@ -1493,7 +1439,7 @@ func _draw_domain_hexagon(center_index: int, color: Color) -> void:
 
 ## Draw domain text directly on screen (FRONT END)
 func _draw_domain_text(center_index: int, center_pos: Vector2, color: Color) -> void:
-	# Domain text rendering
+	print("🔍 DEBUG: _draw_domain_text called for center_index=%d" % center_index)
 	# Get current power values
 	var current_unit1_power = unit1_domain_power
 	var current_unit2_power = unit2_domain_power
@@ -1723,8 +1669,9 @@ func _update_units_visibility_and_position():
 
 ## Draw unit names directly on screen (FRONT END)
 func _draw_unit_names() -> void:
-	# Draw unit names based on visibility
+	print("🔍 DEBUG: _draw_unit_names called")
 	# Draw unit 1 name ONLY if unit is visible
+	print("🔍 DEBUG: unit1_label exists=%s, visible=%s" % [unit1_label != null, unit1_label.visible if unit1_label else false])
 	if unit1_label and unit1_label.visible:
 		var unit1_pos = points[unit1_position]
 		var text_pos = unit1_pos + Vector2(-15, 15)  # Below unit
@@ -1737,6 +1684,7 @@ func _draw_unit_names() -> void:
 		print("🎨 FRONT END: Drawing Unit1 name '%s' at %s" % [unit1_name, text_pos])
 	
 	# Draw unit 2 name ONLY if unit is visible
+	print("🔍 DEBUG: unit2_label exists=%s, visible=%s" % [unit2_label != null, unit2_label.visible if unit2_label else false])
 	if unit2_label and unit2_label.visible:
 		var unit2_pos = points[unit2_position]
 		var text_pos = unit2_pos + Vector2(-15, 15)  # Below unit
@@ -1759,242 +1707,7 @@ func _check_and_reset_forced_revelations() -> void:
 			print("🔍 Unit 1 is no longer visible - resetting forced revelation")
 	
 	# Reset unit2_force_revealed if it's not naturally visible
+	if unit2_force_revealed and current_player == 1:
 		if not _is_point_visible_to_current_unit(unit2_position):
 			unit2_force_revealed = false
 			print("🔍 Unit 2 is no longer visible - resetting forced revelation")
-
-## Performance Monitoring Functions (Step 17)
-func _initialize_performance_monitoring() -> void:
-	performance_monitor.start_time = Time.get_ticks_msec()
-	performance_monitor.last_fps_update = performance_monitor.start_time
-	
-	# Create FPS display label
-	fps_label = Label.new()
-	fps_label.text = "FPS: --"
-	fps_label.position = Vector2(10, 10)
-	fps_label.add_theme_font_size_override("font_size", 12)
-	fps_label.add_theme_color_override("font_color", Color.GREEN)
-	add_child(fps_label)
-
-func _update_performance_stats() -> void:
-	var current_time = Time.get_ticks_msec()
-	
-	# Update FPS every 500ms
-	if current_time - performance_monitor.last_fps_update > 500:
-		var time_diff = current_time - performance_monitor.last_fps_update
-		var frame_diff = performance_monitor.frame_count
-		
-		if frame_diff > 0:
-			performance_monitor.current_fps = (frame_diff * 1000.0) / time_diff
-			
-			# Update FPS display
-			if fps_label:
-				fps_label.text = "FPS: %.1f | Draw: %.1fms | Process: %.1fms" % [
-					performance_monitor.current_fps,
-					performance_monitor.draw_time,
-					performance_monitor.process_time
-				]
-				
-				# Color code based on performance
-				if performance_monitor.current_fps >= 55:
-					fps_label.add_theme_color_override("font_color", Color.GREEN)
-				elif performance_monitor.current_fps >= 30:
-					fps_label.add_theme_color_override("font_color", Color.YELLOW)
-				else:
-					fps_label.add_theme_color_override("font_color", Color.RED)
-		
-		# Reset counters
-		performance_monitor.last_fps_update = current_time
-		performance_monitor.frame_count = 0
-
-func _get_performance_report() -> Dictionary:
-	return {
-		"fps": performance_monitor.current_fps,
-		"draw_time_ms": performance_monitor.draw_time,
-		"process_time_ms": performance_monitor.process_time,
-		"total_frame_time_ms": performance_monitor.draw_time + performance_monitor.process_time,
-		"target_frame_time_ms": 16.67,  # 60 FPS target
-		"performance_ratio": (performance_monitor.draw_time + performance_monitor.process_time) / 16.67
-	}
-
-func toggle_performance_monitoring() -> void:
-	profiling_enabled = not profiling_enabled
-	if fps_label:
-		fps_label.visible = profiling_enabled
-
-## Caching System Functions (Step 18)
-
-# Initialize coordinate cache with pre-calculated values
-func _initialize_coordinate_cache() -> void:
-	if coordinate_cache.initialized:
-		return
-	
-	print("⚡ Initializing coordinate cache...")
-	var start_time = Time.get_ticks_msec()
-	
-	# Pre-calculate distances between all points
-	for i in range(points.size()):
-		for j in range(points.size()):
-			var key = "%d_%d" % [i, j]
-			coordinate_cache.distances[key] = _hex_distance(hex_coords[i], hex_coords[j])
-	
-	# Pre-calculate neighbors for each point
-	for i in range(points.size()):
-		coordinate_cache.neighbors[i] = _calculate_neighbors(i)
-	
-	# Pre-calculate pixel positions (already done, but cache the mapping)
-	for i in range(points.size()):
-		coordinate_cache.pixels[i] = points[i]
-	
-	coordinate_cache.initialized = true
-	var end_time = Time.get_ticks_msec()
-	print("⚡ Coordinate cache initialized in %dms" % (end_time - start_time))
-
-# Get cached distance between two points
-func _get_cached_distance(point1: int, point2: int) -> int:
-	var key = "%d_%d" % [point1, point2]
-	if coordinate_cache.distances.has(key):
-		return coordinate_cache.distances[key]
-	# Fallback to calculation if not cached
-	return _hex_distance(hex_coords[point1], hex_coords[point2])
-
-# Calculate neighbors for a point
-func _calculate_neighbors(point_index: int) -> Array:
-	var neighbors = []
-	for path in paths:
-		var path_points = path.points
-		if path_points[0] == point_index:
-			neighbors.append(path_points[1])
-		elif path_points[1] == point_index:
-			neighbors.append(path_points[0])
-	return neighbors
-
-# Get cached neighbors for a point
-func _get_cached_neighbors(point_index: int) -> Array:
-	if coordinate_cache.neighbors.has(point_index):
-		return coordinate_cache.neighbors[point_index]
-	# Fallback to calculation if not cached
-	return _calculate_neighbors(point_index)
-
-# Initialize movement cache
-func _initialize_movement_cache() -> void:
-	print("⚡ Initializing movement cache...")
-	var start_time = Time.get_ticks_msec()
-	
-	# Pre-calculate path types between connected points
-	for path in paths:
-		var p1 = path.points[0]
-		var p2 = path.points[1]
-		var key = "%d_%d" % [min(p1, p2), max(p1, p2)]
-		movement_cache.path_types[key] = path.type
-	
-	var end_time = Time.get_ticks_msec()
-	print("⚡ Movement cache initialized in %dms" % (end_time - start_time))
-
-# Get cached path type between two points
-func _get_cached_path_type(point1: int, point2: int) -> EdgeType:
-	var key = "%d_%d" % [min(point1, point2), max(point1, point2)]
-	if movement_cache.path_types.has(key):
-		return movement_cache.path_types[key]
-	# Fallback to original function
-	return _get_path_type_between_points(point1, point2)
-
-# Get cached valid moves for a unit position
-func _get_cached_valid_moves(unit_pos: int) -> Array:
-	if not movement_cache.valid_moves.has(unit_pos):
-		movement_cache.valid_moves[unit_pos] = _calculate_valid_moves_for_position(unit_pos)
-	return movement_cache.valid_moves[unit_pos]
-
-# Calculate valid moves for a position
-func _calculate_valid_moves_for_position(unit_pos: int) -> Array:
-	var valid_moves = []
-	var neighbors = _get_cached_neighbors(unit_pos)
-	
-	for neighbor in neighbors:
-		var path_type = _get_cached_path_type(unit_pos, neighbor)
-		# Field and Forest allow movement
-		var field_type = GameConstants.EdgeType.FIELD if GameConstants else EdgeType.FIELD
-		var forest_type = GameConstants.EdgeType.FOREST if GameConstants else EdgeType.FOREST
-		if path_type == field_type or path_type == forest_type:
-			valid_moves.append(neighbor)
-	
-	return valid_moves
-
-# Invalidate movement cache when needed
-func _invalidate_movement_cache() -> void:
-	movement_cache.valid_moves.clear()
-	movement_cache.cache_valid = false
-
-# Update visibility cache when units move
-func _update_visibility_cache() -> void:
-	# Check if cache needs updating
-	if unit1_position == visibility_cache.last_unit1_pos and \
-	   unit2_position == visibility_cache.last_unit2_pos and \
-	   visibility_cache.cache_valid:
-		return  # Cache is still valid
-	
-	print("⚡ Updating visibility cache...")
-	var start_time = Time.get_ticks_msec()
-	
-	# Recalculate visibility for both players
-	_recalculate_visibility_for_player(1)
-	_recalculate_visibility_for_player(2)
-	
-	# Update cache state
-	visibility_cache.last_unit1_pos = unit1_position
-	visibility_cache.last_unit2_pos = unit2_position
-	visibility_cache.cache_valid = true
-	
-	var end_time = Time.get_ticks_msec()
-	print("⚡ Visibility cache updated in %dms" % (end_time - start_time))
-
-# Recalculate visibility for a specific player
-func _recalculate_visibility_for_player(player_id: int) -> void:
-	var unit_pos = unit1_position if player_id == 1 else unit2_position
-	var visible_points = []
-	var visible_paths = []
-	
-	# Calculate visible points
-	for i in range(points.size()):
-		if _is_point_visible_to_unit(i, unit_pos):
-			visible_points.append(i)
-	
-	# Calculate visible paths
-	for i in range(paths.size()):
-		var path = paths[i]
-		if _is_path_visible_to_unit(path, unit_pos):
-			visible_paths.append(i)
-	
-	# Store in cache
-	if player_id == 1:
-		visibility_cache.player1_visible_points = visible_points
-		visibility_cache.player1_visible_paths = visible_paths
-	else:
-		visibility_cache.player2_visible_points = visible_points
-		visibility_cache.player2_visible_paths = visible_paths
-
-# Check if path is visible to unit
-func _is_path_visible_to_unit(path: Dictionary, unit_pos: int) -> bool:
-	var p1 = path.points[0]
-	var p2 = path.points[1]
-	return _is_point_visible_to_unit(p1, unit_pos) or _is_point_visible_to_unit(p2, unit_pos)
-
-# Get cached visible points for current player
-func _get_cached_visible_points() -> Array:
-	_update_visibility_cache()
-	if current_player == 1:
-		return visibility_cache.player1_visible_points
-	else:
-		return visibility_cache.player2_visible_points
-
-# Get cached visible paths for current player
-func _get_cached_visible_paths() -> Array:
-	_update_visibility_cache()
-	if current_player == 1:
-		return visibility_cache.player1_visible_paths
-	else:
-		return visibility_cache.player2_visible_paths
-
-# Invalidate visibility cache when needed
-func _invalidate_visibility_cache() -> void:
-	visibility_cache.cache_valid = false
