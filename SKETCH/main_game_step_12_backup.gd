@@ -61,13 +61,8 @@ func _ready():
 	print("🔥 Player 1 (RED) starts with 1 power")
 	print("🔥 Player 2 (VIOLET) starts with 1 power")
 	
-	# Generate hexagonal grid using GridGenerationSystem or HexGridSystem
-	if GridGenerationSystem:
-		var grid_data = GridGenerationSystem.generate_hex_grid(3, hex_size, hex_center)
-		points = grid_data.points
-		hex_coords = grid_data.hex_coords
-		paths = grid_data.paths
-	elif HexGridSystem:
+	# Generate hexagonal grid using HexGridSystem
+	if HexGridSystem:
 		var grid_data = HexGridSystem.generate_hex_grid(3, hex_size, hex_center)
 		points = grid_data.points
 		hex_coords = grid_data.hex_coords
@@ -135,11 +130,6 @@ func _ready():
 		MovementSystem.initialize(points, hex_coords, paths)
 		print("🚶‍♂️ MovementSystem initialized and ready")
 	
-	# Initialize GridGenerationSystem
-	if GridGenerationSystem:
-		GridGenerationSystem.initialize()
-		print("🔢 GridGenerationSystem initialized and ready")
-	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
 	# Create UI elements using UISystem or fallback
@@ -163,10 +153,7 @@ func _ready():
 		_create_ui_fallback()
 	
 	# Mark map corners
-	if GridGenerationSystem:
-		GridGenerationSystem.mark_map_corners(paths, points.size(), hex_coords)
-	else:
-		_mark_map_corners()
+	_mark_map_corners()
 	
 	# Update UI positions and visibility
 	if UISystem:
@@ -401,13 +388,7 @@ func _sync_from_unit_system() -> void:
 ## Set initial unit positions with UnitSystem - ORIGINAL WORKING VERSION
 func _set_initial_unit_positions_with_system() -> void:
 	# Get the 6 map corners using HexGridSystem
-	var corners
-	if GridGenerationSystem:
-		corners = GridGenerationSystem.get_map_corners(paths, points.size())
-	elif HexGridSystem:
-		corners = HexGridSystem.get_map_corners(paths, points.size())
-	else:
-		corners = _get_map_corners()
+	var corners = HexGridSystem.get_map_corners(paths, points.size()) if HexGridSystem else _get_map_corners()
 	
 	if UnitSystem:
 		# Ensure UnitSystem has the grid data before positioning
@@ -970,7 +951,7 @@ func _generate_hex_paths() -> void:
 		# Check 6 neighbors
 		for dir in range(6):
 			var neighbor_coord = coord + _hex_direction(dir)
-			var neighbor_index = (GridGenerationSystem.find_hex_coord_index(neighbor_coord, hex_coords) if GridGenerationSystem else _find_hex_coord_index(neighbor_coord))
+			var neighbor_index = _find_hex_coord_index(neighbor_coord)
 			
 			if neighbor_index != -1:
 				# Create unique ID for path (always smaller index first)
@@ -991,13 +972,7 @@ func _find_hex_coord_index(coord: Vector2) -> int:
 ## Set initial unit positions (official spawn) - ORIGINAL WORKING VERSION
 func _set_initial_unit_positions() -> void:
 	# Get the 6 map corners using HexGridSystem
-	var corners
-	if GridGenerationSystem:
-		corners = GridGenerationSystem.get_map_corners(paths, points.size())
-	elif HexGridSystem:
-		corners = HexGridSystem.get_map_corners(paths, points.size())
-	else:
-		corners = _get_map_corners()
+	var corners = HexGridSystem.get_map_corners(paths, points.size()) if HexGridSystem else _get_map_corners()
 	
 	if corners.size() >= 2:
 		# Shuffle and choose 2 random corners
@@ -1032,13 +1007,7 @@ func _set_initial_unit_positions_fallback() -> void:
 	print("⚠️ Using fallback positioning method...")
 	
 	# Get the 6 map corners using HexGridSystem
-	var corners
-	if GridGenerationSystem:
-		corners = GridGenerationSystem.get_map_corners(paths, points.size())
-	elif HexGridSystem:
-		corners = HexGridSystem.get_map_corners(paths, points.size())
-	else:
-		corners = _get_map_corners()
+	var corners = HexGridSystem.get_map_corners(paths, points.size()) if HexGridSystem else _get_map_corners()
 	
 	if corners.size() >= 2:
 		# Shuffle and choose 2 random corners
@@ -1157,8 +1126,8 @@ func _find_adjacent_six_edge_point(corner_index: int) -> int:
 	
 	# Check all 6 hexagonal neighbors of the corner
 	for dir in range(6):
-		var neighbor_coord = corner_coord + (GridGenerationSystem.hex_direction(dir) if GridGenerationSystem else _hex_direction(dir))
-		var neighbor_index = (GridGenerationSystem.find_hex_coord_index(neighbor_coord, hex_coords) if GridGenerationSystem else _find_hex_coord_index(neighbor_coord))
+		var neighbor_coord = corner_coord + _hex_direction(dir)
+		var neighbor_index = _find_hex_coord_index(neighbor_coord)
 		
 		if neighbor_index != -1:
 			# Count paths from this neighbor
@@ -1185,7 +1154,7 @@ func _find_adjacent_six_edge_point(corner_index: int) -> int:
 	print("🔍 FIXED: No good neighbor found, searching raio 1 points...")
 	for i in range(points.size()):
 		var point_coord = hex_coords[i]
-		var distance = (GridGenerationSystem.hex_distance(corner_coord, point_coord) if GridGenerationSystem else _hex_distance(corner_coord, point_coord))
+		var distance = _hex_distance(corner_coord, point_coord)
 		
 		# Look for points at distance 2 (raio 1)
 		if distance == 2:
@@ -1282,7 +1251,7 @@ func _find_best_domain_positions() -> Array:
 			# Calculate minimum distance to any corner
 			var min_corner_distance = 999
 			for corner in corners:
-				var distance = (GridGenerationSystem.hex_distance(hex_coords[i], hex_coords[corner]) if GridGenerationSystem else _hex_distance(hex_coords[i], hex_coords[corner]))
+				var distance = _hex_distance(hex_coords[i], hex_coords[corner])
 				min_corner_distance = min(min_corner_distance, distance)
 			
 			candidates.append({
@@ -1311,7 +1280,7 @@ func _find_best_domain_positions() -> Array:
 		
 		# Check if too close to already selected positions
 		for selected in selected_positions:
-			var distance = (GridGenerationSystem.hex_distance(candidate.coord, hex_coords[selected]) if GridGenerationSystem else _hex_distance(candidate.coord, hex_coords[selected]))
+			var distance = _hex_distance(candidate.coord, hex_coords[selected])
 			if distance < 3:  # Minimum distance of 3 hexes
 				too_close = true
 				break
@@ -1355,7 +1324,7 @@ func _draw_domain_hexagon(center_index: int, color: Color) -> void:
 	
 	var center_pos = points[center_index]
 	# Calculate radius based on real distance between adjacent points
-	var radius = (GridGenerationSystem.get_edge_length(center_index, points, hex_coords) if GridGenerationSystem else _get_edge_length(center_index))
+	var radius = _get_edge_length(center_index)
 	
 	# Calculate the 6 vertices of the hexagon
 	var vertices = []

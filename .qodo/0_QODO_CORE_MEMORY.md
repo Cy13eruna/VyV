@@ -143,5 +143,24 @@
 **LINES_EXTRACTED**: ~200 lines moved to VisibilitySystem | Centralized visibility logic | Cleaner main_game.gd
 **CUMULATIVE_PROGRESS**: 10_SYSTEMS_CREATED | VISIBILITY_MODULARIZED | PHASE_3_STEP_1_COMPLETE
 **NEXT_TARGET**: STEP_11_MOVEMENT_SYSTEM | Extract movement validation & collision detection
+**STEP_11_COMPLETED**: ✅ MOVEMENT_SYSTEM_EXTRACTED | MOVEMENT_VALIDATION_CENTRALIZED | COLLISION_DETECTION_MODULAR
+**MOVEMENT_SYSTEM**: systems/movement_system.gd | COMPLETE_MOVEMENT_LOGIC | COLLISION_DETECTION | FOREST_MECHANICS
+**INTEGRATION_SUCCESS**: MovementSystem.can_current_unit_move_to_point() | attempt_movement() | get_path_type_between_points()
+**AUTOLOAD_ADDED**: MovementSystem autoload configured | State synchronization | Fallback compatibility
+**LINES_EXTRACTED**: ~150 lines moved to MovementSystem | Centralized movement logic | Cleaner validation
+**CUMULATIVE_PROGRESS**: 11_SYSTEMS_CREATED | MOVEMENT_MODULARIZED | PHASE_3_STEP_2_COMPLETE
+**NEXT_TARGET**: STEP_12_GRID_GENERATION_SYSTEM | Extract grid creation & coordinate math
+**STEP_12_COMPLETED**: ✅ GRID_GENERATION_SYSTEM_EXTRACTED | COORDINATE_MATH_CENTRALIZED | HEX_UTILITIES_MODULAR
+**GRID_GENERATION_SYSTEM**: systems/grid_generation_system.gd | COMPLETE_GRID_LOGIC | COORDINATE_MATH | HEX_UTILITIES
+**INTEGRATION_SUCCESS**: GridGenerationSystem.generate_hex_grid() | hex_distance() | get_map_corners() | hex_direction()
+**AUTOLOAD_ADDED**: GridGenerationSystem autoload configured | Mathematical utilities | Fallback compatibility
+**LINES_EXTRACTED**: ~300 lines moved to GridGenerationSystem | Centralized grid logic | Mathematical functions
+**CUMULATIVE_PROGRESS**: 12_SYSTEMS_CREATED | GRID_GENERATION_MODULARIZED | PHASE_3_STEP_3_COMPLETE
+**NEXT_TARGET**: STEP_13_POSITIONING_SYSTEM | Extract spawn positioning & naming logic
+**STEP_13_ROLLBACK**: ❌ POSITIONING_SYSTEM_REVERTED | BUG_DETECTED | BACKUP_RESTORED
+**ROLLBACK_REASON**: Bug detected in PositioningSystem integration | Main game functionality compromised
+**ROLLBACK_ACTIONS**: main_game.gd restored from backup | PositioningSystem removed | Autoload cleaned
+**CURRENT_STATE**: 12_SYSTEMS_FUNCTIONAL | STEP_12_STABLE | READY_FOR_ALTERNATIVE_APPROACH
+**NEXT_TARGET**: STEP_14_FALLBACK_SYSTEM | Skip positioning, extract fallback layer first
 
 *AUTO_UPDATE_ON_MILESTONES*

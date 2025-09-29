@@ -16,6 +16,8 @@ UISystem="*res://systems/ui_system.gd"
 UnitSystem="*res://systems/unit_system.gd"
 PowerSystem="*res://systems/power_system.gd"
 VisibilitySystem="*res://systems/visibility_system.gd"
+MovementSystem="*res://systems/movement_system.gd"
+GridGenerationSystem="*res://systems/grid_generation_system.gd"
 
 [rendering]
 

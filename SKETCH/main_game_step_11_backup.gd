@@ -61,13 +61,8 @@ func _ready():
 	print("🔥 Player 1 (RED) starts with 1 power")
 	print("🔥 Player 2 (VIOLET) starts with 1 power")
 	
-	# Generate hexagonal grid using GridGenerationSystem or HexGridSystem
-	if GridGenerationSystem:
-		var grid_data = GridGenerationSystem.generate_hex_grid(3, hex_size, hex_center)
-		points = grid_data.points
-		hex_coords = grid_data.hex_coords
-		paths = grid_data.paths
-	elif HexGridSystem:
+	# Generate hexagonal grid using HexGridSystem
+	if HexGridSystem:
 		var grid_data = HexGridSystem.generate_hex_grid(3, hex_size, hex_center)
 		points = grid_data.points
 		hex_coords = grid_data.hex_coords
@@ -130,16 +125,6 @@ func _ready():
 		VisibilitySystem.initialize(points, hex_coords, paths)
 		print("👁️ VisibilitySystem initialized and ready")
 	
-	# Initialize MovementSystem
-	if MovementSystem:
-		MovementSystem.initialize(points, hex_coords, paths)
-		print("🚶‍♂️ MovementSystem initialized and ready")
-	
-	# Initialize GridGenerationSystem
-	if GridGenerationSystem:
-		GridGenerationSystem.initialize()
-		print("🔢 GridGenerationSystem initialized and ready")
-	
 	print("Hexagonal grid created: %d points, %d paths" % [points.size(), paths.size()])
 	
 	# Create UI elements using UISystem or fallback
@@ -163,10 +148,7 @@ func _ready():
 		_create_ui_fallback()
 	
 	# Mark map corners
-	if GridGenerationSystem:
-		GridGenerationSystem.mark_map_corners(paths, points.size(), hex_coords)
-	else:
-		_mark_map_corners()
+	_mark_map_corners()
 	
 	# Update UI positions and visibility
 	if UISystem:
@@ -241,11 +223,10 @@ func _on_input_point_clicked(point_index: int) -> void:
 	
 	# Use UnitSystem if available
 	if UnitSystem:
-		# Update UnitSystem, PowerSystem, VisibilitySystem and MovementSystem state
+		# Update UnitSystem, PowerSystem and VisibilitySystem state
 		_update_unit_system_state()
 		_update_power_system_state()
 		_update_visibility_system_state()
-		_update_movement_system_state()
 		
 		# Attempt movement through UnitSystem
 		var movement_result = UnitSystem.attempt_unit_movement(point_index)
@@ -370,20 +351,6 @@ func _update_visibility_system_state() -> void:
 		}
 		VisibilitySystem.update_game_state(visibility_state)
 
-## Update MovementSystem state
-func _update_movement_system_state() -> void:
-	if MovementSystem:
-		var movement_state = {
-			"current_player": current_player,
-			"unit1_position": unit1_position,
-			"unit2_position": unit2_position,
-			"unit1_force_revealed": unit1_force_revealed,
-			"unit2_force_revealed": unit2_force_revealed,
-			"unit1_label": unit1_label,
-			"unit2_label": unit2_label
-		}
-		MovementSystem.update_game_state(movement_state)
-
 ## Sync local state from UnitSystem
 func _sync_from_unit_system() -> void:
 	if UnitSystem:
@@ -401,13 +368,7 @@ func _sync_from_unit_system() -> void:
 ## Set initial unit positions with UnitSystem - ORIGINAL WORKING VERSION
 func _set_initial_unit_positions_with_system() -> void:
 	# Get the 6 map corners using HexGridSystem
-	var corners
-	if GridGenerationSystem:
-		corners = GridGenerationSystem.get_map_corners(paths, points.size())
-	elif HexGridSystem:
-		corners = HexGridSystem.get_map_corners(paths, points.size())
-	else:
-		corners = _get_map_corners()
+	var corners = HexGridSystem.get_map_corners(paths, points.size()) if HexGridSystem else _get_map_corners()
 	
 	if UnitSystem:
 		# Ensure UnitSystem has the grid data before positioning
@@ -483,7 +444,7 @@ func _handle_input_fallback(event: InputEvent) -> void:
 ## Fallback movement handling
 func _handle_movement_fallback(point_index: int) -> void:
 	# If clicked on point that current unit can move to, check actions
-	if (MovementSystem.can_current_unit_move_to_point(point_index) if MovementSystem else _can_current_unit_move_to_point(point_index)):
+	if _can_current_unit_move_to_point(point_index):
 		var current_actions = unit1_actions if current_player == 1 else unit2_actions
 		if current_actions > 0:
 			# Check if domain has enough power
@@ -499,16 +460,7 @@ func _handle_movement_fallback(point_index: int) -> void:
 				return
 			
 			# Check if there's a hidden unit at destination
-			var movement_result
-			if MovementSystem:
-				_update_movement_system_state()
-				movement_result = MovementSystem.attempt_movement(point_index)
-				# Sync forced revelations back
-				var movement_state = MovementSystem.get_movement_state()
-				unit1_force_revealed = movement_state.unit1_force_revealed
-				unit2_force_revealed = movement_state.unit2_force_revealed
-			else:
-				movement_result = _attempt_movement(point_index)
+			var movement_result = _attempt_movement(point_index)
 			
 			if movement_result.success:
 				var old_pos = unit1_position if current_player == 1 else unit2_position
@@ -593,7 +545,7 @@ func _draw_fallback() -> void:
 		var should_render = false
 		if fog_of_war:
 			# With fog: adjacent to current player, hover OR within current player's domain
-			should_render = (MovementSystem.is_path_adjacent_to_current_unit(path) if MovementSystem else _is_path_adjacent_to_current_unit(path)) or hovered_edge == i or (VisibilitySystem.is_path_in_current_player_domain(path) if VisibilitySystem else _is_path_in_current_player_domain(path))
+			should_render = _is_path_adjacent_to_current_unit(path) or hovered_edge == i or (VisibilitySystem.is_path_in_current_player_domain(path) if VisibilitySystem else _is_path_in_current_player_domain(path))
 		else:
 			# Without fog: all paths
 			should_render = true
@@ -644,7 +596,7 @@ func _draw_fallback() -> void:
 			if hovered_point == i:
 				color = Color.MAGENTA
 			# Magenta if current unit can move there
-			elif (MovementSystem.can_current_unit_move_to_point(i) if MovementSystem else _can_current_unit_move_to_point(i)):
+			elif _can_current_unit_move_to_point(i):
 				color = Color.MAGENTA
 			
 			draw_circle(points[i], 8, color)
@@ -736,7 +688,7 @@ func _attempt_movement(target_point: int) -> Dictionary:
 	# If enemy unit is at destination point
 	if enemy_unit_pos == target_point:
 		# Check if movement is through forest
-		var path_type = (MovementSystem.get_path_type_between_points(current_unit_pos, target_point) if MovementSystem else _get_path_type_between_points(current_unit_pos, target_point))
+		var path_type = _get_path_type_between_points(current_unit_pos, target_point)
 		
 		# Check if enemy unit was hidden (not visible)
 		var enemy_was_visible = false
@@ -970,7 +922,7 @@ func _generate_hex_paths() -> void:
 		# Check 6 neighbors
 		for dir in range(6):
 			var neighbor_coord = coord + _hex_direction(dir)
-			var neighbor_index = (GridGenerationSystem.find_hex_coord_index(neighbor_coord, hex_coords) if GridGenerationSystem else _find_hex_coord_index(neighbor_coord))
+			var neighbor_index = _find_hex_coord_index(neighbor_coord)
 			
 			if neighbor_index != -1:
 				# Create unique ID for path (always smaller index first)
@@ -991,13 +943,7 @@ func _find_hex_coord_index(coord: Vector2) -> int:
 ## Set initial unit positions (official spawn) - ORIGINAL WORKING VERSION
 func _set_initial_unit_positions() -> void:
 	# Get the 6 map corners using HexGridSystem
-	var corners
-	if GridGenerationSystem:
-		corners = GridGenerationSystem.get_map_corners(paths, points.size())
-	elif HexGridSystem:
-		corners = HexGridSystem.get_map_corners(paths, points.size())
-	else:
-		corners = _get_map_corners()
+	var corners = HexGridSystem.get_map_corners(paths, points.size()) if HexGridSystem else _get_map_corners()
 	
 	if corners.size() >= 2:
 		# Shuffle and choose 2 random corners
@@ -1032,13 +978,7 @@ func _set_initial_unit_positions_fallback() -> void:
 	print("⚠️ Using fallback positioning method...")
 	
 	# Get the 6 map corners using HexGridSystem
-	var corners
-	if GridGenerationSystem:
-		corners = GridGenerationSystem.get_map_corners(paths, points.size())
-	elif HexGridSystem:
-		corners = HexGridSystem.get_map_corners(paths, points.size())
-	else:
-		corners = _get_map_corners()
+	var corners = HexGridSystem.get_map_corners(paths, points.size()) if HexGridSystem else _get_map_corners()
 	
 	if corners.size() >= 2:
 		# Shuffle and choose 2 random corners
@@ -1157,8 +1097,8 @@ func _find_adjacent_six_edge_point(corner_index: int) -> int:
 	
 	# Check all 6 hexagonal neighbors of the corner
 	for dir in range(6):
-		var neighbor_coord = corner_coord + (GridGenerationSystem.hex_direction(dir) if GridGenerationSystem else _hex_direction(dir))
-		var neighbor_index = (GridGenerationSystem.find_hex_coord_index(neighbor_coord, hex_coords) if GridGenerationSystem else _find_hex_coord_index(neighbor_coord))
+		var neighbor_coord = corner_coord + _hex_direction(dir)
+		var neighbor_index = _find_hex_coord_index(neighbor_coord)
 		
 		if neighbor_index != -1:
 			# Count paths from this neighbor
@@ -1185,7 +1125,7 @@ func _find_adjacent_six_edge_point(corner_index: int) -> int:
 	print("🔍 FIXED: No good neighbor found, searching raio 1 points...")
 	for i in range(points.size()):
 		var point_coord = hex_coords[i]
-		var distance = (GridGenerationSystem.hex_distance(corner_coord, point_coord) if GridGenerationSystem else _hex_distance(corner_coord, point_coord))
+		var distance = _hex_distance(corner_coord, point_coord)
 		
 		# Look for points at distance 2 (raio 1)
 		if distance == 2:
@@ -1282,7 +1222,7 @@ func _find_best_domain_positions() -> Array:
 			# Calculate minimum distance to any corner
 			var min_corner_distance = 999
 			for corner in corners:
-				var distance = (GridGenerationSystem.hex_distance(hex_coords[i], hex_coords[corner]) if GridGenerationSystem else _hex_distance(hex_coords[i], hex_coords[corner]))
+				var distance = _hex_distance(hex_coords[i], hex_coords[corner])
 				min_corner_distance = min(min_corner_distance, distance)
 			
 			candidates.append({
@@ -1311,7 +1251,7 @@ func _find_best_domain_positions() -> Array:
 		
 		# Check if too close to already selected positions
 		for selected in selected_positions:
-			var distance = (GridGenerationSystem.hex_distance(candidate.coord, hex_coords[selected]) if GridGenerationSystem else _hex_distance(candidate.coord, hex_coords[selected]))
+			var distance = _hex_distance(candidate.coord, hex_coords[selected])
 			if distance < 3:  # Minimum distance of 3 hexes
 				too_close = true
 				break
@@ -1355,7 +1295,7 @@ func _draw_domain_hexagon(center_index: int, color: Color) -> void:
 	
 	var center_pos = points[center_index]
 	# Calculate radius based on real distance between adjacent points
-	var radius = (GridGenerationSystem.get_edge_length(center_index, points, hex_coords) if GridGenerationSystem else _get_edge_length(center_index))
+	var radius = _get_edge_length(center_index)
 	
 	# Calculate the 6 vertices of the hexagon
 	var vertices = []
