@@ -1,1 +1,4 @@
-Agora iremos prosseguir a GUERRA AOS MONOLITOS! SIM: ainda há muitos monolitos nesse jogo, principalmente em systems. Crie uma lista dos prinipais monolitos e comece a descompactá-los. Crie sub pastas e arquivos menores. Precisamos tudo bem organizado e separado...
+Agora nós iremos tentar mais uma vez desmantelar o monolito main_game.gd
+Olha, você precisa pensar simples! Não faz sentido surgirem tantos bugs de uma simples reorganização.
+Eis o que faremos: pegarems todas essas dezenas de funções que estão em main_game e iremos migra-las para arquivos separados buscando atingir uma melhor organização  do projeto.
+Porém já que tu falhou diversas vezes, pare antes e crie um roteiro para a tarefa que acabei de te passar
