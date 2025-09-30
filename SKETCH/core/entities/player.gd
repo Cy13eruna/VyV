@@ -3,7 +3,6 @@
 # Layer: Core/Entities  
 # Dependencies: GameConstants
 
-class_name Player
 extends RefCounted
 
 var id: int
@@ -96,6 +95,6 @@ static func get_default_color(player_id: int) -> Color:
 	return colors[player_id % colors.size()]
 
 # String representation for debugging
-func to_string() -> String:
+func get_string() -> String:
 	var status = "Active" if is_active else ("Eliminated" if is_eliminated else "Inactive")
 	return "Player[%d] '%s' (%s) - Units: %d, Domains: %d" % [id, name, status, get_unit_count(), get_domain_count()]

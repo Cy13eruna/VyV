@@ -3,7 +3,6 @@
 # Layer: Core/ValueObjects  
 # Dependencies: None (pure math)
 
-class_name HexCoordinate
 extends RefCounted
 
 var q: int  # Column coordinate
@@ -31,35 +30,37 @@ func to_pixel(hex_size: float, center: Vector2, rotation: float = 0.0) -> Vector
 	return center + Vector2(x, y)
 
 # Calculate distance to another coordinate
-func distance_to(other: HexCoordinate) -> int:
+func distance_to(other) -> int:
 	return int((abs(q - other.q) + abs(q + r - other.q - other.r) + abs(r - other.r)) / 2)
 
 # Add coordinates (for neighbor calculation)
-func add(other: HexCoordinate) -> HexCoordinate:
-	return HexCoordinate.new(q + other.q, r + other.r)
+func add(other):
+	var script = load("res://core/value_objects/hex_coordinate.gd")
+	return script.new(q + other.q, r + other.r)
 
 # Get neighbor in direction (0-5)
-func get_neighbor(direction: int) -> HexCoordinate:
+func get_neighbor(direction: int):
+	var script = load("res://core/value_objects/hex_coordinate.gd")
 	var directions = [
-		HexCoordinate.new(1, 0),   # East
-		HexCoordinate.new(1, -1),  # Northeast  
-		HexCoordinate.new(0, -1),  # Northwest
-		HexCoordinate.new(-1, 0),  # West
-		HexCoordinate.new(-1, 1),  # Southwest
-		HexCoordinate.new(0, 1)    # Southeast
+		script.new(1, 0),   # East
+		script.new(1, -1),  # Northeast  
+		script.new(0, -1),  # Northwest
+		script.new(-1, 0),  # West
+		script.new(-1, 1),  # Southwest
+		script.new(0, 1)    # Southeast
 	]
 	return add(directions[direction % 6])
 
 # Check equality
-func equals(other: HexCoordinate) -> bool:
+func equals(other) -> bool:
 	return q == other.q and r == other.r
 
 # String representation for debugging
-func to_string() -> String:
+func get_string() -> String:
 	return "(%d, %d)" % [q, r]
 
 # Static helper: Create from pixel position (inverse conversion)
-static func from_pixel(pixel: Vector2, hex_size: float, center: Vector2, rotation: float = 0.0) -> HexCoordinate:
+static func from_pixel(pixel: Vector2, hex_size: float, center: Vector2, rotation: float = 0.0):
 	var local_pos = pixel - center
 	
 	# Reverse rotation if applied
@@ -75,4 +76,5 @@ static func from_pixel(pixel: Vector2, hex_size: float, center: Vector2, rotatio
 	var r_float = (-1.0/3.0 * local_pos.x + sqrt(3.0)/3.0 * local_pos.y) / hex_size
 	
 	# Round to nearest integer coordinates
-	return HexCoordinate.new(int(round(q_float)), int(round(r_float)))
+	var script = load("res://core/value_objects/hex_coordinate.gd")
+	return script.new(int(round(q_float)), int(round(r_float)))

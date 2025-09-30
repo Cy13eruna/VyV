@@ -3,26 +3,25 @@
 # Layer: Core/Entities
 # Dependencies: Position, GameConstants
 
-class_name Unit
 extends RefCounted
 
 var id: int
 var owner_id: int
 var name: String
-var position: Position
+var position
 var actions_remaining: int
 var is_revealed: bool = false
 var force_revealed: bool = false
 
-func _init(unit_id: int, player_id: int, unit_name: String, start_position: Position):
+func _init(unit_id: int, player_id: int, unit_name: String, start_position):
 	id = unit_id
 	owner_id = player_id
 	name = unit_name
 	position = start_position
-	actions_remaining = GameConstants.INITIAL_ACTIONS
+	actions_remaining = 1
 
 # Move unit to new position
-func move_to(new_position: Position) -> bool:
+func move_to(new_position) -> bool:
 	if can_move():
 		position = new_position
 		consume_action()
@@ -93,10 +92,10 @@ func get_color() -> Color:
 
 # Get unit display emoji
 func get_emoji() -> String:
-	return GameConstants.UNIT_EMOJI
+	return "🚶🏻‍♀️"
 
 # String representation for debugging
-func to_string() -> String:
+func get_string() -> String:
 	return "Unit[%d] '%s' (Player %d) at %s - Actions: %d" % [
-		id, name, owner_id, position.hex_coord.to_string(), actions_remaining
+		id, name, owner_id, position.hex_coord.get_string(), actions_remaining
 	]

@@ -3,16 +3,15 @@
 # Layer: Core/Entities
 # Dependencies: GameConstants
 
-class_name HexEdge
 extends RefCounted
 
 var id: int
 var point_a_id: int
 var point_b_id: int
-var terrain_type: GameConstants.TerrainType
+var terrain_type: int
 var structures: Array[int] = []  # Structure IDs built on this edge
 
-func _init(edge_id: int, point_a: int, point_b: int, terrain: GameConstants.TerrainType = GameConstants.TerrainType.FIELD):
+func _init(edge_id: int, point_a: int, point_b: int, terrain: int = 0):
 	id = edge_id
 	point_a_id = point_a
 	point_b_id = point_b
@@ -33,22 +32,22 @@ func get_other_point(point_id: int) -> int:
 
 # Check if movement is allowed through this terrain
 func allows_movement() -> bool:
-	return terrain_type in [GameConstants.TerrainType.FIELD, GameConstants.TerrainType.FOREST]
+	return terrain_type in [0, 1]  # FIELD, FOREST
 
 # Check if visibility is allowed through this terrain  
 func allows_visibility() -> bool:
-	return terrain_type in [GameConstants.TerrainType.FIELD, GameConstants.TerrainType.WATER]
+	return terrain_type in [0, 3]  # FIELD, WATER
 
 # Get terrain color for rendering
 func get_terrain_color() -> Color:
 	match terrain_type:
-		GameConstants.TerrainType.FIELD:
+		0:  # FIELD
 			return Color.GREEN
-		GameConstants.TerrainType.FOREST:
+		1:  # FOREST
 			return Color(0.2, 0.7, 0.2)  # Dark green
-		GameConstants.TerrainType.MOUNTAIN:
+		2:  # MOUNTAIN
 			return Color(0.7, 0.7, 0.2)  # Yellow-brown
-		GameConstants.TerrainType.WATER:
+		3:  # WATER
 			return Color(0.2, 0.7, 0.7)  # Cyan
 		_:
 			return Color.BLACK
@@ -86,5 +85,7 @@ func _point_near_line(point: Vector2, line_start: Vector2, line_end: Vector2, to
 	return point.distance_to(closest_point) <= tolerance
 
 # String representation for debugging
-func to_string() -> String:
-	return "HexEdge[%d] (%d-%d) %s" % [id, point_a_id, point_b_id, GameConstants.TerrainType.keys()[terrain_type]]
+func get_string() -> String:
+	var terrain_names = ["FIELD", "FOREST", "MOUNTAIN", "WATER"]
+	var terrain_name = terrain_names[terrain_type] if terrain_type < terrain_names.size() else "UNKNOWN"
+	return "HexEdge[%d] (%d-%d) %s" % [id, point_a_id, point_b_id, terrain_name]

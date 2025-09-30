@@ -3,7 +3,6 @@
 # Layer: Core/ValueObjects
 # Dependencies: None (pure constants)
 
-class_name GameConstants
 extends RefCounted
 
 # Grid Configuration

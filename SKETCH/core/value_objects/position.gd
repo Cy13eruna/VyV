@@ -3,42 +3,44 @@
 # Layer: Core/ValueObjects
 # Dependencies: HexCoordinate
 
-class_name Position
 extends RefCounted
 
-var hex_coord: HexCoordinate
+var hex_coord
 var pixel_pos: Vector2
 
-func _init(coordinate: HexCoordinate, pixel_position: Vector2):
+func _init(coordinate, pixel_position: Vector2):
 	hex_coord = coordinate
 	pixel_pos = pixel_position
 
 # Create position from hex coordinate
-static func from_hex(coord: HexCoordinate, hex_size: float = GameConstants.HEX_SIZE, 
-					 center: Vector2 = GameConstants.HEX_CENTER, 
-					 rotation: float = GameConstants.GRID_ROTATION) -> Position:
+static func from_hex(coord, hex_size: float = 40.0, 
+					 center: Vector2 = Vector2(400, 300), 
+					 rotation: float = PI/3.0):
 	var pixel = coord.to_pixel(hex_size, center, rotation)
-	return Position.new(coord, pixel)
+	var script = load("res://core/value_objects/position.gd")
+	return script.new(coord, pixel)
 
 # Create position from pixel
-static func from_pixel(pixel: Vector2, hex_size: float = GameConstants.HEX_SIZE,
-					   center: Vector2 = GameConstants.HEX_CENTER,
-					   rotation: float = GameConstants.GRID_ROTATION) -> Position:
-	var coord = HexCoordinate.from_pixel(pixel, hex_size, center, rotation)
-	return Position.new(coord, pixel)
+static func from_pixel(pixel: Vector2, hex_size: float = 40.0,
+					   center: Vector2 = Vector2(400, 300),
+					   rotation: float = PI/3.0):
+	var hex_script = load("res://core/value_objects/hex_coordinate.gd")
+	var coord = hex_script.from_pixel(pixel, hex_size, center, rotation)
+	var script = load("res://core/value_objects/position.gd")
+	return script.new(coord, pixel)
 
 # Distance to another position
-func distance_to(other: Position) -> int:
+func distance_to(other) -> int:
 	return hex_coord.distance_to(other.hex_coord)
 
 # Check if position is within distance
-func is_within_distance(other: Position, max_distance: int) -> bool:
+func is_within_distance(other, max_distance: int) -> bool:
 	return distance_to(other) <= max_distance
 
 # Check equality
-func equals(other: Position) -> bool:
+func equals(other) -> bool:
 	return hex_coord.equals(other.hex_coord)
 
 # String representation
-func to_string() -> String:
-	return "Position%s at %s" % [hex_coord.to_string(), pixel_pos]
+func get_string() -> String:
+	return "Position%s at %s" % [hex_coord.get_string(), pixel_pos]

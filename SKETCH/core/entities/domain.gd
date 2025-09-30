@@ -3,7 +3,6 @@
 # Layer: Core/Entities
 # Dependencies: Position, GameConstants
 
-class_name Domain
 extends RefCounted
 
 var id: int
@@ -107,8 +106,8 @@ func get_outline_color() -> Color:
 	return get_color()
 
 # String representation for debugging
-func to_string() -> String:
+func get_string() -> String:
 	var status = "Occupied by Player %d" % occupied_by_player if is_occupied else "Free"
 	return "Domain[%d] '%s' (Player %d) at %s - Power: %d (%s)" % [
-		id, name, owner_id, center_position.hex_coord.to_string(), power, status
+		id, name, owner_id, center_position.hex_coord.get_string(), power, status
 	]
