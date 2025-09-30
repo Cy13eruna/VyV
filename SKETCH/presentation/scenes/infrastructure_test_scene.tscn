@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://presentation/main_game_infrastructure_test.gd" id="1"]
+
+[node name="InfrastructureTestScene" type="Node2D"]
+script = ExtResource("1")
