@@ -1,4 +1,2 @@
-Agora nós iremos tentar mais uma vez desmantelar o monolito main_game.gd
-Olha, você precisa pensar simples! Não faz sentido surgirem tantos bugs de uma simples reorganização.
-Eis o que faremos: pegarems todas essas dezenas de funções que estão em main_game e iremos migra-las para arquivos separados buscando atingir uma melhor organização  do projeto.
-Porém já que tu falhou diversas vezes, pare antes e crie um roteiro para a tarefa que acabei de te passar
+Seu roteiro_desmembramento deu terrívelmente errado já na primeira etapa.
+Reformule-o buscando estratégias para manter main_game.gd INTACTO, porém DESMEMBRADO em subpastas
