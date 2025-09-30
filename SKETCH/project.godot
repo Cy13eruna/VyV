@@ -1,26 +1,34 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
 [application]
 
-config/name="Triangular System V&V"
-run/main_scene="res://main_game.tscn"
-config/features=PackedStringArray("4.4", "GL Compatibility")
+config/name="V&V - Vagabonds & Valleys"
+config/description="Modular hexagonal strategy game with ONION architecture"
+run/main_scene="res://presentation/scenes/game_scene.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
 
-[autoload]
+[display]
 
-GameConstants="*res://data/constants.gd"
-TerrainSystem="*res://systems/terrain_system.gd"
-HexGridSystem="*res://systems/hex_grid_system.gd"
-GameManager="*res://systems/game_manager.gd"
-InputSystem="*res://systems/input_system.gd"
-RenderSystem="*res://systems/render_system.gd"
-UISystem="*res://systems/ui_system.gd"
-UnitSystem="*res://systems/unit_system.gd"
-PowerSystem="*res://systems/power_system.gd"
-VisibilitySystem="*res://systems/visibility_system.gd"
-MovementSystem="*res://systems/movement_system.gd"
-GridGenerationSystem="*res://systems/grid_generation_system.gd"
-FallbackSystem="*res://systems/fallback_system.gd"
-DrawingSystem="*res://systems/drawing_system.gd"
+window/size/viewport_width=1024
+window/size/viewport_height=768
+window/size/resizable=true
+
+[input]
+
+fog_toggle={
+"deadzone": 0.5,
+"events": [Object(InputEventKey,"resource_local_to_scene":false,"resource_name":"","device":-1,"window_id":0,"alt_pressed":false,"shift_pressed":false,"ctrl_pressed":false,"meta_pressed":false,"pressed":false,"keycode":0,"physical_keycode":32,"key_label":0,"unicode":32,"echo":false,"script":null)]
+}
 
 [rendering]
 
-renderer/rendering_method="gl_compatibility"
+renderer/rendering_method="forward_plus"
+renderer/rendering_method.mobile="gl_compatibility"

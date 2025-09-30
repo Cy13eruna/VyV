@@ -1,0 +1,78 @@
+# 🔷 HEX COORDINATE
+# Purpose: Immutable axial coordinate system for hexagonal grid
+# Layer: Core/ValueObjects  
+# Dependencies: None (pure math)
+
+class_name HexCoordinate
+extends RefCounted
+
+var q: int  # Column coordinate
+var r: int  # Row coordinate
+
+func _init(q_coord: int, r_coord: int):
+	q = q_coord
+	r = r_coord
+
+# Convert to pixel position with rotation
+func to_pixel(hex_size: float, center: Vector2, rotation: float = 0.0) -> Vector2:
+	# Standard axial to pixel conversion
+	var x = hex_size * (3.0/2.0 * q)
+	var y = hex_size * (sqrt(3.0)/2.0 * q + sqrt(3.0) * r)
+	
+	# Apply rotation if specified
+	if rotation != 0.0:
+		var cos_rot = cos(rotation)
+		var sin_rot = sin(rotation)
+		var rotated_x = x * cos_rot - y * sin_rot
+		var rotated_y = x * sin_rot + y * cos_rot
+		x = rotated_x
+		y = rotated_y
+	
+	return center + Vector2(x, y)
+
+# Calculate distance to another coordinate
+func distance_to(other: HexCoordinate) -> int:
+	return int((abs(q - other.q) + abs(q + r - other.q - other.r) + abs(r - other.r)) / 2)
+
+# Add coordinates (for neighbor calculation)
+func add(other: HexCoordinate) -> HexCoordinate:
+	return HexCoordinate.new(q + other.q, r + other.r)
+
+# Get neighbor in direction (0-5)
+func get_neighbor(direction: int) -> HexCoordinate:
+	var directions = [
+		HexCoordinate.new(1, 0),   # East
+		HexCoordinate.new(1, -1),  # Northeast  
+		HexCoordinate.new(0, -1),  # Northwest
+		HexCoordinate.new(-1, 0),  # West
+		HexCoordinate.new(-1, 1),  # Southwest
+		HexCoordinate.new(0, 1)    # Southeast
+	]
+	return add(directions[direction % 6])
+
+# Check equality
+func equals(other: HexCoordinate) -> bool:
+	return q == other.q and r == other.r
+
+# String representation for debugging
+func to_string() -> String:
+	return "(%d, %d)" % [q, r]
+
+# Static helper: Create from pixel position (inverse conversion)
+static func from_pixel(pixel: Vector2, hex_size: float, center: Vector2, rotation: float = 0.0) -> HexCoordinate:
+	var local_pos = pixel - center
+	
+	# Reverse rotation if applied
+	if rotation != 0.0:
+		var cos_rot = cos(-rotation)
+		var sin_rot = sin(-rotation)
+		var unrotated_x = local_pos.x * cos_rot - local_pos.y * sin_rot
+		var unrotated_y = local_pos.x * sin_rot + local_pos.y * cos_rot
+		local_pos = Vector2(unrotated_x, unrotated_y)
+	
+	# Convert pixel to axial coordinates
+	var q_float = (2.0/3.0 * local_pos.x) / hex_size
+	var r_float = (-1.0/3.0 * local_pos.x + sqrt(3.0)/3.0 * local_pos.y) / hex_size
+	
+	# Round to nearest integer coordinates
+	return HexCoordinate.new(int(round(q_float)), int(round(r_float)))

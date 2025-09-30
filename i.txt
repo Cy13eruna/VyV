@@ -1,2 +1,1 @@
-Seu roteiro_desmembramento deu terrívelmente errado já na primeira etapa.
-Reformule-o buscando estratégias para manter main_game.gd INTACTO, porém DESMEMBRADO em subpastas
+Pergunta: será que HEX é a melhor atomização para esse projeto? Triangle não seria melhor? Se não for, porque?

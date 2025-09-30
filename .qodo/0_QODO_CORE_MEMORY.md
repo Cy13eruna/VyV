@@ -1,5 +1,8 @@
 # 🎯 QODO_CORE_MEMORY
 
+## 📋 REGRA PÉTREA ESTABELECIDA
+**NUNCA MAIS ESCREVER NO i.txt** - Documento exclusivo para input do usuário.
+
 ## ⚡ PROTOCOLO_EXECUCAO
 **USER=CREATIVE_DIRECTOR | QODO=TECH_DIRECTOR**
 **PROJETO**: V&V | 2D_TURNOS | GODOT4 | MULTIPLAYER_READY
@@ -7,209 +10,35 @@
 **ESTRUTURA**: .qodo=MEMORY | SKETCH=DEV | i.txt=INPUT_ONLY | run.bat=TEST_ACCESS | ARCHIVE=LEARN_FROM_ERRORS
 **POSTURA**: SUCCINCT | CRITICAL | PRECISE | OBSESSED_ACCURACY
 
-## 📊 MARCOS_DESENVOLVIMENTO
-**RESET_ARQUITETURAL**: HEX_SYSTEM → TRIANGLE_SYSTEM | PRECISION_ABSOLUTE | GRANULAR_CONTROL
-**COMPONENTES_ATUAIS**: TrianglePoint | TriangleEdge | TriangleFace | TriangularMesh
-**PERFORMANCE_OTIMIZADA**: O(1)_ACCESS | POSITION_CACHE | CONDITIONAL_RENDER
-**TESTE_ATIVO**: triangular_test.tscn | CONTROLES_COMPLETOS
-**MEMORY_RESET**: CLEAN_DOCS | ARCHIVE_HISTORY | AVOID_PREVIOUS_ERRORS
+## 🛡️ ARCA_DE_NOE_BLUEPRINT_CREATED
+**DOCUMENT_PURPOSE**: ✅ COMPLETE_BLUEPRINT_FOR_MODULAR_RECONSTRUCTION | QODO_ASSISTANT_GUIDE
+**PROBLEM_IDENTIFIED**: ✅ MONOLITH_73KB_MAIN_GAME.GD | 5_FAILED_MODULARIZATION_ATTEMPTS | NEED_FRESH_START
+**SOLUTION_APPROACH**: ✅ REBUILD_FROM_ZERO | ONION_ARCHITECTURE | EXTREME_MODULARITY | MULTIPLAYER_READY
+**BLUEPRINT_SCOPE**: ✅ COMPLETE_ENTITY_MAPPING | ARCHITECTURE_DEFINITION | IMPLEMENTATION_PHASES | QODO_INSTRUCTIONS
+
+### 📊 CURRENT_GAME_FEATURES_MAPPED
+**IMPLEMENTED**: ✅ HEXAGONAL_GRID_37_POINTS | UNIT_SYSTEM_2_PLAYERS | DOMAIN_ECONOMY | FOG_OF_WAR | TURN_SYSTEM | TERRAIN_4_TYPES
+**FUTURE_PLANNED**: ✅ TECH_TREE_PERMISSIONS | STRUCTURES_IN_PATHS | COMPLEX_INTERACTIONS | DYNAMIC_MAP_SIZE | MULTIPLAYER_ONLINE | N_PLAYERS_SCALABILITY
+
+### 🏗️ ARCHITECTURAL_DECISIONS
+**ARCHITECTURE**: ✅ ONION_ARCHITECTURE | EXTREME_MODULARITY | ONE_FUNCTION_ONE_FILE | MAX_200_LINES_PER_FILE | MULTIPLAYER_FIRST_DESIGN
+**PRINCIPLES**: ✅ 15_CORE_PRINCIPLES | ZERO_MONOLITHS | ONION_LAYERS | REPLICABLE_ENTITIES | DYNAMIC_SCALING
+**IMPLEMENTATION**: ✅ 5_PHASE_PLAN | CORE_ENTITIES | APPLICATION_SERVICES | INFRASTRUCTURE_LAYER | PRESENTATION_UI | MULTIPLAYER_FOUNDATION
+
+### 🎯 QODO_OPTIMIZATION
+**ASSISTANT_FRIENDLY**: ✅ DETAILED_INSTRUCTIONS | CRITICAL_ALERTS | MANDATORY_DOCUMENTATION_RULES | IMPLEMENTATION_PROCESS
+**USAGE_GUIDE**: ✅ HOW_TO_USE_ARCA | NEVER_VIOLATE_LAYERS | PHASE_BY_PHASE_IMPLEMENTATION | INCREMENTAL_TESTING
+**CRITICAL_ALERTS**: ✅ NEVER_CREATE_MONOLITHS | NEVER_VIOLATE_LAYERS | ALWAYS_THINK_MULTIPLAYER | ALWAYS_CONSIDER_SCALABILITY
+
+### 📄 BLUEPRINT_COMPLETENESS
+**ENTITY_MAPPING**: ✅ 8_CORE_SYSTEMS | TECH_TREE | STRUCTURES | INTERACTIONS | NETWORKING | COMPLETE_COVERAGE
+**ARCHITECTURE_DEFINED**: ✅ ONION_LAYERS | CORE_ENTITIES | APPLICATION_SERVICES | INFRASTRUCTURE | PRESENTATION
+**IMPLEMENTATION_ROADMAP**: ✅ 5_PHASES_DETAILED | CORE_FOUNDATION | APPLICATION_LAYER | INFRASTRUCTURE | PRESENTATION | MULTIPLAYER
+
+**BLUEPRINT_STATUS**: ✅ COMPLETE_AND_READY | QODO_OPTIMIZED | IMPLEMENTATION_READY | MODULAR_ARCHITECTURE_DEFINED
 
 ## 🔄 STATUS_ATUAL
-**SISTEMA**: SKETCH/TRIANGULAR_MESH | FUNCTIONAL | TESTABLE_VIA_RUN.BAT
-**AWAITING**: CREATIVE_DIRECTOR_INSTRUCTIONS | PERFORMANCE_FOCUS
-**LESSONS**: GEOMETRIC_PRECISION_CRITICAL | GRANULAR_CONTROL_PREVENTS_ISSUES | MODULAR_SYSTEMS_MAINTAINABLE
-
-## ⚡ PERFORMANCE_MONITOR
-**WATCH**: TRIANGLE_COUNT | DETECTION_COMPLEXITY | MEMORY_USAGE | RENDER_LOOPS
-**OPTIMIZED**: O(1)_DICTIONARIES | POSITION_CACHE | CONDITIONAL_RENDER | OPTIMIZED_STRUCTURES
-
-## ✅ ISSUES_RESOLVED
-**FIXED_1**: TriangularMesh_TYPE_ERROR | REMOVED_TYPE_ANNOTATION | triangular_test.gd:7
-**FIXED_2**: TYPE_MISMATCH_ERROR | TrianglePoint.connected_edges Array[int] → Array[String] | triangle_point.gd:16
-**FIXED_3**: VISUAL_IMPROVEMENT | WHITE_BACKGROUND | BLACK_POINTS_EDGES | TRANSPARENT_TRIANGLES
-**RESET_COMPLETE**: TRIANGULAR_MESH_DELETED | SINGLE_TRIANGLE_CREATED | SIMPLE_APPROACH
-**NEW_SYSTEM**: 3_POINTS | 3_EDGES | MAGENTA_HIGHLIGHT | BIG_VISIBLE_ELEMENTS
-**SOLUTION**: point_radius=15.0 | edge_width=8.0 | highlight_duration=0.5s | white_background
-**MINIMAL_REWRITE**: Extremely simple approach | hover detection only | no clicks
-**FEATURES**: white_background | black_points_edges | magenta_hover | robust_prototype
-**RUN_BAT_CLEANED**: Removed false statements | accurate description only
-**EQUILATERAL_TRIANGLE**: Perfect 60° angles | side_length=173.2 | height=150
-**PARALLELOGRAM_ADDED**: Two triangles sharing edge | 4_points | 6_edges | shared_edge_0-2
-**SHARED_EDGE_FIXED**: Removed duplicate edge | 5_unique_edges | hover_working_on_all
-**UNIT_EMOJI_ADDED**: 🚶🏻‍♀️ positioned on point_0 | Label with font_size=24 | centered above point
-**CONNECTED_POINTS_HIGHLIGHT**: Points connected to unit by edge turn magenta | _is_connected_to_unit() function
-**HEXAGON_FIXED**: 7_points | 12_edges | equilateral_hexagon | 6_perimeter + 6_radial_edges
-**STRUCTURE**: center_point_0 + 6_vertices | radius=150 | perfect_geometry
-**ATOMIC_ENTITIES**: POINTS + EDGES only | triangles = organization_method not entity
-**ARCHITECTURE**: points=vertices | edges=connections | triangles=grouping_concept
-**UNIT_MOVEMENT**: Click on magenta_connected_points to move unit | _unhandled_input() | validation via _is_connected_to_unit()
-**FOG_OF_WAR**: Only points+edges adjacent to unit are rendered | _is_edge_adjacent_to_unit() | conditional rendering
-**TERMINOLOGY**: emoji → unit | unidade terminology established
-**EDGE_TYPES**: GREEN (move+see) | GREEN_GRAY (move only) | YELLOW_GRAY (blocked) | CYAN_GRAY (see only)
-**VISIBILITY_SYSTEM**: _is_point_visible_to_unit() | _can_unit_move_to_point() | type-based permissions
-**RANDOM_TERRAIN**: SPACE key generates random edge types | _generate_random_terrain() | randi() % 4
-**HOVER_SYSTEM**: Non-rendered elements show magenta on hover | exploration preview
-**ACTION_SYSTEM**: unit_actions=1 per turn | movement costs 1 action | Skip Turn button restores
-**UI_ELEMENTS**: Skip Turn button (top-right) | Actions label | _on_skip_turn_pressed() callback
-**HEXAGON_ROTATED**: 30° rotation applied | flat-top → pointy-top orientation | coordinates recalculated
-**TWO_UNITS**: unit1 (red, left) + unit2 (magenta, right) | separate positions, actions, visibility
-**TURN_SYSTEM**: current_player (1|2) | only active player can move | Skip Turn switches players
-**COLLISION**: Units cannot occupy same point | position validation before movement
-**PARSE_ERROR_FIXED**: Removed obsolete _is_connected_to_unit() function | unit_position references cleaned
-**SEPARATE_VISIBILITY**: Each player only sees their own unit's visibility | _is_point_visible_to_current_unit() | _is_edge_adjacent_to_current_unit()
-**HIDDEN_UNITS**: Enemy unit only visible if on visible point | unit1_label.visible | unit2_label.visible | conditional rendering
-**EXPANDED_HEX_GRID**: 37 points | diameter 7 | radius 3 | axial coordinates | _generate_hex_grid()
-**AUTO_TERRAIN**: Random terrain generated on startup | _generate_random_terrain() in _ready()
-**TERRAIN_TYPES**: FIELD (50%) | FOREST (16.7%) | WATER (16.7%) | MOUNTAIN (16.7%) | proper proportions
-**OFFICIAL_SPAWN**: Units spawn at adjacent 6-edge points | _find_adjacent_six_edge_point() | precise positioning | official spawn system
-**PARSE_ERROR_FIXED**: Indentation error in _is_point_visible_to_unit() corrected | line 247
-**TYPE_ERROR_FIXED**: Array type annotation in _get_outer_points() | var outer_points: Array[int] = []
-**COLORED_UNITS**: Red and Violet emojis 🚶🏻‍♀️ | modulate property for coloring | Color(1.0, 0.0, 0.0) + Color(0.5, 0.0, 0.8)
-**MAP_CORNERS**: Six corner detection by edge count | points with exactly 3 edges | no longer highlighted | _get_map_corners()
-**FOG_TOGGLE**: SPACE key toggles fog_of_war | debug mode shows all points/edges | conditional rendering
-**BOARD_ROTATION**: 60° rotation applied to entire hexagonal grid | _hex_to_pixel() modified | PI/3 radians
-**VISUAL_IMPROVEMENTS**: Saturated colors (30% more) | thicker edges (width=5) | better visibility
-**DOMAIN_SYSTEM**: Hexagonal domains at spawn points | radius=real edge distance | thick outlines (4px) | fog of war coverage
-**DOMAIN_VISIBILITY**: _is_domain_visible() | center + adjacent points check | conditional rendering
-**EDGE_LENGTH_CALC**: _get_edge_length() | calculates actual distance between adjacent points | dynamic radius
-**DOMAIN_REVELATION**: Domains reveal terrain permanently | _is_point_in_domain() | _is_edge_in_domain() | ignore fog of war
-**SEPARATE_DOMAINS**: Each player only sees own domain | _is_point_in_current_player_domain() | _is_edge_in_current_player_domain()
-**NAMING_SYSTEM**: Domain and unit names with matching initials | _generate_domain_and_unit_names() | unique initials
-**PATHS_RENAME**: Edges renamed to paths | thicker (8px) | more saturated colors | better visibility
-**DOMAIN_SELF_VISIBILITY**: Own domains always visible | _is_domain_visible() enhanced | domain entities always shown
-**FOREST_MECHANICS**: Hidden unit revelation in forest | _attempt_movement() fixed | uses label visibility | action lost on discovery
-**VISUAL_REVELATION**: Force revealed flags | unit1_force_revealed + unit2_force_revealed | persistent visual revelation
-**POWER_SYSTEM**: Domain power economy | 1 power/ROUND generation | 1 power/action cost | occupation stops generation
-**EXPANDED_BACKGROUND**: White background extended beyond visible area | Rect2(-200, -200, 1200, 1000)
-**STATUS**: ATOMIC_SYSTEM_WITH_ROUND_POWER
-**REFACTORING_PLAN**: CREATED | SKETCH/REFACTORING_PLAN.md | BREAK_MONOLITO_SAFELY
-**CRITICAL_ISSUE**: UNITS_LABELS_DISAPPEAR | FAILED_2X_BEFORE | GAMEMANAGER_SOLUTION
-**STRATEGY**: STEP_BY_STEP | PRESERVE_LABELS | SIGNALS_COMMUNICATION | CENTRALIZED_STATE
-**ENGLISH_ONLY_RULE**: IMPLEMENTED | ALL_SKETCH_FILES_TRANSLATED | PORTUGUESE_BACKUP_CREATED
-**TRANSLATION_COMPLETE**: minimal_triangle.gd | project.godot | README.md | REFACTORING_PLAN.md | ALL_ENGLISH
-**SYNTAX_ERROR_FIXED**: Parse error resolved | Escaped quotes corrected | File compiles successfully
-**PLAN_VALIDATION**: COMPLETED | TRANSLATION_NO_IMPACT | PLAN_REMAINS_FULLY_VALID | SAFER_TO_EXECUTE
-**ANALYSIS**: 45_FUNCTIONS | 800_LINES | 8_CRITICAL_LABELS | SAME_COMPLEXITY | IMPROVED_READABILITY
-**STEP_1_COMPLETED**: ✅ SUCCESS | BACKUP_CREATED | DIRECTORIES_SETUP | CONSTANTS_EXTRACTED | STATE_CENTRALIZED
-**STRUCTURE**: systems/ + data/ | constants.gd + game_state.gd | FOUNDATION_READY | NO_BREAKING_CHANGES
-**STEP_2_COMPLETED**: ✅ SUCCESS | TERRAIN_SYSTEM_EXTRACTED | 44_LINES_REMOVED | MODULAR_TERRAIN
-**TERRAIN_SYSTEM**: systems/terrain_system.gd | STATIC_FUNCTIONS | COLOR_MANAGEMENT | DISTRIBUTION_LOGIC
-**INTEGRATION**: TerrainSystem.generate_random_terrain() | TerrainSystem.get_path_color() | GameConstants.EdgeType
-**ERROR_CORRECTED**: ✅ PARSE_ERRORS_FIXED | ROLLBACK_SUCCESSFUL | GAME_FUNCTIONAL | IMPORTS_ISSUE
-**LESSON_LEARNED**: GODOT_CLASS_LOADING | PRELOAD_FAILED | AUTOLOAD_NEEDED | INCREMENTAL_APPROACH
-**CURRENT_STATE**: WORKING_MONOLITH | ALL_LABELS_FUNCTIONAL | TERRAIN_WORKING | READY_FOR_RETRY
-**AUTOLOAD_CONFIGURED**: ✅ PROJECT_GODOT_UPDATED | GAMECONSTS_TERRAINSYS_AUTOLOAD | SAFER_APPROACH
-**INTEGRATION_TEST**: SINGLE_FUNCTION | TerrainSystem.generate_random_terrain() | INCREMENTAL_TESTING
-**BACKUP_STRATEGY**: 4_BACKUPS_AVAILABLE | ROLLBACK_READY | MINIMAL_RISK | GRADUAL_APPROACH
-**AUTOLOAD_ERRORS_FIXED**: ✅ NODE_INHERITANCE | CLASS_NAME_CONFLICTS_REMOVED | NULL_CHECKS_ADDED
-**TECHNICAL_FIXES**: RefCounted→Node | class_name removed | Fallback logic | Safer integration
-**BACKUP_UPDATED**: minimal_triangle_autoload_fix.gd | ROLLBACK_READY | FALLBACK_AVAILABLE
-**STEP_2_FULLY_COMPLETED**: ✅ TERRAIN_SYSTEM_INTEGRATED | AUTOLOADS_WORKING | SAFE_FALLBACKS
-**INTEGRATION_SUCCESS**: TerrainSystem.generate_random_terrain() + get_path_color() | GameConstants.EdgeType
-**CODE_REDUCTION**: 44_LINES_MOVED | MODULAR_SYSTEMS | IMPROVED_ORGANIZATION | 5.5%_REDUCTION
-**STEP_3_COMPLETED**: ✅ HEX_GRID_SYSTEM_EXTRACTED | 92_LINES_REMOVED | COORDINATE_SYSTEM_MODULAR
-**HEX_GRID_SYSTEM**: systems/hex_grid_system.gd | GRID_GENERATION | COORDINATE_MATH | HEX_UTILITIES
-**CUMULATIVE_REDUCTION**: 136_LINES_TOTAL | 17%_MONOLITH_REDUCTION | 3_SYSTEMS_CREATED | PROVEN_PATTERN
-**STEP_4_COMPLETED**: ✅ GAME_MANAGER_CREATED | CENTRAL_COORDINATION | SIGNAL_INFRASTRUCTURE | CRITICAL_FOUNDATION
-**GAME_MANAGER**: systems/game_manager.gd | STATE_MANAGEMENT | TURN_LOGIC | MOVEMENT_COORDINATION | VISIBILITY_CONTROL
-**PREPARATION_COMPLETE**: HIGH_RISK_STEPS_READY | SIGNAL_COMMUNICATION | LOOSE_COUPLING | RISK_MITIGATION
-**POWER_GENERATION_FINAL_FIX**: ✅ START_OF_TURN_NOT_END | TIMING_PERFECT | BALANCED_ECONOMY
-**TIMING_CORRECTION**: Power generates when player STARTS turn, not when ENDS turn | Proper sequence
-**GAME_BALANCE**: 1 power per round per player | Strategic timing | Fair resource management
-**STEP_8_COMPLETED**: ✅ UNIT_SYSTEM_EXTRACTED | CENTRALIZED_UNIT_MANAGEMENT | MOVEMENT_SEPARATION | 80%_PROGRESS
-**UNIT_SYSTEM**: systems/unit_system.gd | COMPLETE_MOVEMENT_LOGIC | ACTION_MANAGEMENT | POWER_CONSUMPTION
-**STATE_SYNC**: Game state passed to UnitSystem | Clean unit interface | Signal-based communication
-**CUMULATIVE_PROGRESS**: 8_SYSTEMS_CREATED | 550+_LINES_EXTRACTED | MODULAR_ARCHITECTURE | SOLID_FOUNDATION
-**STEP_9_BUG_FIXES**: ✅ COMPLETED | POWER_SYSTEM_SYNC_FIXED | DOMAIN_VISIBILITY_CORRECTED
-**POWER_SYNC_ISSUE**: PowerSystem ↔ GameManager ↔ MainFile | MULTIPLE_SOURCES_OF_TRUTH | FIXED_WITH_BIDIRECTIONAL_SYNC
-**DOMAIN_VISIBILITY_ISSUE**: _is_domain_visible() incomplete logic | ENEMY_DOMAINS_NOT_SHOWING | FIXED_WITH_ADDITIONAL_CHECKS
-**SYNC_ARCHITECTURE**: PowerSystem=SOURCE_OF_TRUTH | GameManager=COORDINATOR | MainFile=UI_CONSUMER | FALLBACKS_MAINTAINED
-**POWER_FLOW**: PowerSystem.generate/consume → GameManager.sync → MainFile.update_ui | REAL_TIME_UPDATES
-**DOMAIN_FLOW**: _is_domain_visible() enhanced | _is_point_in_current_player_domain() check added | PROPER_VISIBILITY
-**INITIALIZATION**: PowerSystem.initialize() + setup_domains() | COMPLETE_SETUP | GAME_STATE_SYNC
-**UI_UPDATES**: _update_name_positions() gets live values from PowerSystem | NO_MORE_STALE_DATA
-**TESTING_READY**: Power generation/consumption working | Domain visibility working | Both critical bugs resolved
-**CRITICAL_BUG_FIXES_FINAL**: ✅ ROBUST_SOLUTIONS_IMPLEMENTED | HYBRID_POWER_SYSTEM | ENHANCED_DOMAIN_VISIBILITY
-**DOMAIN_VISIBILITY_ENHANCED**: _calculate_hex_distance() added | 2-hex proximity rule | Multi-layer visibility checks
-**POWER_SYSTEM_HYBRID**: Local variables as base truth | PowerSystem sync with validation | Multiple fallbacks
-**DEBUG_EXTENSIVE**: Logs at all critical points | Method validation | State tracking | Error diagnosis
-**ROBUSTNESS_MAXIMUM**: Works even if autoloads fail | Validates methods before calling | Bidirectional sync
-**ARCHITECTURE_FINAL**: Local↔PowerSystem↔GameManager↔UI | Fallback chains | Validation layers
-**STATUS**: STEP_9_COMPLETE_WITH_ROBUST_FIXES | 9_SYSTEMS_FUNCTIONAL | MAXIMUM_ROBUSTNESS | PRODUCTION_READY
-**STEP_10_COMPLETED**: ✅ VISIBILITY_SYSTEM_EXTRACTED | FOG_OF_WAR_CENTRALIZED | DOMAIN_VISIBILITY_MODULAR
-**VISIBILITY_SYSTEM**: systems/visibility_system.gd | COMPLETE_FOG_LOGIC | DOMAIN_VISIBILITY | FORCED_REVELATIONS
-**INTEGRATION_SUCCESS**: VisibilitySystem.is_point_visible_to_current_unit() | is_domain_visible() | check_and_reset_forced_revelations()
-**AUTOLOAD_ADDED**: VisibilitySystem autoload configured | Signal-based communication | Fallback compatibility
-**LINES_EXTRACTED**: ~200 lines moved to VisibilitySystem | Centralized visibility logic | Cleaner main_game.gd
-**CUMULATIVE_PROGRESS**: 10_SYSTEMS_CREATED | VISIBILITY_MODULARIZED | PHASE_3_STEP_1_COMPLETE
-**NEXT_TARGET**: STEP_11_MOVEMENT_SYSTEM | Extract movement validation & collision detection
-**STEP_11_COMPLETED**: ✅ MOVEMENT_SYSTEM_EXTRACTED | MOVEMENT_VALIDATION_CENTRALIZED | COLLISION_DETECTION_MODULAR
-**MOVEMENT_SYSTEM**: systems/movement_system.gd | COMPLETE_MOVEMENT_LOGIC | COLLISION_DETECTION | FOREST_MECHANICS
-**INTEGRATION_SUCCESS**: MovementSystem.can_current_unit_move_to_point() | attempt_movement() | get_path_type_between_points()
-**AUTOLOAD_ADDED**: MovementSystem autoload configured | State synchronization | Fallback compatibility
-**LINES_EXTRACTED**: ~150 lines moved to MovementSystem | Centralized movement logic | Cleaner validation
-**CUMULATIVE_PROGRESS**: 11_SYSTEMS_CREATED | MOVEMENT_MODULARIZED | PHASE_3_STEP_2_COMPLETE
-**NEXT_TARGET**: STEP_12_GRID_GENERATION_SYSTEM | Extract grid creation & coordinate math
-**STEP_12_COMPLETED**: ✅ GRID_GENERATION_SYSTEM_EXTRACTED | COORDINATE_MATH_CENTRALIZED | HEX_UTILITIES_MODULAR
-**GRID_GENERATION_SYSTEM**: systems/grid_generation_system.gd | COMPLETE_GRID_LOGIC | COORDINATE_MATH | HEX_UTILITIES
-**INTEGRATION_SUCCESS**: GridGenerationSystem.generate_hex_grid() | hex_distance() | get_map_corners() | hex_direction()
-**AUTOLOAD_ADDED**: GridGenerationSystem autoload configured | Mathematical utilities | Fallback compatibility
-**LINES_EXTRACTED**: ~300 lines moved to GridGenerationSystem | Centralized grid logic | Mathematical functions
-**CUMULATIVE_PROGRESS**: 12_SYSTEMS_CREATED | GRID_GENERATION_MODULARIZED | PHASE_3_STEP_3_COMPLETE
-**NEXT_TARGET**: STEP_13_POSITIONING_SYSTEM | Extract spawn positioning & naming logic
-**STEP_13_ROLLBACK**: ❌ POSITIONING_SYSTEM_REVERTED | BUG_DETECTED | BACKUP_RESTORED
-**ROLLBACK_REASON**: Bug detected in PositioningSystem integration | Main game functionality compromised
-**ROLLBACK_ACTIONS**: main_game.gd restored from backup | PositioningSystem removed | Autoload cleaned
-**CURRENT_STATE**: 12_SYSTEMS_FUNCTIONAL | STEP_12_STABLE | READY_FOR_ALTERNATIVE_APPROACH
-**NEXT_TARGET**: STEP_14_FALLBACK_SYSTEM | Skip positioning, extract fallback layer first
-**STEP_14_COMPLETED**: ✅ FALLBACK_SYSTEM_EXTRACTED | BACKWARD_COMPATIBILITY_CENTRALIZED | FALLBACK_LAYER_MODULAR
-**FALLBACK_SYSTEM**: systems/fallback_system.gd | COMPLETE_FALLBACK_LOGIC | COMPATIBILITY_LAYER | ERROR_HANDLING
-**INTEGRATION_SUCCESS**: FallbackSystem.process_hover_fallback() | handle_input_fallback() | render_fallback() | handle_skip_turn_fallback()
-**AUTOLOAD_ADDED**: FallbackSystem autoload configured | Backward compatibility | Robust fallbacks
-**LINES_EXTRACTED**: ~400 lines moved to FallbackSystem | Centralized fallback logic | Compatibility layer
-**CUMULATIVE_PROGRESS**: 13_SYSTEMS_CREATED | FALLBACK_MODULARIZED | PHASE_3_STEP_4_COMPLETE
-**NEXT_TARGET**: STEP_15_DRAWING_SYSTEM | Extract visual rendering utilities (FINAL STEP)
-**STEP_15_COMPLETED**: ✅ DRAWING_SYSTEM_EXTRACTED | VISUAL_RENDERING_CENTRALIZED | DRAWING_UTILITIES_MODULAR
-**DRAWING_SYSTEM**: systems/drawing_system.gd | COMPLETE_DRAWING_LOGIC | VISUAL_UTILITIES | RENDERING_PIPELINE
-**INTEGRATION_SUCCESS**: DrawingSystem.draw_domains() | get_path_color() | point_near_line() | get_edge_length()
-**AUTOLOAD_ADDED**: DrawingSystem autoload configured | Visual utilities | Rendering pipeline
-**LINES_EXTRACTED**: ~200 lines moved to DrawingSystem | Centralized drawing logic | Visual utilities
-**CUMULATIVE_PROGRESS**: 14_SYSTEMS_CREATED | DRAWING_MODULARIZED | PHASE_3_COMPLETE
-**PHASE_3_STATUS**: ✅ COMPLETE | 14/15_SYSTEMS_CREATED | DEMONOLITHIZATION_SUCCESS
-**FINAL_ACHIEVEMENT**: 87%_MONOLITH_REDUCTION | 2,350+_LINES_EXTRACTED | MODULAR_ARCHITECTURE_COMPLETE
-
-*PHASE_3_DEMONOLITHIZATION_COMPLETE*
-
-## 🚨 CRITICAL_FAILURE_ANALYSIS
-**DESMEMBRAMENTO_FAILED**: FIRST_STEP_FAILURE | MAIN_GAME.GD_STILL_MONOLITHIC | 73KB_UNCHANGED
-**ROOT_CAUSE**: EXTRACTION_APPROACH_FLAWED | BROKE_WORKING_STATE | INTEGRATION_ISSUES
-**LESSON**: NEVER_MODIFY_WORKING_MONOLITH | WRAPPER_APPROACH_REQUIRED
-
-## 🔄 NEW_STRATEGY_FORMULATED
-**APPROACH**: WRAPPER_ARCHITECTURE | KEEP_MAIN_GAME.GD_INTACT | ZERO_RISK_REFACTORING
-**PRINCIPLE**: NO_CODE_EXTRACTION | WRAPPER_LAYER_ONLY | GRADUAL_ADOPTION
-**STRUCTURE**: managers/ + interfaces/ + utils/ | FACADE_PATTERN | CLEAN_API_OVER_MONOLITH
-**SAFETY**: ZERO_CHANGES_TO_MAIN | INCREMENTAL_TESTING | ROLLBACK_READY
-**DOCUMENT**: NEW_REFACTORING_STRATEGY.md | COMPLETE_PLAN | STEP_BY_STEP_APPROACH
-**STATUS**: READY_FOR_WRAPPER_IMPLEMENTATION | SAFE_APPROACH | LESSONS_LEARNED
-
-## ✅ NOVO_ROTEIRO_IMPLEMENTACAO
-**STRATEGY_REFORMULATED**: DUPLICACAO_MODULAR | MAIN_GAME.GD_100%_INTACTO | ZERO_RISK_APPROACH
-**ETAPA_1_COMPLETA**: ✅ ESTRUTURA_SUBPASTAS_CRIADA | modules/ + utils/ | ORGANIZACAO_PERFEITA
-**ETAPA_2_COMPLETA**: ✅ CONSTANTS_ENUMS_HELPERS_DUPLICADOS | GameConstants + GameEnums + GameHelpers
-**ETAPA_3_COMPLETA**: ✅ GRID_MODULE_CRIADO | HexGrid + HexMath + Coordinates | FUNCIONALIDADE_DUPLICADA
-**PROGRESS**: 3/7_ETAPAS | MAIN_GAME.GD_NUNCA_TOCADO | JOGO_FUNCIONANDO | MODULOS_ORGANIZADOS
-**NEXT**: ETAPA_4_TERRAIN_MODULE | DUPLICAR_TERRAIN_FUNCTIONS | MANTER_SEGURANCA_ABSOLUTA
-
-## 🧹 LIMPEZA_SKETCH_COMPLETA
-**ROTEIROS_ANTIGOS_REMOVIDOS**: ❌ ROTEIRO_DESMEMBRAMENTO.md | NEW_REFACTORING_STRATEGY.md | NOVO_ROTEIRO_DESMEMBRAMENTO.md
-**PASTAS_ANTIGAS_REMOVIDAS**: ❌ managers/ | interfaces/ | systems/ | grid_manager.gd
-**SKETCH_LIMPO**: ✅ APENAS_ESSENCIAL | main_game.gd + modules/ + utils/ | GUERRA_AOS_MONOLITOS_READY
-**ESTRUTURA_FINAL**: main_game.gd(INTACTO) + modules/grid/(3_files) + utils/(3_files) | ORGANIZACAO_PERFEITA
-**STATUS**: CAMPO_DE_BATALHA_PREPARADO | MONOLITO_PRESERVATION | MODULAR_ARCHITECTURE_BUILDING
-
-## 📄 ROTEIRO_RECRIADO
-**ROTEIRO_GUERRA_MONOLITOS.md**: ✅ CRIADO | ESTRATEGIA_COMPLETA | 7_ETAPAS_DEFINIDAS
-**PROGRESSO_DOCUMENTADO**: 3/7_ETAPAS_COMPLETAS | PROXIMA_BATALHA_TERRAIN | FUNCOES_ALVO_MAPEADAS
-**PRINCIPIOS_SEGURANCA**: PROTECAO_ABSOLUTA_MONOLITO | DUPLICACAO_INTELIGENTE | TESTES_INCREMENTAIS
-**READY_FOR_WAR**: ETAPA_4_TERRAIN_MODULE | DUPLICAR_TERRAIN_FUNCTIONS | MANTER_MAIN_GAME_INTACTO
+**CURRENT_SYSTEM**: SKETCH/MAIN_GAME.GD_MONOLITH | 73KB_FUNCTIONAL | ALL_FEATURES_WORKING
+**ARCA_DE_NOE**: ✅ COMPLETE_BLUEPRINT | QODO_ASSISTANT_READY | MODULAR_RECONSTRUCTION_PLAN
+**NEXT_PHASE**: IMPLEMENTATION_READY | ONION_ARCHITECTURE | EXTREME_MODULARITY | MULTIPLAYER_FIRST
+**AWAITING**: CREATIVE_DIRECTOR_DECISION | START_MODULAR_RECONSTRUCTION | FOLLOW_ARCA_BLUEPRINT
