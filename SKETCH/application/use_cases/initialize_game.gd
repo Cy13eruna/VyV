@@ -7,17 +7,22 @@ class_name InitializeGameUseCase
 extends RefCounted
 
 static func execute(player_count: int = 2) -> Dictionary:
+	print("    InitializeGameUseCase.execute() starting with player_count: ", player_count)
 	var result = {
 		"success": false,
 		"message": "",
 		"game_state": {}
 	}
 	
+	print("    Validating player count...")
 	# Validate player count
-	if player_count < GameConstants.MIN_PLAYERS or player_count > GameConstants.MAX_PLAYERS:
+	if player_count < 2 or player_count > 8:  # Hardcoded since GameConstants might be issue
 		result.message = "Invalid player count: %d" % player_count
+		print("    ERROR: Invalid player count")
 		return result
+	print("    Player count valid")
 	
+	print("    Initializing game state...")
 	# Initialize game state
 	var game_state = {
 		"grid": {},
@@ -27,15 +32,22 @@ static func execute(player_count: int = 2) -> Dictionary:
 		"turn_data": {},
 		"fog_of_war_enabled": true
 	}
+	print("    Game state created")
 	
+	print("    Generating grid...")
 	# Generate grid
 	game_state.grid = GridService.generate_hex_grid()
+	print("    Grid generated successfully")
 	
+	print("    Generating terrain...")
 	# Generate terrain
 	var terrain_result = GenerateTerrainUseCase.execute(game_state)
+	print("    Terrain generation completed, success: ", terrain_result.success if terrain_result else "NULL")
 	if not terrain_result.success:
 		result.message = "Failed to generate terrain: " + terrain_result.message
+		print("    ERROR: Terrain generation failed")
 		return result
+	print("    Terrain generated successfully")
 	
 	# Create players
 	for i in range(player_count):
