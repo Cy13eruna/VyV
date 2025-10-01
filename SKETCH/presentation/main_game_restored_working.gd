@@ -127,13 +127,14 @@ func setup_complete_input_system():
 	
 	input_manager = InputManager.new()
 	
-	# Connect all input signals
+	# Connect input signals - ONLY point clicks allowed
 	input_manager.point_clicked.connect(_on_point_clicked)
 	input_manager.point_hovered.connect(_on_point_hovered)
 	input_manager.point_unhovered.connect(_on_point_unhovered)
-	input_manager.unit_clicked.connect(_on_unit_clicked)
-	input_manager.unit_hovered.connect(_on_unit_hovered)
-	input_manager.unit_unhovered.connect(_on_unit_unhovered)
+	# REMOVED: All unit click/hover signals - units are selected via point clicks
+	# input_manager.unit_clicked.connect(_on_unit_clicked)
+	# input_manager.unit_hovered.connect(_on_unit_hovered)
+	# input_manager.unit_unhovered.connect(_on_unit_unhovered)
 	input_manager.fog_toggle_requested.connect(_on_fog_toggle)
 	# REMOVED: Automatic turn advancement - completely manual only
 	# No auto skip turn under any circumstances
@@ -226,14 +227,47 @@ func _unhandled_input(event):
 
 # Input event handlers
 func _on_point_clicked(point_id: int):
+	print("🎯 Point clicked: %d" % point_id)
+	
 	if game_over:
 		return
 	
-	print("🎯 Point clicked: %d" % point_id)
+	# Get point position
+	var point = game_state.grid.points.get(point_id)
+	if not point:
+		return
 	
-	if selected_unit_id != -1:
-		var clicked_position = game_state.grid.points[point_id].position
-		_attempt_move_unit(clicked_position)
+	var target_position = point.position
+	
+	# Check if there's a unit at this point
+	var unit_at_point = _find_unit_at_position(target_position)
+	print("[DEBUG] unit_at_point result: %d" % unit_at_point)
+	
+	if unit_at_point != -1:
+		# There's a unit at this point - check if it's own or enemy
+		var unit = game_state.units[unit_at_point]
+		var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+		
+		if current_player and unit.owner_id == current_player.id:
+			# Own unit - select it
+			print("[DEBUG] Found own unit at point, attempting selection")
+			_attempt_unit_selection(unit_at_point)
+		else:
+			# Enemy unit - try to move to this position (may trigger forest blocking)
+			print("[DEBUG] Found enemy unit at point, attempting movement to position")
+			if selected_unit_id != -1:
+				print("[DEBUG] Attempting to move to enemy unit position")
+				_attempt_unit_movement(target_position)
+			else:
+				print("[DEBUG] No unit selected for movement to enemy position")
+	else:
+		# No unit at point - try to move selected unit here
+		print("[DEBUG] No unit at point, selected_unit_id: %d" % selected_unit_id)
+		if selected_unit_id != -1:
+			print("[DEBUG] Attempting to move unit to empty position")
+			_attempt_unit_movement(target_position)
+		else:
+			print("[DEBUG] No unit selected for movement")
 
 func _on_point_hovered(point_id: int):
 	queue_redraw()
@@ -241,25 +275,7 @@ func _on_point_hovered(point_id: int):
 func _on_point_unhovered(point_id: int):
 	queue_redraw()
 
-func _on_unit_clicked(unit_id: int):
-	if game_over:
-		return
-	
-	# Log unit click
-	if debug_enabled:
-		print("[DEBUG] Unit clicked: %d" % unit_id)
-	print("🚶 Unit clicked: %d" % unit_id)
-	
-	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
-	if not current_player:
-		return
-	
-	var unit = game_state.units[unit_id]
-	if unit.owner_id == current_player.id:
-		_select_unit(unit_id)
-	else:
-		print("❌ Cannot select enemy unit")
-
+# REMOVED: _on_unit_clicked - units are now selected via point clicks only
 func _on_unit_hovered(unit_id: int):
 	queue_redraw()
 
@@ -304,11 +320,15 @@ func _select_unit(unit_id: int):
 	print("✅ Unit selected: %s (%d valid moves)" % [unit.name, valid_movement_targets.size()])
 	queue_redraw()
 
-func _attempt_move_unit(target_position):
+func _attempt_unit_movement(target_position):
+	print("[DEBUG] _attempt_unit_movement called with selected_unit_id: %d" % selected_unit_id)
+	
 	if selected_unit_id == -1:
+		print("[DEBUG] No unit selected, returning")
 		return
 	
 	# Execute movement directly
+	print("[DEBUG] Executing movement for unit %d" % selected_unit_id)
 	var move_result = MoveUnitUseCase.execute(selected_unit_id, target_position, game_state)
 	
 	if move_result.success:
@@ -320,11 +340,56 @@ func _attempt_move_unit(target_position):
 	else:
 		print("❌ %s" % move_result.message)
 	
+	# Clear selection if unit is exhausted (regardless of success/failure)
+	if move_result.get("unit_exhausted", false):
+		print("[UI] Unit exhausted - clearing selection and movement targets")
+		_clear_selection()
+	
 	queue_redraw()
 
 func _clear_selection():
 	selected_unit_id = -1
 	valid_movement_targets.clear()
+
+# Find unit at specific position
+func _find_unit_at_position(position) -> int:
+	print("[DEBUG] Looking for unit at position: %s" % position.hex_coord.get_string())
+	
+	for unit_id in game_state.units:
+		var unit = game_state.units[unit_id]
+		print("[DEBUG] Checking unit %d at position: %s" % [unit_id, unit.position.hex_coord.get_string()])
+		if unit.position.equals(position):
+			print("[DEBUG] Found unit %d at target position" % unit_id)
+			return unit_id
+	
+	print("[DEBUG] No unit found at target position")
+	return -1
+
+# Attempt to select a unit (only own units)
+func _attempt_unit_selection(unit_id: int) -> void:
+	var unit = game_state.units.get(unit_id)
+	if not unit:
+		return
+	
+	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+	if not current_player:
+		return
+	
+	# Only allow selecting own units
+	if unit.owner_id != current_player.id:
+		print("❌ Cannot select enemy unit")
+		return
+	
+	# Only allow selecting units with actions
+	if not unit.can_move():
+		print("❌ Cannot select unit with no actions remaining")
+		return
+	
+	# Select the unit
+	selected_unit_id = unit_id
+	valid_movement_targets = MovementService.get_valid_movement_targets(unit, game_state.grid, game_state.units, game_state)
+	print("✅ Unit selected: %s (%d valid moves)" % [unit.name, valid_movement_targets.size()])
+	queue_redraw()
 
 # Save/Load functionality
 func _save_game_state():
@@ -488,27 +553,44 @@ func _render_grid_restored(hover_state: Dictionary):
 	if not ("grid" in game_state):
 		return
 	
-	# Draw edges with restored colors and thickness
+	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+	var current_player_id = current_player.id if current_player else 1
+	
+	# Draw edges with restored colors and thickness (with fog of war)
 	for edge_id in game_state.grid.edges:
 		var edge = game_state.grid.edges[edge_id]
-		var point_a = game_state.grid.points[edge.point_a_id]
-		var point_b = game_state.grid.points[edge.point_b_id]
 		
-		# Get terrain color from restored palette
-		var terrain_color = _get_restored_terrain_color(edge.get("terrain_type", 0))
+		# Check if edge is visible to current player
+		var is_visible = true
+		if game_state.get("fog_of_war_enabled", false):
+			is_visible = ToggleFogUseCase._is_edge_visible_to_player(edge, current_player_id, game_state)
 		
-		draw_line(
-			_apply_board_rotation(point_a.position.pixel_pos),
-			_apply_board_rotation(point_b.position.pixel_pos),
-			terrain_color,
-			PATH_THICKNESS
-		)
+		if is_visible:
+			var point_a = game_state.grid.points[edge.point_a_id]
+			var point_b = game_state.grid.points[edge.point_b_id]
+			
+			# Get terrain color from restored palette
+			var terrain_color = _get_restored_terrain_color(edge.get("terrain_type", 0))
+			
+			draw_line(
+				_apply_board_rotation(point_a.position.pixel_pos),
+				_apply_board_rotation(point_b.position.pixel_pos),
+				terrain_color,
+				PATH_THICKNESS
+			)
 	
-	# Draw points
+	# Draw points (with fog of war)
 	for point_id in game_state.grid.points:
 		var point = game_state.grid.points[point_id]
-		var color = Color.RED if point.get("is_corner", false) else Color.BLACK
-		draw_circle(_apply_board_rotation(point.position.pixel_pos), 8.0, color)
+		
+		# Check if point is visible to current player
+		var is_visible = true
+		if game_state.get("fog_of_war_enabled", false):
+			is_visible = ToggleFogUseCase._is_position_visible_to_player(point.position, current_player_id, game_state)
+		
+		if is_visible:
+			var color = Color.RED if point.get("is_corner", false) else Color.BLACK
+			draw_circle(_apply_board_rotation(point.position.pixel_pos), 8.0, color)
 
 func _render_main_ui():
 	var font = ThemeDB.fallback_font
@@ -741,10 +823,20 @@ func _render_units_with_fog(fog_settings: Dictionary, hover_state: Dictionary, f
 			
 			var unit_color = game_state.players[unit.owner_id].color
 			
+			# Check if unit has actions remaining
+			var has_actions = unit.can_move()
+			var display_color = unit_color
+			var emoji_color = Color.WHITE
+			
+			if not has_actions:
+				# Unit has no actions - make it grayish/whitish
+				display_color = Color(0.8, 0.8, 0.8, 0.7)  # Light gray
+				emoji_color = Color(0.6, 0.6, 0.6)  # Darker gray for emoji
+			
 			# RESTORED: Paint emoji with player color, remove circle background, 2x size, moved up
 			# Add colored background circle to "tint" the unit
-			draw_circle(pos, 18.0, Color(unit_color.r, unit_color.g, unit_color.b, 0.7))
-			draw_string(font, pos + Vector2(-12, 0), "🚶", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, Color.WHITE)
+			draw_circle(pos, 18.0, display_color)
+			draw_string(font, pos + Vector2(-12, 0), "🚶", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, emoji_color)
 			
 			# Unit name and info
 			draw_string(font, pos + Vector2(-15, -25), unit.name, HORIZONTAL_ALIGNMENT_CENTER, -1, 10, unit_color)
@@ -779,18 +871,8 @@ func _render_fog_overlay(fog_settings: Dictionary) -> void:
 		if unit.owner_id == current_player_id:
 			player_positions.append(unit.position.pixel_pos)  # Keep original positions for calculation
 	
-	# Simple fog effect: darken areas far from player units
-	if player_positions.size() > 0:
-		# Draw semi-transparent overlay on the entire screen
-		draw_rect(Rect2(0, 0, 1024, 768), Color(0, 0, 0, 0.3))
-		
-		# Clear fog around player units (visibility circles) with rotation
-		for pos in player_positions:
-			var rotated_pos = _apply_board_rotation(pos)
-			# This would require more complex rendering to "cut out" circles
-			# For now, just indicate visible areas with subtle circles
-			draw_circle(rotated_pos, 80.0, Color(1, 1, 1, 0.1))
-			draw_arc(rotated_pos, 80.0, 0, TAU, 32, Color(0.5, 0.8, 1.0, 0.3), 2.0)
+	# REMOVED: Dark fog overlay - no more screen darkening
+	# Fog of war is now handled purely by hiding/showing elements
 
 # Render movement targets with terrain information
 func _render_movement_targets_with_terrain(font: Font) -> void:
@@ -805,15 +887,16 @@ func _render_movement_targets_with_terrain(font: Font) -> void:
 		# Get terrain cost for this movement
 		var terrain_cost = MovementService.get_terrain_movement_cost(unit, target_pos, game_state.grid)
 		
-		# Choose color based on terrain cost
-		var target_color = Color.GREEN
+		# Use magenta color for all valid movement targets
+		var target_color = Color.MAGENTA
 		var border_color = Color.WHITE
 		
+		# Adjust opacity based on terrain cost
 		match terrain_cost:
 			1:  # Normal movement
-				target_color = Color.GREEN
+				target_color = Color(1.0, 0.0, 1.0, 0.6)  # Magenta
 			2:  # Difficult terrain
-				target_color = Color.YELLOW
+				target_color = Color(1.0, 0.0, 1.0, 0.8)  # Darker magenta
 				border_color = Color.ORANGE
 			999:  # Impassable
 				target_color = Color.RED
@@ -830,13 +913,7 @@ func _render_movement_targets_with_terrain(font: Font) -> void:
 		elif terrain_cost >= 999:
 			draw_string(font, rotated_pos + Vector2(-4, 4), "X", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.WHITE)
 		
-		# Draw terrain type indicator with rotation
-		var edge = MovementService._get_edge_between_positions(unit.position, target_pos, game_state.grid)
-		if edge:
-			var terrain_type = edge.get("terrain_type", 0)
-			var terrain_icon = _get_terrain_icon(terrain_type)
-			if terrain_icon != "":
-				draw_string(font, rotated_pos + Vector2(-6, -20), terrain_icon, HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.WHITE)
+		# REMOVED: Terrain type emoji indicators - cleaner interface
 
 # Get terrain icon for display
 func _get_terrain_icon(terrain_type: int) -> String:

@@ -171,27 +171,67 @@ static func _is_unit_visible(unit, player_id: int, game_state: Dictionary) -> bo
 	if unit == null:
 		return false
 	
-	# Own units are always visible
+	# Own units are always visible (special case)
 	if unit.owner_id == player_id:
 		return true
 	
-	# Enemy units are visible if revealed or force revealed
-	# Temporarily disabled to fix error - will implement proper visibility later
-	# if unit.is_revealed or unit.force_revealed:
-	#	return true
+	# Enemy units are visible if force revealed (forest traversal)
+	if "force_revealed" in unit and unit.force_revealed:
+		return true
 	
-	# Check if enemy unit is within visibility range of any player unit
-	if "units" in game_state:
-		for other_unit_id in game_state.units:
-			var other_unit = game_state.units[other_unit_id]
-			if other_unit.owner_id == player_id:
-				# Check if within visibility distance (adjacent hexes)
-				# Safe distance check
-				if other_unit.position and unit.position:
-					if other_unit.position.is_within_distance(unit.position, 1):
-						return true
+	# Enemy units are visible only if their position is within visibility
+	if _is_position_visible_to_player(unit.position, player_id, game_state):
+		return true
 	
 	return false
+
+# Check if vision is blocked by terrain (mountains/forests)
+static func _is_vision_blocked_by_terrain(from_position, to_position, game_state: Dictionary) -> bool:
+	if not ("grid" in game_state):
+		return false
+	
+	# Find the edge between the two positions
+	var blocking_edge = _find_edge_between_positions(from_position, to_position, game_state.grid)
+	if not blocking_edge:
+		return false
+	
+	# Check if the edge has blocking terrain
+	var terrain_type = blocking_edge.get("terrain_type", 0)
+	match terrain_type:
+		2:  # MOUNTAIN - blocks vision
+			return true
+		1:  # FOREST - blocks vision
+			return true
+		_:  # FIELD, WATER - don't block vision
+			return false
+
+# Find edge between two positions
+static func _find_edge_between_positions(pos_a, pos_b, grid_data: Dictionary):
+	if not ("points" in grid_data and "edges" in grid_data):
+		return null
+	
+	# Find points at the given positions
+	var point_a = null
+	var point_b = null
+	
+	for point_id in grid_data.points:
+		var point = grid_data.points[point_id]
+		if point.position.equals(pos_a):
+			point_a = point
+		elif point.position.equals(pos_b):
+			point_b = point
+	
+	if not (point_a and point_b):
+		return null
+	
+	# Find edge connecting these points
+	for edge_id in grid_data.edges:
+		var edge = grid_data.edges[edge_id]
+		if (edge.point_a_id == point_a.id and edge.point_b_id == point_b.id) or \
+		   (edge.point_a_id == point_b.id and edge.point_b_id == point_a.id):
+			return edge
+	
+	return null
 
 # Helper: Check if domain is visible to player
 static func _is_domain_visible(domain, player_id: int, game_state: Dictionary) -> bool:
@@ -199,39 +239,23 @@ static func _is_domain_visible(domain, player_id: int, game_state: Dictionary) -
 	if domain.owner_id == player_id:
 		return true
 	
-	# Enemy domains are visible if any player unit is within visibility range
-	if "units" in game_state:
-		for unit_id in game_state.units:
-			var unit = game_state.units[unit_id]
-			if unit.owner_id == player_id:
-				# Check if unit can see the domain center
-				if unit.position and domain.center_position:
-					if unit.position.is_within_distance(domain.center_position, 2):
-						return true
+	# Enemy domains are visible if their center is visible
+	if _is_position_visible_to_player(domain.center_position, player_id, game_state):
+		return true
 	
 	return false
 
 # Helper: Check if grid point is visible to player
 static func _is_grid_point_visible(point, player_id: int, game_state: Dictionary) -> bool:
-	# Check if any player unit can see this point
-	if "units" in game_state:
-		for unit_id in game_state.units:
-			var unit = game_state.units[unit_id]
-			if unit.owner_id == player_id:
-				# Unit can see its own position and adjacent positions
-				if unit.position and point.position:
-					if unit.position.equals(point.position) or unit.position.is_within_distance(point.position, 1):
-						return true
+	# Check if point is visible through normal visibility rules
+	if _is_position_visible_to_player(point.position, player_id, game_state):
+		return true
 	
-	# Check if any player domain reveals this point
-	if "domains" in game_state:
-		for domain_id in game_state.domains:
-			var domain = game_state.domains[domain_id]
-			if domain.owner_id == player_id:
-				# Domain reveals points within its influence
-				if domain.center_position and point.position:
-					if domain.center_position.is_within_distance(point.position, 2):
-						return true
+	# Special case: point is visible if a player's unit is standing on it
+	for unit_id in game_state.units:
+		var unit = game_state.units[unit_id]
+		if unit.owner_id == player_id and unit.position.equals(point.position):
+			return true
 	
 	return false
 
@@ -246,3 +270,66 @@ static func _validate_game_state(game_state: Dictionary, result: Dictionary) -> 
 # Simple validation
 static func _validate_game_state_simple(game_state: Dictionary) -> bool:
 	return "fog_of_war_enabled" in game_state
+
+# Check if a position is visible to a specific player
+static func _is_position_visible_to_player(position, player_id: int, game_state: Dictionary) -> bool:
+	if not ("units" in game_state and "domains" in game_state and "grid" in game_state):
+		return false
+	
+	# Check visibility from player's units (ONLY 6 adjacent points, NOT own position)
+	for unit_id in game_state.units:
+		var unit = game_state.units[unit_id]
+		if unit.owner_id == player_id:
+			# Unit can see ONLY 6 adjacent hexes (NOT its own position)
+			if unit.position.is_within_distance(position, 1) and not unit.position.equals(position):
+				# Check if vision is blocked by terrain (mountains/forests)
+				if not _is_vision_blocked_by_terrain(unit.position, position, game_state):
+					return true
+	
+	# Check visibility from player's domains (ONLY 7 internal points)
+	for domain_id in game_state.domains:
+		var domain = game_state.domains[domain_id]
+		if domain.owner_id == player_id:
+			# Domain can see ONLY its internal 7 points (center + 6 that COMPOSE the domain)
+			if domain.center_position.equals(position):
+				return true
+			
+			# Domain can see ONLY 6 points that COMPOSE the domain (internal, not external)
+			if domain.center_position.is_within_distance(position, 1):
+				return true
+	
+	return false
+
+# Check if an edge/path is visible to a specific player
+static func _is_edge_visible_to_player(edge, player_id: int, game_state: Dictionary) -> bool:
+	if not ("units" in game_state and "domains" in game_state and "grid" in game_state):
+		return false
+	
+	# Get the two points connected by this edge
+	var point_a = game_state.grid.points.get(edge.point_a_id)
+	var point_b = game_state.grid.points.get(edge.point_b_id)
+	
+	if not (point_a and point_b):
+		return false
+	
+	# Check if this edge is visible from units (6 paths leading to adjacent points)
+	for unit_id in game_state.units:
+		var unit = game_state.units[unit_id]
+		if unit.owner_id == player_id:
+			# Edge is visible if it connects unit's position to an adjacent point
+			if (unit.position.equals(point_a.position) and unit.position.is_within_distance(point_b.position, 1)) or \
+			   (unit.position.equals(point_b.position) and unit.position.is_within_distance(point_a.position, 1)):
+				return true
+	
+	# Check if this edge is visible from domains (12 internal paths)
+	for domain_id in game_state.domains:
+		var domain = game_state.domains[domain_id]
+		if domain.owner_id == player_id:
+			# Edge is visible if both endpoints are within the domain (internal paths only)
+			var a_in_domain = domain.center_position.equals(point_a.position) or domain.center_position.is_within_distance(point_a.position, 1)
+			var b_in_domain = domain.center_position.equals(point_b.position) or domain.center_position.is_within_distance(point_b.position, 1)
+			
+			if a_in_domain and b_in_domain:
+				return true
+	
+	return false

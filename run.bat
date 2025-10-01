@@ -52,9 +52,37 @@ echo - ✅ Domain occupation system (enemy units stop power)
 echo - ✅ Strategic gameplay (control centers to deny power)
 echo - ✅ Free movement when origin domain is occupied
 echo - ✅ Resistance mechanic (escape without power cost)
+echo - ✅ Precise visibility rules (individual team fog)
+echo - ✅ Units: ONLY 6 adjacent hexes + 6 connecting paths
+echo - ✅ Domains: ONLY 7 internal hexes + 12 internal paths
+echo - ✅ No vision outside domain boundaries
+echo - ✅ Mountains and forests block unit vision
+echo - ✅ Tactical terrain usage for stealth
+echo - ✅ Removed visibility bubbles (cleaner fog)
+echo - ✅ Removed dark fog overlay (cleaner visuals)
+echo - ✅ Forest blocks movement if enemy on other side
+echo - ✅ Both units revealed when forest blocking occurs
+echo - ✅ Action and power consumed even when blocked
+echo - ✅ Movement allowed through forest (with blocking)
+echo - ✅ Debug logs added for forest blocking system
+echo - ✅ Movement validation logs added
+echo - ✅ Forest exception detection logs added
+echo - ✅ Point-only click system (no unit clicking)
+echo - ✅ Intuitive interface (click hex to select/move)
+echo - ✅ Debug logs added for movement system diagnosis
+echo - ✅ Fixed movement logic (unit detection corrected)
+echo - ✅ Fixed enemy unit interaction (allows forest blocking)
+echo - ✅ Revealed units bypass forest blocking
+echo - ✅ Exhausted units appear grayed out
+echo - ✅ Magenta movement targets (no emojis)
+echo - ✅ Cannot select units without actions
+echo - ✅ Fixed script errors (property access corrected)
+echo - ✅ Fixed unit overlap bug (proper occupation rules)
+echo - ✅ Auto-clear selection when unit exhausted
+echo - ✅ Movement breaks forest revelation (robust rule)
 echo.
 echo 🎮 CONTROLS:
-echo - Click units to select ^& move
+echo - Click hex with unit to select, click hex to move
 echo - SPACE: Toggle fog of war
 echo - ENTER: Skip turn (MANUAL ONLY)
 echo - F1: Debug info ^| F2: Grid stats

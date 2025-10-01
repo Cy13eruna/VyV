@@ -72,13 +72,8 @@ func _handle_mouse_button(event: InputEventMouseButton, grid_data: Dictionary, u
 	
 	var click_position = event.position
 	
-	# Check for unit click first (units have priority over points)
-	var clicked_unit = _find_unit_at_mouse(click_position, units_data)
-	if clicked_unit != -1:
-		unit_clicked.emit(clicked_unit)
-		return
-	
-	# Check for point click
+	# REMOVED: Unit click functionality - only point clicks allowed
+	# Check for point click only
 	var clicked_point = GridService.find_point_at_pixel(grid_data, click_position, click_tolerance)
 	if clicked_point != -1:
 		point_clicked.emit(clicked_point)
@@ -138,15 +133,8 @@ func is_position_clickable(position: Vector2, grid_data: Dictionary, units_data:
 		"position": position
 	}
 	
-	# Check for unit
-	var unit_id = _find_unit_at_mouse(position, units_data)
-	if unit_id != -1:
-		result.clickable = true
-		result.type = "unit"
-		result.target_id = unit_id
-		return result
-	
-	# Check for point
+	# REMOVED: Unit click checking - only points are clickable
+	# Check for point only
 	var point_id = GridService.find_point_at_pixel(grid_data, position, click_tolerance)
 	if point_id != -1:
 		result.clickable = true
