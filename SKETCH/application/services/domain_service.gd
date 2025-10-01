@@ -33,7 +33,7 @@ static func generate_power_for_player(player_id: int, domains_data: Dictionary) 
 	return total_power_generated
 
 # Consume power from player's domains
-static func consume_power_for_player(player_id: int, domains_data: Dictionary, amount: int = GameConstants.POWER_COST_PER_ACTION) -> bool:
+static func consume_power_for_player(player_id: int, domains_data: Dictionary, amount: int = 1) -> bool:
 	# Find domains with available power
 	var available_domains = []
 	var total_available_power = 0
@@ -56,7 +56,7 @@ static func consume_power_for_player(player_id: int, domains_data: Dictionary, a
 	return false
 
 # Check if player can afford power cost
-static func can_player_afford_power(player_id: int, domains_data: Dictionary, amount: int = GameConstants.POWER_COST_PER_ACTION) -> bool:
+static func can_player_afford_power(player_id: int, domains_data: Dictionary, amount: int = 1) -> bool:
 	for domain_id in domains_data:
 		var domain = domains_data[domain_id]
 		if domain.owner_id == player_id and domain.can_afford_power(amount):
@@ -129,7 +129,7 @@ static func get_spawn_positions(grid_data: Dictionary, domains_data: Dictionary)
 
 # Generate domain name based on player and domain index
 static func _generate_domain_name(player_id: int, domain_id: int) -> String:
-	var domain_names = GameConstants.DOMAIN_NAMES
+	var domain_names = ["Aldara", "Belthor", "Caldris", "Drakemoor", "Eldoria", "Frostheim", "Galthara", "Helvorn"]
 	var name_index = (player_id * 2 + domain_id) % domain_names.size()
 	return domain_names[name_index]
 

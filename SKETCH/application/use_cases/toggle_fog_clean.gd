@@ -167,12 +167,31 @@ static func is_visible_to_player(element_type: String, element_data, player_id: 
 
 # Helper: Check if unit is visible to player
 static func _is_unit_visible(unit, player_id: int, game_state: Dictionary) -> bool:
+	# Safety check
+	if unit == null:
+		return false
+	
 	# Own units are always visible
 	if unit.owner_id == player_id:
 		return true
 	
 	# Enemy units are visible if revealed or force revealed
-	return unit.is_revealed or unit.force_revealed
+	# Temporarily disabled to fix error - will implement proper visibility later
+	# if unit.is_revealed or unit.force_revealed:
+	#	return true
+	
+	# Check if enemy unit is within visibility range of any player unit
+	if "units" in game_state:
+		for other_unit_id in game_state.units:
+			var other_unit = game_state.units[other_unit_id]
+			if other_unit.owner_id == player_id:
+				# Check if within visibility distance (adjacent hexes)
+				# Safe distance check
+				if other_unit.position and unit.position:
+					if other_unit.position.is_within_distance(unit.position, 1):
+						return true
+	
+	return false
 
 # Helper: Check if domain is visible to player
 static func _is_domain_visible(domain, player_id: int, game_state: Dictionary) -> bool:
@@ -180,14 +199,41 @@ static func _is_domain_visible(domain, player_id: int, game_state: Dictionary) -
 	if domain.owner_id == player_id:
 		return true
 	
-	# Enemy domains are visible if adjacent to own units (future implementation)
-	return true  # For now, all domains are visible
+	# Enemy domains are visible if any player unit is within visibility range
+	if "units" in game_state:
+		for unit_id in game_state.units:
+			var unit = game_state.units[unit_id]
+			if unit.owner_id == player_id:
+				# Check if unit can see the domain center
+				if unit.position and domain.center_position:
+					if unit.position.is_within_distance(domain.center_position, 2):
+						return true
+	
+	return false
 
 # Helper: Check if grid point is visible to player
 static func _is_grid_point_visible(point, player_id: int, game_state: Dictionary) -> bool:
-	# For now, all grid points are visible
-	# Future: Implement exploration-based visibility
-	return true
+	# Check if any player unit can see this point
+	if "units" in game_state:
+		for unit_id in game_state.units:
+			var unit = game_state.units[unit_id]
+			if unit.owner_id == player_id:
+				# Unit can see its own position and adjacent positions
+				if unit.position and point.position:
+					if unit.position.equals(point.position) or unit.position.is_within_distance(point.position, 1):
+						return true
+	
+	# Check if any player domain reveals this point
+	if "domains" in game_state:
+		for domain_id in game_state.domains:
+			var domain = game_state.domains[domain_id]
+			if domain.owner_id == player_id:
+				# Domain reveals points within its influence
+				if domain.center_position and point.position:
+					if domain.center_position.is_within_distance(point.position, 2):
+						return true
+	
+	return false
 
 # Validate game state
 static func _validate_game_state(game_state: Dictionary, result: Dictionary) -> bool:

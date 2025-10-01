@@ -56,6 +56,8 @@ static func advance_to_next_turn(turn_data: Dictionary, players_data: Dictionary
 	var current_player = get_current_player(turn_data, players_data)
 	if current_player:
 		_restore_player_actions(current_player, units_data)
+		# Update domain occupations before generating power
+		_update_domain_occupations_turn(units_data, domains_data)
 		_restore_player_power(current_player, domains_data)
 	
 	# Move to next player
@@ -161,11 +163,42 @@ static func _restore_player_actions(player, units_data: Dictionary) -> void:
 			var unit = units_data[unit_id]
 			unit.restore_actions()
 
-# Helper: Restore power for player's domains (future implementation)
+# Helper: Restore power for player's domains
 static func _restore_player_power(player, domains_data: Dictionary) -> void:
-	# Future: Restore power for player's domains
+	# Generate power for player's domains at start of turn (only if not occupied)
 	for domain_id in player.domain_ids:
 		if domain_id in domains_data:
 			var domain = domains_data[domain_id]
-			# domain.generate_power()
-			pass
+			# Only generate power if domain is not occupied by enemy
+			if not domain.get("is_occupied", false):
+				# Generate 1 power per turn per domain
+				domain.power += 1
+				print("Domain %d generated power: now %d" % [domain_id, domain.power])
+			else:
+				print("Domain %d occupied - no power generated" % domain_id)
+
+# Helper: Update domain occupations at turn start
+static func _update_domain_occupations_turn(units_data: Dictionary, domains_data: Dictionary) -> void:
+	if not (domains_data and units_data):
+		return
+	
+	# Reset all occupations
+	for domain_id in domains_data:
+		var domain = domains_data[domain_id]
+		domain.is_occupied = false
+		domain.occupied_by_player = -1
+	
+	# Check which domains are occupied by enemy units
+	for unit_id in units_data:
+		var unit = units_data[unit_id]
+		
+		for domain_id in domains_data:
+			var domain = domains_data[domain_id]
+			
+			# Only enemy units can occupy domains (not the owner)
+			if unit.owner_id != domain.owner_id:
+				# Check if unit is exactly at domain center
+				if unit.position.equals(domain.center_position):
+					domain.is_occupied = true
+					domain.occupied_by_player = unit.owner_id
+					break

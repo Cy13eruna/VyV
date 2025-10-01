@@ -28,22 +28,35 @@ echo - Full ONION architecture implementation
 echo - Professional UI and visual effects
 echo - Advanced technical systems integrated
 echo.
-echo 🎮 V^&V CLEAN FINAL GAME
-echo COMPLETE ONION ARCHITECTURE - NO COMMAND SYSTEM
+echo 🎮 V^&V RESTORED GAMEPLAY - WORKING VERSION
+echo ORIGINAL GAMEPLAY RESTORED WITH ALL REQUESTED CHANGES
 echo.
-echo 📊 Core Features:
-echo - Complete ONION Architecture
-echo - Advanced Input System
-echo - Professional Rendering
-echo - Hexagonal Grid Strategy
-echo - Fog of War System
-echo - Turn-based Gameplay
-echo - Clean ^& Focused Experience
+echo 📊 Restored Features:
+echo - ✅ Removed castle emojis
+echo - ✅ Unit emojis painted with player colors
+echo - ✅ Removed unit circles
+echo - ✅ Adjusted path thickness (reduced 3x)
+echo - ✅ New terrain colors (Field/Forest/Mountain/Water)
+echo - ✅ Manual skip turn only (ENTER)
+echo - ✅ Hexagonal domains (outline only)
+echo - ✅ 30-degree board rotation
+echo - ✅ Fixed click areas (rotation corrected)
+echo - ✅ 2x larger unit size
+echo - ✅ Units tinted with team colors (moved up)
+echo - ✅ Domains hidden when out of visibility
+echo - ✅ Random hexagon corner spawn (different each game)
+echo - ✅ Completely manual turns (no auto skip)
+echo - ✅ Mathematically accurate domain size (1 hex radius)
+echo - ✅ Balanced power economy (start with 1 power)
+echo - ✅ Domain occupation system (enemy units stop power)
+echo - ✅ Strategic gameplay (control centers to deny power)
+echo - ✅ Free movement when origin domain is occupied
+echo - ✅ Resistance mechanic (escape without power cost)
 echo.
 echo 🎮 CONTROLS:
 echo - Click units to select ^& move
 echo - SPACE: Toggle fog of war
-echo - ENTER: Skip turn
+echo - ENTER: Skip turn (MANUAL ONLY)
 echo - F1: Debug info ^| F2: Grid stats
 echo - ESC: Quit game
 echo.
@@ -58,7 +71,7 @@ echo.
 
 if %ERRORLEVEL% NEQ 0 (
     echo.
-    echo ERROR: Failed to start V^&V Technical Demo!
+    echo ERROR: Failed to start V^&V Restored Gameplay!
     echo Check if Godot is installed at the correct path.
     echo Current path: "C:\Program Files\Godot\Godot_v4.4.1-stable_win64.exe"
     echo.

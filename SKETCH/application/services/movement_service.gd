@@ -3,6 +3,7 @@
 # Layer: Application/Services
 # Dependencies: Core entities (Unit, HexPoint, HexEdge, Position)
 
+class_name MovementService
 extends RefCounted
 
 # Validate if unit can move to target position
@@ -31,7 +32,7 @@ static func move_unit_to(unit: Unit, target_position: Position, grid_data: Dicti
 	if can_unit_move_to(unit, target_position, grid_data, units_data):
 		# Check for forest revelation mechanics
 		var edge = _find_edge_between_positions(unit.position, target_position, grid_data)
-		if edge.terrain_type == GameConstants.TerrainType.FOREST:
+		if edge.terrain_type == "FOREST":
 			_handle_forest_movement(unit, target_position, units_data)
 		
 		# Execute movement
@@ -119,13 +120,13 @@ static func calculate_movement_cost(unit: Unit, target_position: Position, grid_
 		return -1  # Invalid movement
 	
 	# Base cost is 1 action
-	var cost = GameConstants.POWER_COST_PER_ACTION
+	var cost = 1
 	
 	# Terrain modifiers can be added here
 	match edge.terrain_type:
-		GameConstants.TerrainType.MOUNTAIN:
+		"MOUNTAIN":
 			cost = -1  # Cannot move through mountains
-		GameConstants.TerrainType.WATER:
+		"WATER":
 			cost = -1  # Cannot move through water
 		_:
 			pass  # Standard cost

@@ -88,13 +88,13 @@ static func execute(player_count: int = 2) -> Dictionary:
 			player.add_unit(unit_id_counter)
 			unit_id_counter += 1
 			
-			# Create domain (placeholder for now)
+			# Create domain with initial power
 			var domain_data = {
 				"id": domain_id_counter,
 				"owner_id": player_id,
 				"name": "Domain%d" % domain_id_counter,
 				"center_position": spawn_pos,
-				"power": 3,
+				"power": 1,  # Start with 1 power
 				"is_occupied": false,
 				"occupied_by_player": -1
 			}
@@ -115,35 +115,66 @@ static func execute(player_count: int = 2) -> Dictionary:
 	print("    InitializeGameUseCase completed successfully")
 	return result
 
-# Get spawn positions for players
+# Get spawn positions using hexagon corner algorithm
 static func _get_spawn_positions(grid_data: Dictionary, player_count: int) -> Array:
 	var spawn_positions = []
 	
-	# Get all corner points (they make good spawn positions)
+	# Initialize random seed for different spawns each game
+	randomize()
+	
+	# Step 1: Get all corner points (hexagon tips)
 	var corner_points = []
 	for point_id in grid_data.points:
 		var point = grid_data.points[point_id]
 		if point.is_corner:
-			corner_points.append(point.position)
+			corner_points.append(point)
 	
-	# If we have enough corners, use them
-	if corner_points.size() >= player_count:
-		for i in range(player_count):
-			spawn_positions.append(corner_points[i])
-	else:
-		# Fallback: use any points with good spacing
-		var all_points = []
-		for point_id in grid_data.points:
-			var point = grid_data.points[point_id]
-			all_points.append(point.position)
+	print("    Found %d corner points" % corner_points.size())
+	
+	# Get all points with exactly 6 connections (perfect hex centers)
+	var six_connection_points = []
+	for point_id in grid_data.points:
+		var point = grid_data.points[point_id]
+		if point.connected_edges.size() == 6:
+			six_connection_points.append(point)
+	
+	# Shuffle 6-connection points for additional randomness
+	six_connection_points.shuffle()
+	
+	print("    Found %d points with 6 connections" % six_connection_points.size())
+	
+	# Randomize corner selection for each game
+	var available_corners = corner_points.duplicate()
+	available_corners.shuffle()  # Randomize the order
+	
+	# For each player, find spawn position using the algorithm
+	for player_index in range(player_count):
+		# Step 1: Select random corner from shuffled list
+		var corner_index = player_index % available_corners.size()
+		var selected_corner = available_corners[corner_index]
 		
-		# Simple spacing algorithm
-		var step = max(1, all_points.size() / player_count)
-		for i in range(player_count):
-			var index = i * step
-			if index < all_points.size():
-				spawn_positions.append(all_points[index])
+		print("    Player %d: Selected corner at %s" % [player_index + 1, selected_corner.position.hex_coord.get_string()])
+		
+		# Step 2: Find closest point with 6 connections to this corner
+		var closest_six_point = null
+		var min_distance = 999999.0
+		
+		for six_point in six_connection_points:
+			var distance = selected_corner.position.hex_coord.distance_to(six_point.position.hex_coord)
+			if distance < min_distance:
+				min_distance = distance
+				closest_six_point = six_point
+		
+		if closest_six_point != null:
+			print("    Player %d: Found closest 6-connection point at distance %.1f" % [player_index + 1, min_distance])
+			# Step 3: Spawn at this point
+			spawn_positions.append(closest_six_point.position)
+		else:
+			print("    Player %d: No 6-connection point found, using corner" % [player_index + 1])
+			# Fallback: use the corner itself
+			spawn_positions.append(selected_corner.position)
 	
+	print("    Generated %d spawn positions" % spawn_positions.size())
 	return spawn_positions
 
 # Generate terrain variation (future implementation)

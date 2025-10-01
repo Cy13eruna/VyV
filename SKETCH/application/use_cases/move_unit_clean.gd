@@ -60,14 +60,11 @@ static func execute(unit_id: int, target_position, game_state: Dictionary) -> Di
 			_consume_power(unit.owner_id, needs_power, game_state)
 			result.power_consumed = true
 		
-		# Update domain occupations (future implementation)
+		# Update domain occupations after movement
 		_update_domain_occupations(game_state)
 		
-		# Check if turn should advance
-		if not TurnService.can_current_player_act(game_state.turn_data, game_state.players, game_state.units):
-			if TurnService.advance_to_next_turn(game_state.turn_data, game_state.players, game_state.units, game_state.domains):
-				result.turn_advanced = true
-				result.new_player_id = game_state.turn_data.current_player_id
+		# REMOVED: Auto turn advance - now completely manual
+		# Players must manually skip turn with ENTER key
 	else:
 		result.message = "Movement execution failed"
 	
@@ -92,11 +89,16 @@ static func _validate_inputs(unit_id: int, target_position, game_state: Dictiona
 	
 	return true
 
-# Calculate power cost for movement (future implementation)
+# Calculate power cost for movement
 static func _calculate_power_cost(unit, target_position, game_state: Dictionary) -> int:
-	# Future: Check if moving outside own domain
-	# For now, all movement is free
-	return 0
+	# Check if unit's origin domain is occupied by enemy
+	var origin_domain = _find_unit_origin_domain(unit, game_state)
+	if origin_domain and origin_domain.get("is_occupied", false):
+		print("Unit %s moves for FREE - origin domain %d is occupied!" % [unit.name, origin_domain.id])
+		return 0  # Free movement when origin domain is occupied
+	
+	# Normal movement costs 1 power
+	return 1
 
 # Check if player can afford power cost
 static func _can_afford_power(player_id: int, cost: int, game_state: Dictionary) -> bool:
@@ -133,6 +135,9 @@ static func _consume_power(player_id: int, cost: int, game_state: Dictionary) ->
 			var consumed = min(domain.power, remaining_cost)
 			domain.power -= consumed
 			remaining_cost -= consumed
+			print("Domain %d consumed %d power: now %d" % [domain_id, consumed, domain.power])
+			if remaining_cost <= 0:
+				break
 
 # Update domain occupations based on unit positions
 static func _update_domain_occupations(game_state: Dictionary) -> void:
@@ -145,19 +150,21 @@ static func _update_domain_occupations(game_state: Dictionary) -> void:
 		domain.is_occupied = false
 		domain.occupied_by_player = -1
 	
-	# Check which domains are occupied by units
+	# Check which domains are occupied by enemy units
 	for unit_id in game_state.units:
 		var unit = game_state.units[unit_id]
 		
 		for domain_id in game_state.domains:
 			var domain = game_state.domains[domain_id]
 			
-			# Check if unit is close to domain center (simple distance check)
-			var distance = unit.position.distance_to(domain.center_position)
-			if distance <= 1:  # Adjacent or same position
-				domain.is_occupied = true
-				domain.occupied_by_player = unit.owner_id
-				break
+			# Only enemy units can occupy domains (not the owner)
+			if unit.owner_id != domain.owner_id:
+				# Check if unit is exactly at domain center
+				if unit.position.equals(domain.center_position):
+					domain.is_occupied = true
+					domain.occupied_by_player = unit.owner_id
+					print("Domain %d occupied by Player %d (enemy unit)" % [domain_id, unit.owner_id])
+					break
 
 # Get specific movement restriction message
 static func _get_movement_restriction_message(unit, target_position, game_state: Dictionary) -> String:
@@ -198,3 +205,17 @@ static func get_movement_summary(unit_id: int, target_position, game_state: Dict
 	var to_coord = target_position.hex_coord.get_string()
 	
 	return "%s moves from %s to %s" % [unit.name, from_coord, to_coord]
+
+# Find the origin domain of a unit (first domain owned by the same player)
+static func _find_unit_origin_domain(unit, game_state: Dictionary):
+	if not ("domains" in game_state and "players" in game_state):
+		return null
+	
+	# Get the player and their first domain as origin
+	var player = game_state.players.get(unit.owner_id)
+	if player and "domain_ids" in player and player.domain_ids.size() > 0:
+		var origin_domain_id = player.domain_ids[0]  # First domain is origin
+		if origin_domain_id in game_state.domains:
+			return game_state.domains[origin_domain_id]
+	
+	return null
