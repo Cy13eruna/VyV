@@ -80,6 +80,10 @@ echo - ✅ Fixed script errors (property access corrected)
 echo - ✅ Fixed unit overlap bug (proper occupation rules)
 echo - ✅ Auto-clear selection when unit exhausted
 echo - ✅ Movement breaks forest revelation (robust rule)
+echo - ✅ Robust revelation pairs system (fixes 3rd unit bug)
+echo - ✅ Atomic revelation operations (prevents corruption)
+echo - ✅ Edge lookup cache (performance optimization)
+echo - ✅ Fixed function call errors (static method access)
 echo.
 echo 🎮 CONTROLS:
 echo - Click hex with unit to select, click hex to move

@@ -260,19 +260,38 @@ static func _find_unit_origin_domain(unit, game_state: Dictionary):
 	
 	return null
 
-# Clear force_revealed status when any unit moves (breaks forest revelation)
+# Clear force_revealed status when unit moves (breaks only related revelations)
 static func _clear_force_revealed_on_movement(moving_unit, game_state: Dictionary) -> void:
 	if not ("units" in game_state):
 		return
 	
-	print("[FOREST] Unit %s moved - clearing all force_revealed statuses" % moving_unit.name)
+	# Initialize revelation pairs if not exists
+	if not "revelation_pairs" in game_state:
+		game_state.revelation_pairs = []
 	
-	# Clear force_revealed for all units when any unit moves
-	for unit_id in game_state.units:
-		var unit = game_state.units[unit_id]
-		if "force_revealed" in unit and unit.force_revealed:
-			unit.force_revealed = false
-			print("[FOREST] Cleared force_revealed for unit %s" % unit.name)
+	print("[FOREST] Unit %s moved - clearing related revelations" % moving_unit.name)
+	
+	# Find and remove revelation pairs involving this unit
+	var pairs_to_remove = []
+	for i in range(game_state.revelation_pairs.size()):
+		var pair = game_state.revelation_pairs[i]
+		if pair.unit_a_id == moving_unit.id or pair.unit_b_id == moving_unit.id:
+			pairs_to_remove.append(i)
+			# Clear force_revealed for both units in the pair
+			var unit_a = game_state.units.get(pair.unit_a_id)
+			var unit_b = game_state.units.get(pair.unit_b_id)
+			if unit_a:
+				unit_a.force_revealed = false
+				print("[FOREST] Cleared revelation for unit %s" % unit_a.name)
+			if unit_b:
+				unit_b.force_revealed = false
+				print("[FOREST] Cleared revelation for unit %s" % unit_b.name)
+	
+	# Remove pairs in reverse order to maintain indices
+	for i in range(pairs_to_remove.size() - 1, -1, -1):
+		game_state.revelation_pairs.remove_at(pairs_to_remove[i])
+	
+	print("[FOREST] Removed %d revelation pairs" % pairs_to_remove.size())
 
 # Check if forest traversal is blocked by enemy unit
 static func _check_forest_traversal_blocking(unit, target_position, game_state: Dictionary) -> Dictionary:
@@ -327,19 +346,20 @@ static func _check_forest_traversal_blocking(unit, target_position, game_state: 
 	print("[FOREST] Returning result: %s" % result)
 	return result
 
-# Reveal both units when forest traversal is attempted
+# Reveal both units when forest traversal is attempted (atomic operation)
 static func _reveal_units_through_forest(unit, target_position, game_state: Dictionary) -> void:
-	print("[FOREST] Starting unit revelation process")
+	print("[FOREST] Starting atomic revelation process")
 	
 	if not ("units" in game_state):
 		print("[FOREST] No units data available")
 		return
 	
-	# Reveal the moving unit
-	unit.force_revealed = true
-	print("[FOREST] Unit %s revealed through forest encounter" % unit.name)
+	# Initialize revelation pairs if not exists
+	if not "revelation_pairs" in game_state:
+		game_state.revelation_pairs = []
 	
-	# Find and reveal the blocking enemy unit
+	# Find the blocking enemy unit
+	var blocking_unit = null
 	for other_unit_id in game_state.units:
 		var other_unit = game_state.units[other_unit_id]
 		
@@ -348,13 +368,27 @@ static func _reveal_units_through_forest(unit, target_position, game_state: Dict
 			continue
 		
 		# Check if enemy unit is at target position
-		print("[FOREST] Revelation - checking enemy unit %s at position %s vs target %s" % [other_unit.name, other_unit.position.hex_coord.get_string(), target_position.hex_coord.get_string()])
 		if other_unit.position.equals(target_position):
-			other_unit.force_revealed = true
-			print("[FOREST] Enemy unit %s revealed through forest encounter" % other_unit.name)
+			blocking_unit = other_unit
 			break
 	
-	print("[FOREST] Unit revelation process completed")
+	if not blocking_unit:
+		print("[FOREST] No blocking unit found - revelation aborted")
+		return
+	
+	# Atomic revelation: both units or neither
+	unit.force_revealed = true
+	blocking_unit.force_revealed = true
+	
+	# Create revelation pair
+	var revelation_pair = {
+		"unit_a_id": unit.id,
+		"unit_b_id": blocking_unit.id,
+		"created_turn": game_state.get("turn_data", {}).get("turn_number", 1)
+	}
+	game_state.revelation_pairs.append(revelation_pair)
+	
+	print("[FOREST] Atomic revelation completed: %s ↔ %s" % [unit.name, blocking_unit.name])
 
 # Check for forest traversal and reveal enemy units on the other side
 static func _check_forest_traversal_revelation(unit, target_position, game_state: Dictionary) -> void:
@@ -388,9 +422,23 @@ static func _check_forest_traversal_revelation(unit, target_position, game_state
 			print("Enemy unit %s revealed by forest traversal!" % other_unit.name)
 
 # Find edge between two positions (local helper function)
-static func _find_edge_between_positions(pos_a, pos_b, grid_data: Dictionary):
+# Cache for edge lookups (simple performance optimization)
+static var _edge_cache: Dictionary = {}
+
+# Find edge between two positions (with caching)
+static func _find_edge_between_positions(pos1, pos2, grid_data: Dictionary):
 	if not ("points" in grid_data and "edges" in grid_data):
 		return null
+	
+	# Create cache key from positions
+	var cache_key = "%s-%s" % [pos1.hex_coord.get_string(), pos2.hex_coord.get_string()]
+	var reverse_key = "%s-%s" % [pos2.hex_coord.get_string(), pos1.hex_coord.get_string()]
+	
+	# Check cache first
+	if cache_key in _edge_cache:
+		return _edge_cache[cache_key]
+	if reverse_key in _edge_cache:
+		return _edge_cache[reverse_key]
 	
 	# Find points at the given positions
 	var point_a = null
@@ -398,9 +446,9 @@ static func _find_edge_between_positions(pos_a, pos_b, grid_data: Dictionary):
 	
 	for point_id in grid_data.points:
 		var point = grid_data.points[point_id]
-		if point.position.equals(pos_a):
+		if point.position.equals(pos1):
 			point_a = point
-		elif point.position.equals(pos_b):
+		elif point.position.equals(pos2):
 			point_b = point
 	
 	if not (point_a and point_b):
@@ -411,6 +459,10 @@ static func _find_edge_between_positions(pos_a, pos_b, grid_data: Dictionary):
 		var edge = grid_data.edges[edge_id]
 		if (edge.point_a_id == point_a.id and edge.point_b_id == point_b.id) or \
 		   (edge.point_a_id == point_b.id and edge.point_b_id == point_a.id):
+			# Cache the result before returning
+			_edge_cache[cache_key] = edge
 			return edge
 	
+	# Cache null result to avoid repeated searches
+	_edge_cache[cache_key] = null
 	return null
