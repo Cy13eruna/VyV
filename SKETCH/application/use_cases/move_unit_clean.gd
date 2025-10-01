@@ -37,9 +37,9 @@ static func execute(unit_id: int, target_position, game_state: Dictionary) -> Di
 		result.message = "Unit has no actions remaining"
 		return result
 	
-	# Validate movement using MovementService
-	if not MovementService.can_unit_move_to(unit, target_position, game_state.grid, game_state.units):
-		result.message = "Invalid movement"
+	# Validate movement using MovementService with terrain and fog restrictions
+	if not MovementService.can_unit_move_to(unit, target_position, game_state.grid, game_state.units, game_state):
+		result.message = _get_movement_restriction_message(unit, target_position, game_state)
 		return result
 	
 	# Calculate power cost (future: check if moving outside own domain)
@@ -158,6 +158,35 @@ static func _update_domain_occupations(game_state: Dictionary) -> void:
 				domain.is_occupied = true
 				domain.occupied_by_player = unit.owner_id
 				break
+
+# Get specific movement restriction message
+static func _get_movement_restriction_message(unit, target_position, game_state: Dictionary) -> String:
+	# Check specific restrictions to give better feedback
+	
+	# Check if position is occupied
+	if MovementService._is_position_occupied(target_position, game_state.units):
+		return "Position is occupied by another unit"
+	
+	# Check if position is on grid
+	if not MovementService._is_position_on_grid(target_position, game_state.grid):
+		return "Position is outside the game area"
+	
+	# Check terrain restrictions
+	var edge = MovementService._get_edge_between_positions(unit.position, target_position, game_state.grid)
+	if edge:
+		var terrain_type = edge.get("terrain_type", 0)
+		match terrain_type:
+			2:  # MOUNTAIN
+				if unit.actions_remaining < 2:
+					return "Cannot cross mountain - requires 2 actions"
+			3:  # WATER
+				return "Cannot cross water - impassable terrain"
+	
+	# Check distance
+	if unit.position.distance_to(target_position) != 1:
+		return "Can only move to adjacent positions"
+	
+	return "Invalid movement"
 
 # Get movement summary for logging
 static func get_movement_summary(unit_id: int, target_position, game_state: Dictionary) -> String:

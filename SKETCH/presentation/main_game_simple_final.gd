@@ -1,5 +1,5 @@
-# 🎮 V&V FINAL GAME
-# Purpose: Complete V&V game with all features and polish
+# 🎮 V&V SIMPLE FINAL GAME
+# Purpose: Complete V&V game without observability dependencies
 # Layer: Presentation (ONION Coordinator)
 
 extends Node2D
@@ -10,8 +10,6 @@ const MoveUnitUseCase = preload("res://application/use_cases/move_unit_clean.gd"
 const SkipTurnUseCase = preload("res://application/use_cases/skip_turn_clean.gd")
 const ToggleFogUseCase = preload("res://application/use_cases/toggle_fog_clean.gd")
 
-# Load observability systems dynamically to avoid circular dependencies
-
 const TurnService = preload("res://application/services/turn_service_clean.gd")
 const MovementService = preload("res://application/services/movement_service_clean.gd")
 const GridService = preload("res://application/services/grid_service_clean.gd")
@@ -20,106 +18,71 @@ const InputManager = preload("res://infrastructure/input/input_manager_clean.gd"
 const GridRenderer = preload("res://infrastructure/rendering/grid_renderer_clean.gd")
 const UnitRenderer = preload("res://infrastructure/rendering/unit_renderer_clean.gd")
 const GameState = preload("res://infrastructure/persistence/game_state_clean.gd")
+const SimpleCommandManager = preload("res://infrastructure/commands/simple_command_manager.gd")
 
 # Game state and systems
 var game_state: Dictionary = {}
 var input_manager
+var command_manager
 var selected_unit_id: int = -1
 var valid_movement_targets: Array = []
 var game_over: bool = false
 var winner_player = null
 
-# Observability systems
-var observability
-var logger
-var performance_timers: Dictionary = {}
-
 # UI state
 var show_debug_info: bool = false
 var show_grid_stats: bool = false
-var animation_speed: float = 1.0
+var show_command_history: bool = false
 
 func _ready():
-	print("=== 🎮 V&V FINAL GAME STARTING 🎮 ===")
+	print("=== 🎮 V&V SIMPLE FINAL GAME STARTING 🎮 ===")
 	print("🏗️ Complete ONION Architecture Implementation")
-	print("📊 All Advanced Technical Systems Integrated")
+	print("📊 All Technical Systems Integrated")
 	print("==================================================")
 	
-	# Initialize observability first
-	setup_observability()
-	
+	setup_command_system()
 	setup_final_game()
 	setup_complete_input_system()
 	
-	if logger:
-		logger.info("V&V Final Game Ready!")
-		logger.info("All systems operational with full observability")
-	print("🚀 V&V Final Game Ready!")
+	print("🚀 V&V Simple Final Game Ready!")
 	print("🎯 Click units to select, click positions to move")
 	print("⌨️  SPACE: Toggle fog | ENTER: Skip turn | F1: Debug info")
+	print("🔄 CTRL+Z: Undo | CTRL+Y: Redo | F5: Command History")
 
-func setup_observability():
-	print("🔍 Initializing observability systems...")
+func setup_command_system():
+	print("📚 Setting up command system...")
 	
-	# Load and initialize observability manager dynamically
-	var ObservabilityManager = load("res://infrastructure/observability/observability_manager.gd")
-	if ObservabilityManager:
-		observability = ObservabilityManager.get_instance()
-		if observability:
-			logger = observability.get_logger("presentation")
-			print("✅ Observability systems ready")
-		else:
-			print("⚠️ Failed to create observability instance")
-	else:
-		print("⚠️ Observability systems not available")
-		observability = null
-		logger = null
+	# Initialize simple command manager
+	command_manager = SimpleCommandManager.new()
 	
-	if logger:
-		logger.info("Observability systems initialized")
-		logger.info("Telemetry, logging, and error handling active")
+	# Connect command events
+	if command_manager:
+		command_manager.command_executed.connect(_on_command_executed)
+		command_manager.command_undone.connect(_on_command_undone)
+		command_manager.command_redone.connect(_on_command_redone)
+		command_manager.history_changed.connect(_on_command_history_changed)
 	
-	# Record game startup event
-	if observability:
-		observability.record_game_event("game_startup", {
-			"version": "1.0",
-			"architecture": "ONION",
-			"systems": ["telemetry", "logging", "error_handling"]
-		})
+	print("✅ Command system ready")
 
 func setup_final_game():
 	print("🎲 Initializing complete game with all features...")
 	
-	# Monitor game initialization performance
-	var timer_id = observability.start_timer("game_initialization") if observability else ""
-	
 	# Initialize game with full feature set
-	var init_result
-	if observability:
-		init_result = observability.monitor_performance("initialize_game", func(): return InitializeGameUseCase.execute(2))
-	else:
-		init_result = InitializeGameUseCase.execute(2)
+	var init_result = InitializeGameUseCase.execute(2)
 	
 	if init_result.success:
 		game_state = init_result.game_state
 		
-		# Validate game state with error handling
-		var GameState = load("res://infrastructure/persistence/game_state_clean.gd")
+		# Validate game state
 		var validation = GameState.validate_game_state(game_state)
 		
 		if "valid" in validation and validation.valid:
-			if logger:
-				logger.info("Game state validation: PASSED")
 			print("✅ Game state validation: PASSED")
 		else:
-			if logger:
-				logger.warn("Game state validation: WARNINGS", {"warnings": validation.warnings if "warnings" in validation else []})
 			print("⚠️ Game state validation: WARNINGS")
 			if "warnings" in validation:
 				for warning in validation.warnings:
 					print("  - %s" % warning)
-					if logger:
-						logger.warn("Validation warning: " + warning)
 		
 		# Display comprehensive game summary
 		var summary = GameState.get_game_state_summary(game_state)
@@ -131,7 +94,7 @@ func setup_final_game():
 		print("  ⏰ Turn: %d (Player: %s)" % [summary.current_turn, summary.current_player])
 		print("  👁️  Fog of War: %s" % ("ENABLED" if summary.fog_enabled else "DISABLED"))
 		
-		# Add terrain variety to edges (enhance the basic grid)
+		# Add terrain variety to edges
 		_enhance_terrain_variety()
 		
 		print("✅ Complete game initialization successful!")
@@ -163,7 +126,6 @@ func setup_complete_input_system():
 func _enhance_terrain_variety():
 	# Add some terrain variety to make the game more interesting
 	if "edges" in game_state.grid:
-		var edge_count = game_state.grid.edges.size()
 		var terrain_distribution = [0.5, 0.2, 0.2, 0.1]  # FIELD, FOREST, MOUNTAIN, WATER
 		
 		for edge_id in game_state.grid.edges:
@@ -183,8 +145,18 @@ func _unhandled_input(event):
 	if game_state.is_empty() or not input_manager:
 		return
 	
-	# Handle debug keys
+	# Handle debug keys and command shortcuts
 	if event is InputEventKey and event.pressed:
+		# Handle undo/redo shortcuts
+		if event.ctrl_pressed:
+			match event.keycode:
+				KEY_Z:
+					_undo_last_command()
+				KEY_Y:
+					_redo_next_command()
+			return
+		
+		# Handle function keys
 		match event.keycode:
 			KEY_F1:
 				show_debug_info = not show_debug_info
@@ -196,6 +168,9 @@ func _unhandled_input(event):
 				_save_game_state()
 			KEY_F4:
 				_load_game_state()
+			KEY_F5:
+				show_command_history = not show_command_history
+				queue_redraw()
 	
 	# Use InputManager for game input
 	input_manager.handle_input_event(event, game_state.grid, game_state.units)
@@ -221,11 +196,6 @@ func _on_unit_clicked(unit_id: int):
 	if game_over:
 		return
 	
-	# Record input event
-	if observability:
-		observability.record_game_event("unit_clicked", {"unit_id": unit_id})
-	if logger:
-		logger.debug("Unit clicked: %d" % unit_id)
 	print("🚶 Unit clicked: %d" % unit_id)
 	
 	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
@@ -245,19 +215,49 @@ func _on_unit_unhovered(unit_id: int):
 	queue_redraw()
 
 func _on_fog_toggle():
-	var fog_result = ToggleFogUseCase.execute(game_state)
-	if fog_result.success:
-		print("👁️ %s" % fog_result.message)
+	# Create and execute fog toggle command
+	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+	if not current_player:
+		return
+	
+	if not command_manager:
+		print("❌ Command manager not available")
+		return
+	
+	var result = command_manager.execute_command("TOGGLE_FOG", current_player.id, {}, game_state)
+	
+	if result.success:
+		print("👁️ Fog toggled successfully")
+	else:
+		print("❌ %s" % result.message)
+	
 	queue_redraw()
 
 func _on_skip_turn():
-	var skip_result = SkipTurnUseCase.execute(game_state)
-	if skip_result.success:
-		print("⏭️ %s" % skip_result.message)
-		if skip_result.game_over:
+	# Create and execute skip turn command
+	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+	if not current_player:
+		return
+	
+	if not command_manager:
+		print("❌ Command manager not available")
+		return
+	
+	var result = command_manager.execute_command("SKIP_TURN", current_player.id, {}, game_state)
+	
+	if result.success:
+		print("⏭️ Turn skipped successfully")
+		# Check for game over from command result
+		if "game_ended" in result.state_changes and result.state_changes.game_ended:
 			game_over = true
-			winner_player = skip_result.winner
-			print("🏆 GAME OVER! Winner: %s" % (winner_player.name if winner_player else "Draw"))
+			if "winner" in result.state_changes and result.state_changes.winner:
+				winner_player = result.state_changes.winner
+				print("🏆 GAME OVER! Winner: %s" % winner_player.name)
+			else:
+				print("🏆 GAME OVER! Draw!")
+	else:
+		print("❌ %s" % result.message)
+	
 	_clear_selection()
 	queue_redraw()
 
@@ -279,44 +279,28 @@ func _attempt_move_unit(target_position):
 	if selected_unit_id == -1:
 		return
 	
-	# Monitor movement performance
-	var timer_id = observability.start_timer("unit_movement") if observability else ""
-	var move_result
-	if observability:
-		move_result = observability.monitor_performance("move_unit", 
-			func(): return MoveUnitUseCase.execute(selected_unit_id, target_position, game_state))
-	else:
-		move_result = MoveUnitUseCase.execute(selected_unit_id, target_position, game_state)
-	var duration = observability.stop_timer(timer_id) if observability else 0.0
+	# Get current player
+	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+	if not current_player:
+		return
 	
-	if move_result.success:
-		# Record successful movement
-		if observability:
-			observability.record_game_event("unit_moved", {
-				"unit_id": selected_unit_id,
-				"duration": duration,
-				"power_consumed": move_result.power_consumed,
-				"turn_advanced": move_result.turn_advanced
-			})
-		if logger:
-			logger.info("Unit movement successful", {"unit_id": selected_unit_id, "duration_ms": duration * 1000})
-		
-		print("✅ %s" % move_result.message)
-		if move_result.power_consumed:
+	# Create and execute move command
+	if not command_manager:
+		print("❌ Command manager not available")
+		return
+	
+	var move_data = {"unit_id": selected_unit_id, "target_position": target_position}
+	var result = command_manager.execute_command("MOVE_UNIT", current_player.id, move_data, game_state)
+	
+	if result.success:
+		print("✅ Unit moved successfully")
+		if "power_consumed" in result.state_changes and result.state_changes.power_consumed:
 			print("⚡ Power consumed")
-		if move_result.turn_advanced:
-			print("🔄 Turn advanced to Player %d" % move_result.new_player_id)
+		if "turn_advanced" in result.state_changes and result.state_changes.turn_advanced:
+			print("🔄 Turn advanced")
 		_clear_selection()
 	else:
-		# Record failed movement
-		if observability:
-			var ErrorHandler = load("res://infrastructure/reliability/error_handler.gd")
-			observability.handle_error("Unit movement failed: " + move_result.message, 
-				ErrorHandler.ErrorSeverity.LOW, ErrorHandler.ErrorCategory.GAME_LOGIC, 
-				{"unit_id": selected_unit_id})
-		if logger:
-			logger.warn("Unit movement failed", {"unit_id": selected_unit_id, "reason": move_result.message})
-		print("❌ %s" % move_result.message)
+		print("❌ %s" % result.message)
 	
 	queue_redraw()
 
@@ -324,15 +308,73 @@ func _clear_selection():
 	selected_unit_id = -1
 	valid_movement_targets.clear()
 
+# Command system methods
+func _undo_last_command():
+	if not command_manager:
+		print("❌ Command manager not available")
+		return
+	
+	print("DEBUG: Attempting undo - Can undo: %s, Stats: %s" % [command_manager.can_undo(), command_manager.get_stats()])
+	
+	if not command_manager.can_undo():
+		print("⚠️ Nothing to undo - Stats: %s" % command_manager.get_stats())
+		return
+	
+	var result = command_manager.undo_last_command(game_state)
+	if result.success:
+		print("⬅️ Command undone successfully")
+		_clear_selection()
+		queue_redraw()
+	else:
+		print("❌ Undo failed: %s" % result.message)
+
+func _redo_next_command():
+	if not command_manager:
+		print("❌ Command manager not available")
+		return
+	
+	if not command_manager.can_redo():
+		print("⚠️ Nothing to redo")
+		return
+	
+	var result = command_manager.redo_next_command(game_state)
+	if result.success:
+		print("➡️ Command redone successfully")
+		_clear_selection()
+		queue_redraw()
+	else:
+		print("❌ Redo failed: %s" % result.message)
+
+# Command event handlers
+func _on_command_executed(command):
+	if command and command.has_method("get_summary"):
+		print("📝 Command executed: %s" % command.get_summary())
+	else:
+		print("📝 Command executed")
+
+func _on_command_undone(command):
+	if command and command.has_method("get_summary"):
+		print("⬅️ Command undone: %s" % command.get_summary())
+	else:
+		print("⬅️ Command undone")
+
+func _on_command_redone(command):
+	if command and command.has_method("get_summary"):
+		print("➡️ Command redone: %s" % command.get_summary())
+	else:
+		print("➡️ Command redone")
+
+func _on_command_history_changed():
+	# Update UI if needed
+	pass
+
 # Save/Load functionality
 func _save_game_state():
 	var serialized = GameState.serialize_game_state(game_state)
 	print("💾 Game state serialized (ready for save)")
-	# Future: Implement actual file saving
 
 func _load_game_state():
 	print("📁 Load game state (not implemented yet)")
-	# Future: Implement actual file loading
 
 # Rendering
 func _draw():
@@ -363,6 +405,7 @@ func _draw():
 	# Render UI layers
 	_render_main_ui()
 	_render_debug_ui()
+	_render_command_history_ui()
 
 func _render_domains(fog_settings: Dictionary):
 	if not ("domains" in game_state):
@@ -457,13 +500,9 @@ func _render_debug_ui():
 		return
 	
 	# Debug panel
-	var debug_rect = Rect2(750, 10, 260, 200)
+	var debug_rect = Rect2(750, 10, 260, 180)
 	draw_rect(debug_rect, Color(0, 0, 0, 0.8))
 	draw_rect(debug_rect, Color.CYAN, false, 1.0)
-	
-	# Get observability status
-	var obs_status = observability.get_system_status() if observability else {}
-	var health = observability.health_check() if observability else {"status": "unknown"}
 	
 	var debug_info = [
 		"🔧 DEBUG INFO:",
@@ -471,19 +510,19 @@ func _render_debug_ui():
 		"Selected Unit: %d" % selected_unit_id,
 		"Valid Targets: %d" % valid_movement_targets.size(),
 		"",
-		"🔍 OBSERVABILITY:",
-		"Health: %s" % health.status,
-		"Telemetry: %s" % ("ON" if obs_status.get("telemetry", {}).get("enabled", false) else "OFF"),
-		"Logging: %s" % ("ON" if obs_status.get("logging", {}).get("enabled", false) else "OFF"),
-		"Errors: %d" % obs_status.get("errors", {}).get("total_errors", 0),
-		"",
 		"🏗️ ARCHITECTURE:",
 		"✅ Core Layer",
 		"✅ Application Layer", 
 		"✅ Infrastructure Layer",
 		"✅ Presentation Layer",
 		"",
-		"F2: Grid Stats | F3: Save | F4: Load"
+		"F2: Grid Stats | F3: Save | F4: Load",
+		"F5: Command History",
+		"",
+		"🔄 COMMANDS:",
+		"Can Undo: %s" % ("YES" if command_manager and command_manager.can_undo() else "NO"),
+		"Can Redo: %s" % ("YES" if command_manager and command_manager.can_redo() else "NO"),
+		"History: %d commands" % (command_manager.get_stats().total_commands if command_manager else 0)
 	]
 	
 	for i in range(debug_info.size()):
@@ -494,3 +533,48 @@ func _render_debug_ui():
 	# Grid stats
 	if show_grid_stats:
 		GridRenderer.render_grid_stats(self, game_state.grid, Vector2(760, 250), font)
+
+func _render_command_history_ui():
+	if not show_command_history or not command_manager:
+		return
+	
+	var font = ThemeDB.fallback_font
+	if not font:
+		return
+	
+	# Command history panel
+	var history_rect = Rect2(10, 200, 400, 300)
+	draw_rect(history_rect, Color(0, 0, 0, 0.9))
+	draw_rect(history_rect, Color.YELLOW, false, 2.0)
+	
+	# Title
+	draw_string(font, Vector2(20, 220), "📚 COMMAND HISTORY", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.YELLOW)
+	
+	# Command stats
+	var stats = command_manager.get_stats()
+	var stats_text = "Total: %d | Executed: %d | Can Undo: %s | Can Redo: %s" % [
+		stats.total_commands, stats.executed_commands,
+		"YES" if stats.can_undo else "NO", "YES" if stats.can_redo else "NO"
+	]
+	draw_string(font, Vector2(20, 240), stats_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.WHITE)
+	
+	# Command history
+	var history = command_manager.get_history_summary()
+	var y_offset = 260
+	var max_commands = 15  # Show last 15 commands
+	
+	var start_index = max(0, history.size() - max_commands)
+	for i in range(start_index, history.size()):
+		var cmd = history[i]
+		var is_current = cmd.executed
+		var color = Color.GREEN if is_current else Color.GRAY
+		
+		var cmd_text = "%d. %s" % [cmd.index + 1, cmd.command]
+		draw_string(font, Vector2(30, y_offset), cmd_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, color)
+		y_offset += 12
+	
+		if y_offset > 480:  # Don't overflow panel
+			break
+	
+	# Instructions
+	draw_string(font, Vector2(20, 485), "CTRL+Z: Undo | CTRL+Y: Redo | F5: Toggle", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.LIGHT_GRAY)

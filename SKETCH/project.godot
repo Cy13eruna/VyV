@@ -5,7 +5,7 @@ config_version=5
 [application]
 
 config/name="V&V - Vagabonds & Valleys"
-run/main_scene="res://presentation/scenes/final_scene.tscn"
+run/main_scene="res://presentation/scenes/clean_final_scene.tscn"
 config/features=PackedStringArray("4.3", "Forward Plus")
 
 [display]
