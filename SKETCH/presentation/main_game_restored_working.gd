@@ -227,8 +227,6 @@ func _unhandled_input(event):
 
 # Input event handlers
 func _on_point_clicked(point_id: int):
-	print("🎯 Point clicked: %d" % point_id)
-	
 	if game_over:
 		return
 	
@@ -241,7 +239,6 @@ func _on_point_clicked(point_id: int):
 	
 	# Check if there's a unit at this point
 	var unit_at_point = _find_unit_at_position(target_position)
-	print("[DEBUG] unit_at_point result: %d" % unit_at_point)
 	
 	if unit_at_point != -1:
 		# There's a unit at this point - check if it's own or enemy
@@ -250,24 +247,15 @@ func _on_point_clicked(point_id: int):
 		
 		if current_player and unit.owner_id == current_player.id:
 			# Own unit - select it
-			print("[DEBUG] Found own unit at point, attempting selection")
 			_attempt_unit_selection(unit_at_point)
 		else:
 			# Enemy unit - try to move to this position (may trigger forest blocking)
-			print("[DEBUG] Found enemy unit at point, attempting movement to position")
 			if selected_unit_id != -1:
-				print("[DEBUG] Attempting to move to enemy unit position")
 				_attempt_unit_movement(target_position)
-			else:
-				print("[DEBUG] No unit selected for movement to enemy position")
 	else:
 		# No unit at point - try to move selected unit here
-		print("[DEBUG] No unit at point, selected_unit_id: %d" % selected_unit_id)
 		if selected_unit_id != -1:
-			print("[DEBUG] Attempting to move unit to empty position")
 			_attempt_unit_movement(target_position)
-		else:
-			print("[DEBUG] No unit selected for movement")
 
 func _on_point_hovered(point_id: int):
 	queue_redraw()
@@ -321,14 +309,8 @@ func _select_unit(unit_id: int):
 	queue_redraw()
 
 func _attempt_unit_movement(target_position):
-	print("[DEBUG] _attempt_unit_movement called with selected_unit_id: %d" % selected_unit_id)
-	
 	if selected_unit_id == -1:
-		print("[DEBUG] No unit selected, returning")
 		return
-	
-	# Execute movement directly
-	print("[DEBUG] Executing movement for unit %d" % selected_unit_id)
 	var move_result = MoveUnitUseCase.execute(selected_unit_id, target_position, game_state)
 	
 	if move_result.success:
@@ -342,7 +324,6 @@ func _attempt_unit_movement(target_position):
 	
 	# Clear selection if unit is exhausted (regardless of success/failure)
 	if move_result.get("unit_exhausted", false):
-		print("[UI] Unit exhausted - clearing selection and movement targets")
 		_clear_selection()
 	
 	queue_redraw()
@@ -353,16 +334,10 @@ func _clear_selection():
 
 # Find unit at specific position
 func _find_unit_at_position(position) -> int:
-	print("[DEBUG] Looking for unit at position: %s" % position.hex_coord.get_string())
-	
 	for unit_id in game_state.units:
 		var unit = game_state.units[unit_id]
-		print("[DEBUG] Checking unit %d at position: %s" % [unit_id, unit.position.hex_coord.get_string()])
 		if unit.position.equals(position):
-			print("[DEBUG] Found unit %d at target position" % unit_id)
 			return unit_id
-	
-	print("[DEBUG] No unit found at target position")
 	return -1
 
 # Attempt to select a unit (only own units)
@@ -556,21 +531,29 @@ func _render_grid_restored(hover_state: Dictionary):
 	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
 	var current_player_id = current_player.id if current_player else 1
 	
-	# Draw edges with restored colors and thickness (with fog of war)
+	# Draw edges with restored colors and thickness (with fog of war and remembered terrain)
 	for edge_id in game_state.grid.edges:
 		var edge = game_state.grid.edges[edge_id]
 		
-		# Check if edge is visible to current player
+		# Check if edge is currently visible or remembered
 		var is_visible = true
+		var is_remembered = false
+		
 		if game_state.get("fog_of_war_enabled", false):
 			is_visible = ToggleFogUseCase._is_edge_visible_to_player(edge, current_player_id, game_state)
+			if not is_visible:
+				is_remembered = ToggleFogUseCase.is_remembered_by_player("edge", edge_id, current_player_id, game_state)
 		
-		if is_visible:
+		if is_visible or is_remembered:
 			var point_a = game_state.grid.points[edge.point_a_id]
 			var point_b = game_state.grid.points[edge.point_b_id]
 			
 			# Get terrain color from restored palette
 			var terrain_color = _get_restored_terrain_color(edge.get("terrain_type", 0))
+			
+			# Make remembered terrain whitish (moderate blend)
+			if is_remembered and not is_visible:
+				terrain_color = terrain_color.lerp(Color.WHITE, 0.45)  # Blend 45% with white
 			
 			draw_line(
 				_apply_board_rotation(point_a.position.pixel_pos),
@@ -579,17 +562,26 @@ func _render_grid_restored(hover_state: Dictionary):
 				PATH_THICKNESS
 			)
 	
-	# Draw points (with fog of war)
+	# Draw points (with fog of war and remembered terrain)
 	for point_id in game_state.grid.points:
 		var point = game_state.grid.points[point_id]
 		
-		# Check if point is visible to current player
+		# Check if point is currently visible or remembered
 		var is_visible = true
+		var is_remembered = false
+		
 		if game_state.get("fog_of_war_enabled", false):
 			is_visible = ToggleFogUseCase._is_position_visible_to_player(point.position, current_player_id, game_state)
+			if not is_visible:
+				is_remembered = ToggleFogUseCase.is_remembered_by_player("point", point_id, current_player_id, game_state)
 		
-		if is_visible:
+		if is_visible or is_remembered:
 			var color = Color.RED if point.get("is_corner", false) else Color.BLACK
+			
+			# Make remembered terrain whitish (moderate blend)
+			if is_remembered and not is_visible:
+				color = color.lerp(Color.WHITE, 0.45)  # Blend 45% with white
+			
 			draw_circle(_apply_board_rotation(point.position.pixel_pos), 8.0, color)
 
 func _render_main_ui():
@@ -825,17 +817,14 @@ func _render_units_with_fog(fog_settings: Dictionary, hover_state: Dictionary, f
 			
 			# Check if unit has actions remaining
 			var has_actions = unit.can_move()
-			var display_color = unit_color
-			var emoji_color = Color.WHITE
+			var emoji_color = unit_color  # Use team color for emoji
 			
 			if not has_actions:
-				# Unit has no actions - make it grayish/whitish
-				display_color = Color(0.8, 0.8, 0.8, 0.7)  # Light gray
-				emoji_color = Color(0.6, 0.6, 0.6)  # Darker gray for emoji
+				# Unit has no actions - make emoji whitish
+				emoji_color = unit_color.lerp(Color.WHITE, 0.7)  # Blend with white
 			
-			# RESTORED: Paint emoji with player color, remove circle background, 2x size, moved up
-			# Add colored background circle to "tint" the unit
-			draw_circle(pos, 18.0, display_color)
+			# Draw emoji with team color - let's try the direct approach
+			# Some fonts/systems may support color tinting of emojis
 			draw_string(font, pos + Vector2(-12, 0), "🚶", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, emoji_color)
 			
 			# Unit name and info

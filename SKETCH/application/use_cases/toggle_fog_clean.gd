@@ -126,24 +126,26 @@ static func set_fog_state(game_state: Dictionary, enabled: bool) -> Dictionary:
 		return disable_fog(game_state)
 
 # Get visibility settings for rendering
+# Get visibility settings for current player
 static func get_visibility_settings(game_state: Dictionary, player_id: int) -> Dictionary:
-	var settings = {
-		"fog_enabled": false,
-		"show_all_units": true,
-		"show_all_grid": true,
-		"show_all_domains": true,
-		"player_id": player_id
+	# Initialize remembered terrain if not exists
+	if not "remembered_terrain" in game_state:
+		game_state.remembered_terrain = {}
+	
+	if not player_id in game_state.remembered_terrain:
+		game_state.remembered_terrain[player_id] = {
+			"points": {},
+			"edges": {}
+		}
+	
+	# Update remembered terrain based on current visibility
+	_update_remembered_terrain(game_state, player_id)
+	
+	return {
+		"fog_enabled": game_state.get("fog_of_war_enabled", false),
+		"player_id": player_id,
+		"remembered_terrain": game_state.remembered_terrain[player_id]
 	}
-	
-	if _validate_game_state_simple(game_state):
-		settings.fog_enabled = game_state.fog_of_war_enabled
-		
-		if settings.fog_enabled:
-			settings.show_all_units = false
-			settings.show_all_grid = false
-			settings.show_all_domains = false
-	
-	return settings
 
 # Check if element should be visible to player
 static func is_visible_to_player(element_type: String, element_data, player_id: int, game_state: Dictionary) -> bool:
@@ -184,6 +186,48 @@ static func _is_unit_visible(unit, player_id: int, game_state: Dictionary) -> bo
 		return true
 	
 	return false
+
+# Update remembered terrain for player based on current visibility
+static func _update_remembered_terrain(game_state: Dictionary, player_id: int) -> void:
+	if not ("grid" in game_state and "remembered_terrain" in game_state):
+		return
+	
+	var remembered = game_state.remembered_terrain[player_id]
+	
+	# Check all points and edges for current visibility
+	for point_id in game_state.grid.points:
+		var point = game_state.grid.points[point_id]
+		if _is_position_visible_to_player(point.position, player_id, game_state):
+			# Point is currently visible - remember it
+			remembered.points[point_id] = {
+				"position": point.position,
+				"is_corner": point.get("is_corner", false)
+			}
+	
+	for edge_id in game_state.grid.edges:
+		var edge = game_state.grid.edges[edge_id]
+		if _is_edge_visible_to_player(edge, player_id, game_state):
+			# Edge is currently visible - remember it
+			remembered.edges[edge_id] = {
+				"point_a_id": edge.point_a_id,
+				"point_b_id": edge.point_b_id,
+				"terrain_type": edge.get("terrain_type", 0)
+			}
+
+# Check if point/edge is remembered by player
+static func is_remembered_by_player(element_type: String, element_id: int, player_id: int, game_state: Dictionary) -> bool:
+	if not ("remembered_terrain" in game_state and player_id in game_state.remembered_terrain):
+		return false
+	
+	var remembered = game_state.remembered_terrain[player_id]
+	
+	match element_type:
+		"point":
+			return element_id in remembered.points
+		"edge":
+			return element_id in remembered.edges
+		_:
+			return false
 
 # Check if vision is blocked by terrain (mountains/forests)
 static func _is_vision_blocked_by_terrain(from_position, to_position, game_state: Dictionary) -> bool:

@@ -11,7 +11,6 @@ const TurnService = preload("res://application/services/turn_service_clean.gd")
 
 # Execute unit movement
 static func execute(unit_id: int, target_position, game_state: Dictionary) -> Dictionary:
-	print("[MOVE] Starting movement execution for unit %d" % unit_id)
 	
 	var result = {
 		"success": false,
@@ -42,9 +41,8 @@ static func execute(unit_id: int, target_position, game_state: Dictionary) -> Di
 	
 	# Check for forest traversal with enemy blocking (only if unit is not already revealed)
 	var forest_block_result = _check_forest_traversal_blocking(unit, target_position, game_state)
-	print("[DEBUG] Forest block result: %s" % forest_block_result)
 	if forest_block_result.get("blocked", false):
-		print("[FOREST] Movement blocked - executing revelation and resource consumption")
+		print("🌲 Forest blocks movement - both units revealed")
 		
 		# Movement is blocked but action and power are consumed
 		result.success = false
