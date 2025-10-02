@@ -280,11 +280,22 @@ static func _find_edge_between_positions(pos_a, pos_b, grid_data: Dictionary):
 # Helper: Check if domain is visible to player
 static func _is_domain_visible(domain, player_id: int, game_state: Dictionary) -> bool:
 	# Own domains are always visible
-	if domain.owner_id == player_id:
+	var domain_owner_id = domain.get("owner_id", -1)
+	if domain_owner_id == player_id:
 		return true
 	
-	# Enemy domains are visible if their center is visible
-	if _is_position_visible_to_player(domain.center_position, player_id, game_state):
+	# NEW: If domain has internal structure (check if it's an object vs dictionary)
+	if typeof(domain) == TYPE_OBJECT and domain.has_method("has_internal_structure") and domain.has_internal_structure():
+		for point_id in domain.internal_point_ids:
+			if point_id in game_state.grid.points:
+				var point = game_state.grid.points[point_id]
+				if _is_position_visible_to_player(point.position, player_id, game_state):
+					return true
+		return false
+	
+	# Fallback: Enemy domains are visible if their center is visible
+	var center_position = domain.get("center_position")
+	if center_position and _is_position_visible_to_player(center_position, player_id, game_state):
 		return true
 	
 	return false

@@ -51,6 +51,13 @@ func get_neighbor(direction: int):
 	]
 	return add(directions[direction % 6])
 
+# Get all 6 neighbors
+func get_neighbors() -> Array:
+	var neighbors = []
+	for direction in range(6):
+		neighbors.append(get_neighbor(direction))
+	return neighbors
+
 # Check equality
 func equals(other) -> bool:
 	return q == other.q and r == other.r

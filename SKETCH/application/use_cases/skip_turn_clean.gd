@@ -7,6 +7,7 @@ extends RefCounted
 
 # Preload clean services
 const TurnService = preload("res://application/services/turn_service_clean.gd")
+const StructureService = preload("res://application/services/structure_service.gd")
 
 # Execute turn skip
 static func execute(game_state: Dictionary) -> Dictionary:
@@ -26,6 +27,11 @@ static func execute(game_state: Dictionary) -> Dictionary:
 	# Get current player info before advancing
 	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
 	var old_player_name = current_player.name if current_player else "Unknown"
+	
+	# Advance construction for all structures
+	var construction_result = StructureService.advance_all_construction(game_state)
+	if construction_result.completed_structures.size() > 0:
+		print("🏗️ %s" % construction_result.message)
 	
 	# Advance to next turn using TurnService
 	var turn_advanced = TurnService.advance_to_next_turn(

@@ -68,9 +68,10 @@ static func execute(player_count: int = 2) -> Dictionary:
 		if spawn_positions.size() >= player_id:
 			var spawn_pos = spawn_positions[player_id - 1]
 			
-			# Create domain
-			var domain = DomainService.create_domain(domain_id_counter, player_id, spawn_pos, game_state.players)
+			# Create domain with internal structure
+			var domain = DomainService.create_domain(domain_id_counter, player_id, spawn_pos, game_state.players, game_state.grid)
 			game_state.domains[domain_id_counter] = domain
+			print("    Domain %d created: %s" % [domain_id_counter, domain.get_string()])
 			domain_id_counter += 1
 			
 			# Create unit

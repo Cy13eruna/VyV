@@ -5,6 +5,11 @@
 
 extends RefCounted
 
+# Preload dependencies
+const HexPoint = preload("res://core/entities/hex_point.gd")
+const HexEdge = preload("res://core/entities/hex_edge.gd")
+const HexCoordinate = preload("res://core/value_objects/hex_coordinate.gd")
+
 # Generate complete hexagonal grid
 static func generate_hex_grid(radius: int = 3) -> Dictionary:
 	var grid_data = {
@@ -31,8 +36,8 @@ static func generate_hex_grid(radius: int = 3) -> Dictionary:
 	return grid_data
 
 # Generate all hex coordinates within radius
-static func _generate_hex_coordinates(radius: int) -> Array[HexCoordinate]:
-	var coordinates: Array[HexCoordinate] = []
+static func _generate_hex_coordinates(radius: int) -> Array:
+	var coordinates = []
 	
 	for q in range(-radius, radius + 1):
 		var r1 = max(-radius, -q - radius)
@@ -59,7 +64,7 @@ static func _generate_hex_edges(grid_data: Dictionary) -> void:
 					neighbor_point.add_edge_connection(edge_id)
 
 # Find point by hex coordinate
-static func _find_point_by_coordinate(points: Dictionary, coord: HexCoordinate) -> HexPoint:
+static func _find_point_by_coordinate(points: Dictionary, coord):
 	for point_id in points:
 		var point = points[point_id]
 		if point.position.hex_coord.equals(coord):
@@ -93,8 +98,8 @@ static func _update_corner_status(grid_data: Dictionary) -> void:
 		point.update_corner_status()
 
 # Get corner points (for spawn positioning)
-static func get_corner_points(grid_data: Dictionary) -> Array[HexPoint]:
-	var corners: Array[HexPoint] = []
+static func get_corner_points(grid_data: Dictionary) -> Array:
+	var corners = []
 	var points = grid_data.points
 	
 	for point_id in points:
