@@ -1,2 +1,13 @@
-Os losangos estão quase perfeitos... Engrosse-os só mais um pouco... 
-Tente tingir o emoji das unidades novamente, também
+Bug identificado: a visibilidade das unidades é apenas as seis estrelas ao seu redor. Adicione a estrela que a unidade habita como parte de sua visibilidade. Assim no total a visibilidade será de 7 estrelas e 6 caminhos
+
+Terreno terá as seguintes cores:
+água: 00FFFF
+campo: 00FF00
+floresta: 006600
+montanha: 666666
+
+Terrreno lembrado terá as seguintes cores:
+água: CCFFFF
+campo: CCFFCC
+floresta: 00CC00
+montanha: CCCCCC

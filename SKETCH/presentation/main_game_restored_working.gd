@@ -37,10 +37,18 @@ const PATH_THICKNESS = 13.3  # Reduced 3x from 40.0
 const HEX_SIZE = 40.0  # From game constants
 const DOMAIN_RADIUS = HEX_SIZE * 2.0  # Radius so center-to-side distance equals path length
 const TERRAIN_COLORS = {
-	"FIELD": Color(0.0, 1.0, 0.0),
-	"FOREST": Color(0.0, 0.5, 0.0),
-	"MOUNTAIN": Color(0.5, 0.5, 0.0),
-	"WATER": Color(0.0, 0.5, 0.5)
+	"FIELD": Color(0.0, 1.0, 0.0),      # 00FF00 - bright green
+	"FOREST": Color(0.0, 0.4, 0.0),     # 006600 - dark green
+	"MOUNTAIN": Color(0.4, 0.4, 0.4),   # 666666 - gray
+	"WATER": Color(0.0, 1.0, 1.0)       # 00FFFF - cyan
+}
+
+# Remembered terrain colors (lighter versions)
+const REMEMBERED_TERRAIN_COLORS = {
+	"FIELD": Color(0.8, 1.0, 0.8),      # CCFFCC - light green
+	"FOREST": Color(0.0, 0.8, 0.0),     # 00CC00 - medium green
+	"MOUNTAIN": Color(0.8, 0.8, 0.8),   # CCCCCC - light gray
+	"WATER": Color(0.8, 1.0, 1.0)       # CCFFFF - light cyan
 }
 
 # UI state
@@ -415,16 +423,17 @@ func _apply_reverse_board_rotation(pos: Vector2) -> Vector2:
 	)
 	return rotated + center
 
-func _get_restored_terrain_color(terrain_type: int) -> Color:
+func _get_restored_terrain_color(terrain_type: int, is_remembered: bool = false) -> Color:
+	var color_set = REMEMBERED_TERRAIN_COLORS if is_remembered else TERRAIN_COLORS
 	match terrain_type:
 		0:  # FIELD
-			return TERRAIN_COLORS["FIELD"]
+			return color_set["FIELD"]
 		1:  # FOREST
-			return TERRAIN_COLORS["FOREST"]
+			return color_set["FOREST"]
 		2:  # MOUNTAIN
-			return TERRAIN_COLORS["MOUNTAIN"]
+			return color_set["MOUNTAIN"]
 		3:  # WATER
-			return TERRAIN_COLORS["WATER"]
+			return color_set["WATER"]
 		_:
 			return Color.GRAY
 
@@ -690,11 +699,7 @@ func _render_grid_restored(hover_state: Dictionary):
 			var point_b = game_state.grid.points[edge.point_b_id]
 			
 			# Get terrain color from restored palette
-			var terrain_color = _get_restored_terrain_color(edge.get("terrain_type", 0))
-			
-			# Make remembered terrain whitish (moderate blend)
-			if is_remembered and not is_visible:
-				terrain_color = terrain_color.lerp(Color.WHITE, 0.45)  # Blend 45% with white
+			var terrain_color = _get_restored_terrain_color(edge.get("terrain_type", 0), is_remembered and not is_visible)
 			
 			# Draw diamond-shaped path instead of line
 			_draw_diamond_path(
@@ -721,9 +726,9 @@ func _render_grid_restored(hover_state: Dictionary):
 			# Draw 6-pointed white star instead of circle
 			var star_color = Color.WHITE
 			
-			# Make remembered terrain whitish (moderate blend)
+			# Make remembered points slightly grayed
 			if is_remembered and not is_visible:
-				star_color = star_color.lerp(Color.GRAY, 0.45)  # Blend with gray for remembered
+				star_color = Color.LIGHT_GRAY
 			
 			_draw_six_pointed_star(_apply_board_rotation(point.position.pixel_pos), 8.0, star_color)
 

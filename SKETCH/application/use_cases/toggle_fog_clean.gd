@@ -320,12 +320,15 @@ static func _is_position_visible_to_player(position, player_id: int, game_state:
 	if not ("units" in game_state and "domains" in game_state and "grid" in game_state):
 		return false
 	
-	# Check visibility from player's units (ONLY 6 adjacent points, NOT own position)
+	# Check visibility from player's units (7 points: own position + 6 adjacent)
 	for unit_id in game_state.units:
 		var unit = game_state.units[unit_id]
 		if unit.owner_id == player_id:
-			# Unit can see ONLY 6 adjacent hexes (NOT its own position)
-			if unit.position.is_within_distance(position, 1) and not unit.position.equals(position):
+			# Unit can see its own position AND 6 adjacent hexes (7 total)
+			if unit.position.equals(position):
+				# Unit can always see its own position
+				return true
+			elif unit.position.is_within_distance(position, 1):
 				# Check if vision is blocked by terrain (mountains/forests)
 				if not _is_vision_blocked_by_terrain(unit.position, position, game_state):
 					return true
@@ -356,13 +359,17 @@ static func _is_edge_visible_to_player(edge, player_id: int, game_state: Diction
 	if not (point_a and point_b):
 		return false
 	
-	# Check if this edge is visible from units (6 paths leading to adjacent points)
+	# Check if this edge is visible from units (6 paths from unit position + paths within unit's visibility)
 	for unit_id in game_state.units:
 		var unit = game_state.units[unit_id]
 		if unit.owner_id == player_id:
 			# Edge is visible if it connects unit's position to an adjacent point
 			if (unit.position.equals(point_a.position) and unit.position.is_within_distance(point_b.position, 1)) or \
 			   (unit.position.equals(point_b.position) and unit.position.is_within_distance(point_a.position, 1)):
+				return true
+			# Edge is also visible if both endpoints are visible to the unit
+			if _is_position_visible_to_player(point_a.position, player_id, game_state) and \
+			   _is_position_visible_to_player(point_b.position, player_id, game_state):
 				return true
 	
 	# Check if this edge is visible from domains (12 internal paths)
