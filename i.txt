@@ -1,13 +1,11 @@
-Bug identificado: a visibilidade das unidades é apenas as seis estrelas ao seu redor. Adicione a estrela que a unidade habita como parte de sua visibilidade. Assim no total a visibilidade será de 7 estrelas e 6 caminhos
+Interessaante sua analise ds domínios novos. Vou te dizer o que os domínios farão no futuro e com base nisso tu me dirá amelhor abordagem:
+- adicionarão estrututras nos losangos que o compõem, como pomares e aldeias
+- se conectarão cm outros domínios através de estradas
+- terão visibilidade dinâmica a depender de determinadas situações
+- poderão ser dominados por oponentes
+- novos domínios poderão ser criados em locais vazios do mapa
+- se um de seus 7 pontos for avistado, a área do domínio é visível
+Baseado nisso, o que tu sugere que façamos?
 
-Terreno terá as seguintes cores:
-água: 00FFFF
-campo: 00FF00
-floresta: 006600
-montanha: 666666
-
-Terrreno lembrado terá as seguintes cores:
-água: CCFFFF
-campo: CCFFCC
-floresta: 00CC00
-montanha: CCCCCC
+Remova as cores especiais para terreno lembrado e substitua pelas cores de terreno comum, porém com um leve escurecimento.
+Aplique um blur intenso em cima deles também
