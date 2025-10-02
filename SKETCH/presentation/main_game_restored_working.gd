@@ -35,7 +35,7 @@ var debug_enabled: bool = true
 const BOARD_ROTATION = 30.0
 const PATH_THICKNESS = 13.3  # Reduced 3x from 40.0
 const HEX_SIZE = 40.0  # From game constants
-const DOMAIN_RADIUS = HEX_SIZE * sqrt(3.0)  # Mathematically accurate 1 hex distance
+const DOMAIN_RADIUS = HEX_SIZE * 2.0  # Radius so center-to-side distance equals path length
 const TERRAIN_COLORS = {
 	"FIELD": Color(0.0, 1.0, 0.0),
 	"FOREST": Color(0.0, 0.5, 0.0),
@@ -516,8 +516,8 @@ func _render_domains(fog_settings: Dictionary):
 			var player = game_state.players[domain.owner_id]
 			var color = player.color
 			
-			# RESTORED: Hexagonal domains with outline only (no fill) - mathematically 1 hex radius
-			_draw_hexagon_outline(center_pos, DOMAIN_RADIUS, color, 4.0)
+			# UPDATED: Hexagonal domains with thick dashed outline, rotated 30°
+			_draw_hexagon_dashed_outline(center_pos, DOMAIN_RADIUS, color, 6.0)
 			
 			# Draw domain info below the domain (bold and italic)
 			var font = ThemeDB.fallback_font
@@ -557,6 +557,101 @@ func _draw_bold_italic_text(font: Font, position: Vector2, text: String, size: i
 	
 	# Draw main text with slight italic slant
 	draw_string(font, centered_pos + Vector2(1, -1), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
+
+# Draw diamond-shaped path between two points
+func _draw_diamond_path(start_pos: Vector2, end_pos: Vector2, color: Color, thickness: float) -> void:
+	# Calculate path direction and perpendicular
+	var direction = (end_pos - start_pos).normalized()
+	var perpendicular = Vector2(-direction.y, direction.x)
+	
+	# Calculate diamond dimensions (width slightly more than half for better mesh)
+	var path_length = start_pos.distance_to(end_pos)
+	var diamond_width = path_length * 0.6  # Width is 60% of length for slightly thicker diamonds
+	var diamond_length = path_length  # Length spans the entire path
+	
+	# Calculate diamond vertices
+	# Acute angles at the tips (sharp points)
+	# Obtuse angles at the sides (wide angles)
+	var center = (start_pos + end_pos) / 2
+	
+	# Diamond vertices: acute tips at start/end, obtuse sides
+	var tip_start = start_pos  # Acute vertex (sharp)
+	var tip_end = end_pos      # Acute vertex (sharp)
+	var side_top = center + perpendicular * (diamond_width / 2)    # Obtuse vertex
+	var side_bottom = center - perpendicular * (diamond_width / 2) # Obtuse vertex
+	
+	# Create diamond polygon
+	var diamond_points = PackedVector2Array([
+		tip_start,    # Acute tip
+		side_top,     # Obtuse side
+		tip_end,      # Acute tip
+		side_bottom   # Obtuse side
+	])
+	
+	# Draw filled diamond
+	draw_colored_polygon(diamond_points, color)
+
+# Draw hexagon with dashed outline and 30° rotation
+func _draw_hexagon_dashed_outline(center: Vector2, radius: float, color: Color, width: float):
+	var points = []
+	# Add 30° rotation (PI/6 radians) to each angle
+	var rotation_offset = PI / 6.0
+	for i in range(6):
+		var angle = i * PI / 3.0 + rotation_offset
+		var point = center + Vector2(cos(angle), sin(angle)) * radius
+		points.append(point)
+	
+	# Draw dashed lines between points
+	for i in range(6):
+		var start_point = points[i]
+		var end_point = points[(i + 1) % 6]
+		_draw_dashed_line(start_point, end_point, color, width)
+
+# Draw dashed line between two points
+func _draw_dashed_line(start: Vector2, end: Vector2, color: Color, width: float):
+	var direction = end - start
+	var length = direction.length()
+	var normalized_dir = direction.normalized()
+	
+	# Dash parameters
+	var dash_length = 8.0
+	var gap_length = 4.0
+	var segment_length = dash_length + gap_length
+	
+	var current_pos = 0.0
+	while current_pos < length:
+		var dash_start = start + normalized_dir * current_pos
+		var dash_end_pos = min(current_pos + dash_length, length)
+		var dash_end = start + normalized_dir * dash_end_pos
+		
+		# Draw dash segment
+		draw_line(dash_start, dash_end, color, width)
+		
+		current_pos += segment_length
+
+# Draw 6-pointed star (Star of David) rotated 30 degrees
+func _draw_six_pointed_star(center: Vector2, radius: float, color: Color) -> void:
+	# Create two overlapping triangles to form a 6-pointed star
+	# Add 30 degree rotation (PI/6 radians)
+	var rotation_offset = PI / 6.0
+	
+	# First triangle (pointing up, rotated 30°)
+	var triangle1_points = PackedVector2Array()
+	for i in range(3):
+		var angle = i * (2 * PI / 3) - PI / 2 + rotation_offset
+		var point = center + Vector2(cos(angle), sin(angle)) * radius
+		triangle1_points.append(point)
+	
+	# Second triangle (pointing down, rotated 30°)
+	var triangle2_points = PackedVector2Array()
+	for i in range(3):
+		var angle = i * (2 * PI / 3) + PI / 2 + rotation_offset
+		var point = center + Vector2(cos(angle), sin(angle)) * radius
+		triangle2_points.append(point)
+	
+	# Draw both triangles
+	draw_colored_polygon(triangle1_points, color)
+	draw_colored_polygon(triangle2_points, color)
 
 func _draw_hexagon_outline(center: Vector2, radius: float, color: Color, width: float):
 	var points = []
@@ -601,7 +696,8 @@ func _render_grid_restored(hover_state: Dictionary):
 			if is_remembered and not is_visible:
 				terrain_color = terrain_color.lerp(Color.WHITE, 0.45)  # Blend 45% with white
 			
-			draw_line(
+			# Draw diamond-shaped path instead of line
+			_draw_diamond_path(
 				_apply_board_rotation(point_a.position.pixel_pos),
 				_apply_board_rotation(point_b.position.pixel_pos),
 				terrain_color,
@@ -622,13 +718,14 @@ func _render_grid_restored(hover_state: Dictionary):
 				is_remembered = ToggleFogUseCase.is_remembered_by_player("point", point_id, current_player_id, game_state)
 		
 		if is_visible or is_remembered:
-			var color = Color.RED if point.get("is_corner", false) else Color.BLACK
+			# Draw 6-pointed white star instead of circle
+			var star_color = Color.WHITE
 			
 			# Make remembered terrain whitish (moderate blend)
 			if is_remembered and not is_visible:
-				color = color.lerp(Color.WHITE, 0.45)  # Blend 45% with white
+				star_color = star_color.lerp(Color.GRAY, 0.45)  # Blend with gray for remembered
 			
-			draw_circle(_apply_board_rotation(point.position.pixel_pos), 8.0, color)
+			_draw_six_pointed_star(_apply_board_rotation(point.position.pixel_pos), 8.0, star_color)
 
 func _render_main_ui():
 	var font = ThemeDB.fallback_font
@@ -869,9 +966,14 @@ func _render_units_with_fog(fog_settings: Dictionary, hover_state: Dictionary, f
 				# Unit has no actions - make emoji whitish
 				emoji_color = unit_color.lerp(Color.WHITE, 0.7)  # Blend with white
 			
-			# Draw emoji with team color - let's try the direct approach
-			# Some fonts/systems may support color tinting of emojis
-			draw_string(font, pos + Vector2(-12, 0), "🚶", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, emoji_color)
+			# Draw emoji with team color - try multiple approaches for tinting
+			# Approach 1: Direct color parameter
+			draw_string(font, pos + Vector2(-12, 0), "🚶🏻‍♀️", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, emoji_color)
+			
+			# Approach 2: Draw colored circle behind emoji for tinting effect
+			if emoji_color != Color.WHITE:
+				draw_circle(pos, 14.0, Color(emoji_color.r, emoji_color.g, emoji_color.b, 0.3))
+				draw_string(font, pos + Vector2(-12, 0), "🚶🏻‍♀️", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, Color.WHITE)
 			
 			# Unit name below the unit (bold and italic) - moved more up
 			var unit_name_pos = pos + Vector2(0, 15)

@@ -19,6 +19,15 @@ echo - ✅ Names below units and domains (bold AND ITALIC)
 echo - ✅ Adjusted positions (units more up, domains more down)
 echo - ✅ Properly centered text (calculated positioning)
 echo - ✅ Removed yellow selection circle and white borders
+echo - ✅ Blue team changed to purple (#8000FF)
+echo - ✅ Diamond-shaped paths (acute tips, obtuse sides)
+echo - ✅ Perfect mesh diamonds (width = half length)
+echo - ✅ Female walking emoji (🚶🏻‍♀️)
+echo - ✅ Thick dashed domain outlines (30° rotated)
+echo - ✅ Domain radius adjusted (center-to-side = path length)
+echo - ✅ White 6-pointed stars for grid points (30° rotated)
+echo - ✅ Slightly thicker diamonds (60%% width)
+echo - ✅ Enhanced emoji tinting (dual approach)
 echo - ✅ Domain name SPACE star power (same line)
 echo - ✅ Smart deselection system
 echo.

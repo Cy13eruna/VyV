@@ -74,7 +74,7 @@ func deactivate() -> void:
 static func get_default_color(player_id: int) -> Color:
 	var colors = [
 		Color.RED,
-		Color.BLUE, 
+		Color(0.5, 0.0, 1.0),  # Purple (#8000FF)
 		Color.GREEN,
 		Color.YELLOW,
 		Color.PURPLE,
