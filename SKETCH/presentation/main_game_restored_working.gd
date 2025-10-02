@@ -255,7 +255,20 @@ func _on_point_clicked(point_id: int):
 	else:
 		# No unit at point - try to move selected unit here
 		if selected_unit_id != -1:
-			_attempt_unit_movement(target_position)
+			# Check if target position is a valid movement target
+			var is_valid_target = false
+			for valid_target in valid_movement_targets:
+				if valid_target.equals(target_position):
+					is_valid_target = true
+					break
+			
+			if is_valid_target:
+				_attempt_unit_movement(target_position)
+			else:
+				# Clicked outside valid targets - deselect unit
+				print("❌ Clicked outside valid targets - deselecting unit")
+				_clear_selection()
+				queue_redraw()
 
 func _on_point_hovered(point_id: int):
 	queue_redraw()
@@ -506,11 +519,44 @@ func _render_domains(fog_settings: Dictionary):
 			# RESTORED: Hexagonal domains with outline only (no fill) - mathematically 1 hex radius
 			_draw_hexagon_outline(center_pos, DOMAIN_RADIUS, color, 4.0)
 			
-			# Draw domain info (no castle emoji)
+			# Draw domain info below the domain (bold and italic)
 			var font = ThemeDB.fallback_font
 			if font:
-				var info = "%s\nPower: %d" % [domain.name, domain.power]
-				draw_string(font, center_pos + Vector2(-25, -75), info, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, color)
+				# Domain name with space and power on same line - moved more down
+				var domain_info = "%s ⭐%d" % [domain.name, domain.power]
+				var domain_pos = center_pos + Vector2(0, DOMAIN_RADIUS + 25)
+				_draw_bold_italic_text(font, domain_pos, domain_info, 14, color)
+
+# Draw text with bold and italic effect (properly centered)
+func _draw_bold_italic_text(font: Font, position: Vector2, text: String, size: int, color: Color) -> void:
+	# Calculate text size for proper centering
+	var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, size)
+	var centered_pos = position - Vector2(text_size.x / 2, 0)
+	
+	# REAL Italic effect: multiple draws with progressive slant
+	var italic_offsets = [
+		Vector2(0, 0),   # Base
+		Vector2(1, -2),  # Top slant
+		Vector2(2, -4),  # More top slant
+		Vector2(-1, 2),  # Bottom slant
+		Vector2(-2, 4)   # More bottom slant
+	]
+	
+	# Bold effect: multiple draws with slight offsets
+	var bold_offsets = [
+		Vector2(-1, -1), Vector2(0, -1), Vector2(1, -1),
+		Vector2(-1, 0),                   Vector2(1, 0),
+		Vector2(-1, 1),  Vector2(0, 1),  Vector2(1, 1)
+	]
+	
+	# Draw italic slanted versions for italic effect
+	for italic_offset in italic_offsets:
+		# Draw bold outline
+		for bold_offset in bold_offsets:
+			draw_string(font, centered_pos + italic_offset + bold_offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color.BLACK)
+	
+	# Draw main text with slight italic slant
+	draw_string(font, centered_pos + Vector2(1, -1), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
 
 func _draw_hexagon_outline(center: Vector2, radius: float, color: Color, width: float):
 	var points = []
@@ -827,12 +873,11 @@ func _render_units_with_fog(fog_settings: Dictionary, hover_state: Dictionary, f
 			# Some fonts/systems may support color tinting of emojis
 			draw_string(font, pos + Vector2(-12, 0), "🚶", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, emoji_color)
 			
-			# Unit name and info
-			draw_string(font, pos + Vector2(-15, -25), unit.name, HORIZONTAL_ALIGNMENT_CENTER, -1, 10, unit_color)
+			# Unit name below the unit (bold and italic) - moved more up
+			var unit_name_pos = pos + Vector2(0, 15)
+			_draw_bold_italic_text(font, unit_name_pos, unit.name, 12, unit_color)
 			
-			# Selection indicator (adjusted for 2x unit size)
-			if is_selected:
-				draw_arc(pos, 25.0, 0, TAU, 32, Color.YELLOW, 3.0)
+			# Selection indicator removed - no yellow circle
 				
 			# Hover indicator (adjusted for 2x unit size)
 			if is_hovered:
@@ -891,10 +936,9 @@ func _render_movement_targets_with_terrain(font: Font) -> void:
 				target_color = Color.RED
 				border_color = Color.DARK_RED
 		
-		# Draw movement target with rotation
+		# Draw movement target with rotation (no border)
 		var rotated_pos = _apply_board_rotation(pos)
 		draw_circle(rotated_pos, 12.0, Color(target_color.r, target_color.g, target_color.b, 0.6))
-		draw_circle(rotated_pos, 12.0, border_color, false, 2.0)
 		
 		# Draw terrain cost indicator with rotation
 		if terrain_cost > 1 and terrain_cost < 999:

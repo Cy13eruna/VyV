@@ -13,6 +13,14 @@ echo - ✅ Persistent map knowledge (paths stay visible)
 echo - ✅ Forest blocking system (robust revelation pairs)
 echo - ✅ Point-only click system (intuitive interface)
 echo - ✅ Magenta movement targets (no emojis)
+echo - ✅ Unique initial naming system (domains and units)
+echo - ✅ Historical names (Avalon, Babylon, Camelot, etc.)
+echo - ✅ Names below units and domains (bold AND ITALIC)
+echo - ✅ Adjusted positions (units more up, domains more down)
+echo - ✅ Properly centered text (calculated positioning)
+echo - ✅ Removed yellow selection circle and white borders
+echo - ✅ Domain name SPACE star power (same line)
+echo - ✅ Smart deselection system
 echo.
 echo 🎮 CONTROLS:
 echo - Click hex with unit to select, click hex to move

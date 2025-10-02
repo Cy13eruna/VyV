@@ -1,3 +1,1 @@
-As unidades não estão com filtro aplicado como solicitei
-E pare de criar info.bat. Quero apenas um .bat
-
+Altere a cor do time azul para roxo (8000FF)
