@@ -18,12 +18,13 @@ const InputManager = preload("res://infrastructure/input/input_manager_clean.gd"
 const GridRenderer = preload("res://infrastructure/rendering/grid_renderer_clean.gd")
 const UnitRenderer = preload("res://infrastructure/rendering/unit_renderer_clean.gd")
 const GameState = preload("res://infrastructure/persistence/game_state_clean.gd")
-const SimpleCommandManager = preload("res://infrastructure/commands/simple_command_manager.gd")
+# Simple command manager removed during cleanup
+# const SimpleCommandManager = preload("res://infrastructure/commands/simple_command_manager.gd")
 
 # Game state and systems
 var game_state: Dictionary = {}
 var input_manager
-var command_manager
+# var command_manager  # Removed during cleanup
 var selected_unit_id: int = -1
 var valid_movement_targets: Array = []
 var game_over: bool = false
@@ -32,7 +33,7 @@ var winner_player = null
 # UI state
 var show_debug_info: bool = false
 var show_grid_stats: bool = false
-var show_command_history: bool = false
+# var show_command_history: bool = false  # Removed during cleanup
 
 func _ready():
 	print("=== 🎮 V&V SIMPLE FINAL GAME STARTING 🎮 ===")
@@ -40,7 +41,7 @@ func _ready():
 	print("📊 All Technical Systems Integrated")
 	print("==================================================")
 	
-	setup_command_system()
+	# setup_command_system()  # Removed during cleanup
 	setup_final_game()
 	setup_complete_input_system()
 	
@@ -49,20 +50,21 @@ func _ready():
 	print("⌨️  SPACE: Toggle fog | ENTER: Skip turn | F1: Debug info")
 	print("🔄 CTRL+Z: Undo | CTRL+Y: Redo | F5: Command History")
 
-func setup_command_system():
-	print("📚 Setting up command system...")
-	
-	# Initialize simple command manager
-	command_manager = SimpleCommandManager.new()
-	
-	# Connect command events
-	if command_manager:
-		command_manager.command_executed.connect(_on_command_executed)
-		command_manager.command_undone.connect(_on_command_undone)
-		command_manager.command_redone.connect(_on_command_redone)
-		command_manager.history_changed.connect(_on_command_history_changed)
-	
-	print("✅ Command system ready")
+# Command system removed during cleanup
+# func setup_command_system():
+#	print("📚 Setting up command system...")
+#	
+#	# Initialize simple command manager
+#	command_manager = SimpleCommandManager.new()
+#	
+#	# Connect command events
+#	if command_manager:
+#		command_manager.command_executed.connect(_on_command_executed)
+#		command_manager.command_undone.connect(_on_command_undone)
+#		command_manager.command_redone.connect(_on_command_redone)
+#		command_manager.history_changed.connect(_on_command_history_changed)
+#	
+#	print("✅ Command system ready")
 
 func setup_final_game():
 	print("🎲 Initializing complete game with all features...")
@@ -147,14 +149,14 @@ func _unhandled_input(event):
 	
 	# Handle debug keys and command shortcuts
 	if event is InputEventKey and event.pressed:
-		# Handle undo/redo shortcuts
-		if event.ctrl_pressed:
-			match event.keycode:
-				KEY_Z:
-					_undo_last_command()
-				KEY_Y:
-					_redo_next_command()
-			return
+		# Undo/redo shortcuts removed during cleanup
+		# if event.ctrl_pressed:
+		#	match event.keycode:
+		#		KEY_Z:
+		#			_undo_last_command()
+		#		KEY_Y:
+		#			_redo_next_command()
+		#	return
 		
 		# Handle function keys
 		match event.keycode:
@@ -168,9 +170,9 @@ func _unhandled_input(event):
 				_save_game_state()
 			KEY_F4:
 				_load_game_state()
-			KEY_F5:
-				show_command_history = not show_command_history
-				queue_redraw()
+			# KEY_F5:
+			#	show_command_history = not show_command_history
+			#	queue_redraw()
 	
 	# Use InputManager for game input
 	input_manager.handle_input_event(event, game_state.grid, game_state.units)
@@ -215,48 +217,25 @@ func _on_unit_unhovered(unit_id: int):
 	queue_redraw()
 
 func _on_fog_toggle():
-	# Create and execute fog toggle command
-	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
-	if not current_player:
-		return
-	
-	if not command_manager:
-		print("❌ Command manager not available")
-		return
-	
-	var result = command_manager.execute_command("TOGGLE_FOG", current_player.id, {}, game_state)
-	
-	if result.success:
-		print("👁️ Fog toggled successfully")
+	# Use fog toggle use case directly
+	var fog_result = ToggleFogUseCase.execute(game_state)
+	if fog_result.success:
+		print("👁️ %s" % fog_result.message)
 	else:
-		print("❌ %s" % result.message)
-	
+		print("❌ %s" % fog_result.message)
 	queue_redraw()
 
 func _on_skip_turn():
-	# Create and execute skip turn command
-	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
-	if not current_player:
-		return
-	
-	if not command_manager:
-		print("❌ Command manager not available")
-		return
-	
-	var result = command_manager.execute_command("SKIP_TURN", current_player.id, {}, game_state)
-	
-	if result.success:
-		print("⏭️ Turn skipped successfully")
-		# Check for game over from command result
-		if "game_ended" in result.state_changes and result.state_changes.game_ended:
+	# Use skip turn use case directly
+	var skip_result = SkipTurnUseCase.execute(game_state)
+	if skip_result.success:
+		print("⏭️ %s" % skip_result.message)
+		if skip_result.game_over:
 			game_over = true
-			if "winner" in result.state_changes and result.state_changes.winner:
-				winner_player = result.state_changes.winner
-				print("🏆 GAME OVER! Winner: %s" % winner_player.name)
-			else:
-				print("🏆 GAME OVER! Draw!")
+			winner_player = skip_result.winner
+			print("🏆 GAME OVER! Winner: %s" % (winner_player.name if winner_player else "Draw"))
 	else:
-		print("❌ %s" % result.message)
+		print("❌ %s" % skip_result.message)
 	
 	_clear_selection()
 	queue_redraw()
@@ -279,28 +258,16 @@ func _attempt_move_unit(target_position):
 	if selected_unit_id == -1:
 		return
 	
-	# Get current player
-	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
-	if not current_player:
-		return
+	# Use move unit use case directly
+	var move_result = MoveUnitUseCase.execute(selected_unit_id, target_position, game_state)
 	
-	# Create and execute move command
-	if not command_manager:
-		print("❌ Command manager not available")
-		return
-	
-	var move_data = {"unit_id": selected_unit_id, "target_position": target_position}
-	var result = command_manager.execute_command("MOVE_UNIT", current_player.id, move_data, game_state)
-	
-	if result.success:
-		print("✅ Unit moved successfully")
-		if "power_consumed" in result.state_changes and result.state_changes.power_consumed:
+	if move_result.success:
+		print("✅ Unit moved successfully!")
+		if move_result.power_consumed:
 			print("⚡ Power consumed")
-		if "turn_advanced" in result.state_changes and result.state_changes.turn_advanced:
-			print("🔄 Turn advanced")
 		_clear_selection()
 	else:
-		print("❌ %s" % result.message)
+		print("❌ %s" % move_result.message)
 	
 	queue_redraw()
 
@@ -308,65 +275,13 @@ func _clear_selection():
 	selected_unit_id = -1
 	valid_movement_targets.clear()
 
-# Command system methods
-func _undo_last_command():
-	if not command_manager:
-		print("❌ Command manager not available")
-		return
-	
-	print("DEBUG: Attempting undo - Can undo: %s, Stats: %s" % [command_manager.can_undo(), command_manager.get_stats()])
-	
-	if not command_manager.can_undo():
-		print("⚠️ Nothing to undo - Stats: %s" % command_manager.get_stats())
-		return
-	
-	var result = command_manager.undo_last_command(game_state)
-	if result.success:
-		print("⬅️ Command undone successfully")
-		_clear_selection()
-		queue_redraw()
-	else:
-		print("❌ Undo failed: %s" % result.message)
-
-func _redo_next_command():
-	if not command_manager:
-		print("❌ Command manager not available")
-		return
-	
-	if not command_manager.can_redo():
-		print("⚠️ Nothing to redo")
-		return
-	
-	var result = command_manager.redo_next_command(game_state)
-	if result.success:
-		print("➡️ Command redone successfully")
-		_clear_selection()
-		queue_redraw()
-	else:
-		print("❌ Redo failed: %s" % result.message)
-
-# Command event handlers
-func _on_command_executed(command):
-	if command and command.has_method("get_summary"):
-		print("📝 Command executed: %s" % command.get_summary())
-	else:
-		print("📝 Command executed")
-
-func _on_command_undone(command):
-	if command and command.has_method("get_summary"):
-		print("⬅️ Command undone: %s" % command.get_summary())
-	else:
-		print("⬅️ Command undone")
-
-func _on_command_redone(command):
-	if command and command.has_method("get_summary"):
-		print("➡️ Command redone: %s" % command.get_summary())
-	else:
-		print("➡️ Command redone")
-
-func _on_command_history_changed():
-	# Update UI if needed
-	pass
+# Command system methods removed during cleanup
+# func _undo_last_command():
+# func _redo_next_command():
+# func _on_command_executed(command):
+# func _on_command_undone(command):
+# func _on_command_redone(command):
+# func _on_command_history_changed():
 
 # Save/Load functionality
 func _save_game_state():
@@ -405,7 +320,7 @@ func _draw():
 	# Render UI layers
 	_render_main_ui()
 	_render_debug_ui()
-	_render_command_history_ui()
+	# _render_command_history_ui()  # Removed during cleanup
 
 func _render_domains(fog_settings: Dictionary):
 	if not ("domains" in game_state):
@@ -519,10 +434,7 @@ func _render_debug_ui():
 		"F2: Grid Stats | F3: Save | F4: Load",
 		"F5: Command History",
 		"",
-		"🔄 COMMANDS:",
-		"Can Undo: %s" % ("YES" if command_manager and command_manager.can_undo() else "NO"),
-		"Can Redo: %s" % ("YES" if command_manager and command_manager.can_redo() else "NO"),
-		"History: %d commands" % (command_manager.get_stats().total_commands if command_manager else 0)
+		"🔄 COMMANDS: Disabled"
 	]
 	
 	for i in range(debug_info.size()):
@@ -534,47 +446,7 @@ func _render_debug_ui():
 	if show_grid_stats:
 		GridRenderer.render_grid_stats(self, game_state.grid, Vector2(760, 250), font)
 
-func _render_command_history_ui():
-	if not show_command_history or not command_manager:
-		return
-	
-	var font = ThemeDB.fallback_font
-	if not font:
-		return
-	
-	# Command history panel
-	var history_rect = Rect2(10, 200, 400, 300)
-	draw_rect(history_rect, Color(0, 0, 0, 0.9))
-	draw_rect(history_rect, Color.YELLOW, false, 2.0)
-	
-	# Title
-	draw_string(font, Vector2(20, 220), "📚 COMMAND HISTORY", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.YELLOW)
-	
-	# Command stats
-	var stats = command_manager.get_stats()
-	var stats_text = "Total: %d | Executed: %d | Can Undo: %s | Can Redo: %s" % [
-		stats.total_commands, stats.executed_commands,
-		"YES" if stats.can_undo else "NO", "YES" if stats.can_redo else "NO"
-	]
-	draw_string(font, Vector2(20, 240), stats_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.WHITE)
-	
-	# Command history
-	var history = command_manager.get_history_summary()
-	var y_offset = 260
-	var max_commands = 15  # Show last 15 commands
-	
-	var start_index = max(0, history.size() - max_commands)
-	for i in range(start_index, history.size()):
-		var cmd = history[i]
-		var is_current = cmd.executed
-		var color = Color.GREEN if is_current else Color.GRAY
-		
-		var cmd_text = "%d. %s" % [cmd.index + 1, cmd.command]
-		draw_string(font, Vector2(30, y_offset), cmd_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 9, color)
-		y_offset += 12
-	
-		if y_offset > 480:  # Don't overflow panel
-			break
-	
-	# Instructions
-	draw_string(font, Vector2(20, 485), "CTRL+Z: Undo | CTRL+Y: Redo | F5: Toggle", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.LIGHT_GRAY)
+# Command history UI removed during cleanup
+# func _render_command_history_ui():
+#	if not show_command_history or not command_manager:
+#		return

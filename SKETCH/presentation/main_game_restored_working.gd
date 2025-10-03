@@ -9,7 +9,7 @@ const InitializeGameUseCase = preload("res://application/use_cases/initialize_ga
 const MoveUnitUseCase = preload("res://application/use_cases/move_unit_clean.gd")
 const SkipTurnUseCase = preload("res://application/use_cases/skip_turn_clean.gd")
 const ToggleFogUseCase = preload("res://application/use_cases/toggle_fog_clean.gd")
-const BuildStructureUseCase = preload("res://application/use_cases/build_structure.gd")
+# Build structure functionality removed during cleanup
 
 const TurnService = preload("res://application/services/turn_service_clean.gd")
 const MovementService = preload("res://application/services/movement_service_clean.gd")
@@ -29,11 +29,11 @@ var valid_movement_targets: Array = []
 var game_over: bool = false
 var winner_player = null
 
-# NEW: Structure building system
-var build_mode: bool = false
-var selected_structure_type: int = 0
-var buildable_edges: Array = []
-var hovered_edge_id: int = -1
+# Structure building system removed during cleanup
+# var build_mode: bool = false
+# var selected_structure_type: int = 0
+# var buildable_edges: Array = []
+# var hovered_edge_id: int = -1
 
 # Debug system (simple)
 var debug_enabled: bool = true
@@ -308,15 +308,15 @@ func _unhandled_input(event):
 			KEY_ENTER:
 				# RESTORED: Manual skip turn only
 				_on_skip_turn()
-			KEY_B:
-				# Toggle build mode
-				_toggle_build_mode()
-			KEY_1, KEY_2, KEY_3, KEY_4, KEY_5:
-				# Select structure type in build mode
-				if build_mode:
-					selected_structure_type = event.keycode - KEY_1
-					_update_buildable_edges()
-					queue_redraw()
+			# KEY_B:
+				# Toggle build mode - DISABLED
+				# _toggle_build_mode()
+			# KEY_1, KEY_2, KEY_3, KEY_4, KEY_5:
+				# Select structure type in build mode - DISABLED
+				# if build_mode:
+				#	selected_structure_type = event.keycode - KEY_1
+				#	_update_buildable_edges()
+				#	queue_redraw()
 	
 	# Use InputManager for game input with rotation correction
 	if event is InputEventMouseButton and event.pressed:
@@ -338,10 +338,10 @@ func _on_point_clicked(point_id: int):
 	if game_over:
 		return
 	
-	# Handle build mode clicks
-	if build_mode:
-		_handle_build_mode_click(point_id)
-		return
+	# Handle build mode clicks - DISABLED
+	# if build_mode:
+	#	_handle_build_mode_click(point_id)
+	#	return
 	
 	# Get point position
 	var point = game_state.grid.points.get(point_id)
@@ -424,69 +424,25 @@ func _on_quit_game():
 	print("👋 Game quit requested")
 	get_tree().quit()
 
-# NEW: Structure building functions (TEMPORARILY DISABLED)
-func _toggle_build_mode():
-	print("🏗️ Build mode temporarily disabled - domains need internal structure implementation")
-	return
-	
-	build_mode = not build_mode
-	if build_mode:
-		_clear_selection()  # Clear unit selection when entering build mode
-		_update_buildable_edges()
-		print("🏗️ Build mode ON - Press 1-5 to select structure type, B to exit")
-	else:
-		buildable_edges.clear()
-		print("🏗️ Build mode OFF")
-	queue_redraw()
+# Structure building functions removed during cleanup
+# func _toggle_build_mode():
+#	print("🏗️ Build mode temporarily disabled - domains need internal structure implementation")
+#	return
 
-func _update_buildable_edges():
-	if not build_mode:
-		return
-	
-	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
-	if not current_player:
-		return
-	
-	var locations = BuildStructureUseCase.get_buildable_locations(current_player.id, game_state)
-	if locations.success:
-		buildable_edges = locations.buildable_edges
-		print("🏗️ Found %d buildable locations" % buildable_edges.size())
-	else:
-		buildable_edges.clear()
-		print("❌ %s" % locations.message)
+# func _update_buildable_edges():
+#	if not build_mode:
+#		return
 
-func _attempt_structure_build(edge_id: int):
-	if not build_mode or edge_id not in buildable_edges:
-		return
-	
-	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
-	if not current_player:
-		return
-	
-	var build_result = BuildStructureUseCase.execute(current_player.id, selected_structure_type, edge_id, game_state)
-	
-	if build_result.success:
-		print("✅ %s" % build_result.message)
-		_update_buildable_edges()  # Refresh buildable locations
-	else:
-		print("❌ %s" % build_result.message)
-	
-	queue_redraw()
+# func _attempt_structure_build(edge_id: int):
+#	if not build_mode or edge_id not in buildable_edges:
+#		return
 
-func _handle_build_mode_click(point_id: int):
-	# In build mode, we need to find edges connected to this point
-	# and check if any are buildable
-	var point = game_state.grid.points.get(point_id)
-	if not point:
-		return
-	
-	# Find edges connected to this point that are buildable
-	for edge_id in point.connected_edges:
-		if edge_id in buildable_edges:
-			_attempt_structure_build(edge_id)
-			return
-	
-	print("❌ No buildable edges at this location")
+# func _handle_build_mode_click(point_id: int):
+#	# In build mode, we need to find edges connected to this point
+#	# and check if any are buildable
+#	var point = game_state.grid.points.get(point_id)
+#	if not point:
+#		return
 
 # NEW: Test domain visibility logic
 func _test_domain_visibility():
@@ -824,9 +780,9 @@ func _draw():
 	# Render units using UnitRenderer with fog settings
 	_render_units_with_fog(fog_settings, hover_state, font)
 	
-	# NEW: Render build mode indicators
-	if build_mode:
-		_render_build_mode(font)
+	# Build mode rendering disabled
+	# if build_mode:
+	#	_render_build_mode(font)
 	
 	# Render UI layers
 	_render_main_ui()
@@ -1308,7 +1264,7 @@ func _render_grid_points(hover_state: Dictionary):
 			# Visible: White star
 			star_color = Color.WHITE
 		elif is_remembered:
-			# Remembered: Black star (not transparent)
+			# Remembered: Black star
 			star_color = Color.BLACK
 		elif is_hidden:
 			# Hidden/Undiscovered: Black placeholder star
@@ -1380,7 +1336,7 @@ func _render_main_ui():
 	draw_rect(controls_rect, Color(0, 0, 0, 0.7))
 	
 	var controls = [
-		"🎮 CONTROLS: Click unit → Click position | SPACE: Fog | ENTER: Skip | B: Build | F1: Debug",
+		"🎮 CONTROLS: Click unit → Click position | SPACE: Fog | ENTER: Skip | F1: Debug",
 		"🏆 OBJECTIVE: Eliminate all enemy units to win! | 🔍 F9: Test | 🔎 F10: Detail | 🔧 F11: Debug"
 	]
 	
@@ -1727,64 +1683,25 @@ func _draw_rounded_rect_outline(rect: Rect2, corner_radius: float, color: Color,
 	draw_arc(bottom_right + Vector2(-corner_radius, -corner_radius), corner_radius, 0, PI * 0.5, 8, color, thickness)
 	draw_arc(bottom_left + Vector2(corner_radius, -corner_radius), corner_radius, PI * 0.5, PI, 8, color, thickness)
 
-# NEW: Render build mode indicators
-func _render_build_mode(font: Font) -> void:
-	if not font or not build_mode:
-		return
-	
-	# Highlight buildable edges
-	for edge_id in buildable_edges:
-		if edge_id in game_state.grid.edges:
-			var edge = game_state.grid.edges[edge_id]
-			var point_a = game_state.grid.points[edge.point_a_id]
-			var point_b = game_state.grid.points[edge.point_b_id]
-			
-			# Draw highlighted edge
-			var start_pos = _apply_board_rotation(point_a.position.pixel_pos)
-			var end_pos = _apply_board_rotation(point_b.position.pixel_pos)
-			
-			# Draw thick yellow line to indicate buildable edge
-			draw_line(start_pos, end_pos, Color.YELLOW, 8.0)
-			
-			# Draw structure icon at edge center
-			var center_pos = (start_pos + end_pos) / 2
-			var structure_icon = _get_structure_icon(selected_structure_type)
-			draw_string(font, center_pos + Vector2(-8, 4), structure_icon, HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color.WHITE)
-	
-	# Draw build mode UI
-	var build_panel_rect = Rect2(750, 200, 260, 200)
-	draw_rect(build_panel_rect, Color(0, 0, 0, 0.8))
-	draw_rect(build_panel_rect, Color.YELLOW, false, 2.0)
-	
-	draw_string(font, Vector2(760, 220), "🏗️ BUILD MODE", HORIZONTAL_ALIGNMENT_LEFT, -1, 16, Color.YELLOW)
-	
-	var structure_info = BuildStructureUseCase.get_structure_info()
-	for i in range(structure_info.types.size()):
-		var struct_type = structure_info.types[i]
-		var y_pos = 240 + i * 20
-		var color = Color.YELLOW if i == selected_structure_type else Color.WHITE
-		var prefix = "> " if i == selected_structure_type else "  "
-		
-		var text = "%s%d. %s %s (Cost: %d)" % [prefix, i + 1, struct_type.icon, struct_type.name, struct_type.cost]
-		draw_string(font, Vector2(760, y_pos), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, color)
-	
-	draw_string(font, Vector2(760, 360), "Click on yellow edges to build", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.LIGHT_GRAY)
-	draw_string(font, Vector2(760, 375), "Press B to exit build mode", HORIZONTAL_ALIGNMENT_LEFT, -1, 10, Color.LIGHT_GRAY)
+# Build mode rendering functions removed during cleanup
+# func _render_build_mode(font: Font) -> void:
+#	if not font or not build_mode:
+#		return
 
-func _get_structure_icon(structure_type: int) -> String:
-	match structure_type:
-		0:  # FARM
-			return "🌾"
-		1:  # VILLAGE
-			return "🏠"
-		2:  # FORTRESS
-			return "🏰"
-		3:  # MARKET
-			return "🏪"
-		4:  # TEMPLE
-			return "⛪"
-		_:
-			return "🏗️"
+# func _get_structure_icon(structure_type: int) -> String:
+#	match structure_type:
+#		0:  # FARM
+#			return "🌾"
+#		1:  # VILLAGE
+#			return "🏠"
+#		2:  # FORTRESS
+#			return "🏰"
+#		3:  # MARKET
+#			return "🏪"
+#		4:  # TEMPLE
+#			return "⛪"
+#		_:
+#			return "🏗️"
 
 # Get terrain icon for display
 func _get_terrain_icon(terrain_type: int) -> String:

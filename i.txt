@@ -1,7 +1,19 @@
-Tem algo de errado com a geração de terreno. Corrija as proporções:
-- campo: 6/12
-- água: 2/12
-- montanha: 2/12
-- floresta: 2/12
+Retire a transparencia das estrelas. Retorne ao preto normal
 
-Faça com que as estrelas lembradas não sejam mais transparentes e que sua cor seja preta
+Agora iremos implementar diferentes tamanhos de mapa.
+Dependendo da quantidade de jogadores, teremos diferentes diametros (em estrelas)
+jogadores --> diametro em estrelas:
+2 --> 7
+3 --> 9
+4 --> 13
+6 --> 18
+(não haverá opção 1 e 5)
+A quantidade de jogadores será definida por input no console antes do jogo abrir
+
+Cores de jogadores (escolhidas aleatoriamente):
+- roxo
+- vermelho
+- magenta
+- amarelo
+- ciano
+- verde
