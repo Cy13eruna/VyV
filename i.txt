@@ -1,6 +1,7 @@
-Agora crie as texturas. Ei-las:
-
-campo: vários ponte-e-virgulas (;) de cabeça pra baixo bem juntinhos um dos outros
-montanha: vários ⛰ bem juntinhos um dos outros
-florestas: vários 🌳 bem juntinhos um dos outros
-água: vários 〰 bem juntinhos um dos outros
+- aumente um pouco os domínios
+- remova o tracejado, faça com que os domínios sejam linhas uniformes
+- Reduza o tamanho das estrelas e a intensidade de brilho
+- aumente o blur das texturas
+- estrela no centro do domínio será da cor do mesmo
+- remova a caixa de seleção das unidades. Substitua por um brilho da cor do time do mesmo (brilho por detras do emoji)
+- Limite o número de caracteres de nome de unidade para cinco e crie uma regra que proiba duas unidades terem o mesmo nome

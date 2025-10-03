@@ -42,7 +42,7 @@ var debug_enabled: bool = true
 const BOARD_ROTATION = 30.0
 const PATH_THICKNESS = 13.3  # Reduced 3x from 40.0
 const HEX_SIZE = 40.0  # From game constants
-const DOMAIN_RADIUS = HEX_SIZE * 2.0  # Radius so center-to-side distance equals path length
+const DOMAIN_RADIUS = HEX_SIZE * 1.85  # Increased from 1.7 to 1.85
 const TERRAIN_COLORS = {
 	"FIELD": Color(0.0, 1.0, 0.0),      # 00FF00 - bright green
 	"FOREST": Color(0.0, 0.4, 0.0),     # 006600 - dark green
@@ -808,11 +808,14 @@ func _draw():
 	var hover_state = input_manager.get_hover_state() if input_manager else {}
 	var font = ThemeDB.fallback_font
 	
-	# Render grid with restored style
-	_render_grid_restored(hover_state)
+	# Render grid with restored style (edges only)
+	_render_grid_edges(hover_state)
 	
 	# Render domains
 	_render_domains(fog_settings)
+	
+	# Render grid points (stars) AFTER domains to overlay them
+	_render_grid_points(hover_state)
 	
 	# Render units using UnitRenderer with fog settings
 	_render_units_with_fog(fog_settings, hover_state, font)
@@ -861,8 +864,11 @@ func _render_domains(fog_settings: Dictionary):
 			var player = game_state.players[domain.owner_id]
 			var color = player.color
 			
-			# UPDATED: Hexagonal domains with thick dashed outline, rotated 30°
-			_draw_hexagon_dashed_outline(center_pos, DOMAIN_RADIUS, color, 6.0)
+			# UPDATED: Hexagonal domains with solid outline, rotated 30°
+			_draw_hexagon_solid_outline(center_pos, DOMAIN_RADIUS, color, 6.0)
+			
+			# Draw central star with domain color
+			_draw_six_pointed_star(center_pos, 12.0, color)
 			
 			# Draw domain info below the domain (bold and italic)
 			var font = ThemeDB.fallback_font
@@ -965,28 +971,31 @@ func _draw_emoji_on_diamond(diamond_points: PackedVector2Array, terrain_type: in
 	# Desenhar múltiplos emojis espalhados no diamante
 	var font = ThemeDB.fallback_font
 	if font and emoji_text != "":
-		# Desenhar emoji no centro
-		draw_string(font, center + Vector2(-6, 3), emoji_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, emoji_color)
+		# Desenhar emoji no centro (com blur se lembrado)
+		if is_remembered:
+			_draw_blurred_emoji(font, center + Vector2(-6, 3), emoji_text, 12, emoji_color)
+		else:
+			draw_string(font, center + Vector2(-6, 3), emoji_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, emoji_color)
 		
 		# Desenhar emojis adicionais espalhados
 		if terrain_type == 0:  # FIELD - semicolons espalhados
-			draw_string(font, center + Vector2(-15, -8), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
-			draw_string(font, center + Vector2(10, -5), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
-			draw_string(font, center + Vector2(-8, 12), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
-			draw_string(font, center + Vector2(15, 8), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
+			_draw_emoji_with_blur_check(font, center + Vector2(-15, -8), "؛", 10, emoji_color, is_remembered)
+			_draw_emoji_with_blur_check(font, center + Vector2(10, -5), "؛", 10, emoji_color, is_remembered)
+			_draw_emoji_with_blur_check(font, center + Vector2(-8, 12), "؛", 10, emoji_color, is_remembered)
+			_draw_emoji_with_blur_check(font, center + Vector2(15, 8), "؛", 10, emoji_color, is_remembered)
 		elif terrain_type == 1:  # FOREST - árvores espalhadas
-			draw_string(font, center + Vector2(-12, -6), "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
-			draw_string(font, center + Vector2(8, -3), "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, 8, emoji_color)
-			draw_string(font, center + Vector2(-5, 10), "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, emoji_color)
+			_draw_emoji_with_blur_check(font, center + Vector2(-12, -6), "🌳", 10, emoji_color, is_remembered)
+			_draw_emoji_with_blur_check(font, center + Vector2(8, -3), "🌳", 8, emoji_color, is_remembered)
+			_draw_emoji_with_blur_check(font, center + Vector2(-5, 10), "🌳", 9, emoji_color, is_remembered)
 		elif terrain_type == 2:  # MOUNTAIN - montanhas espalhadas
-			draw_string(font, center + Vector2(-10, -4), "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, emoji_color)
-			draw_string(font, center + Vector2(12, -2), "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, 8, emoji_color)
-			draw_string(font, center + Vector2(-3, 8), "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, 7, emoji_color)
+			_draw_emoji_with_blur_check(font, center + Vector2(-10, -4), "⛰", 9, emoji_color, is_remembered)
+			_draw_emoji_with_blur_check(font, center + Vector2(12, -2), "⛰", 8, emoji_color, is_remembered)
+			_draw_emoji_with_blur_check(font, center + Vector2(-3, 8), "⛰", 7, emoji_color, is_remembered)
 		elif terrain_type == 3:  # WATER - ondas espalhadas
-			draw_string(font, center + Vector2(-14, -6), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
-			draw_string(font, center + Vector2(6, -2), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, emoji_color)
-			draw_string(font, center + Vector2(-8, 8), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 8, emoji_color)
-			draw_string(font, center + Vector2(12, 6), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 7, emoji_color)
+			_draw_emoji_with_blur_check(font, center + Vector2(-14, -6), "〰", 10, emoji_color, is_remembered)
+			_draw_emoji_with_blur_check(font, center + Vector2(6, -2), "〰", 9, emoji_color, is_remembered)
+			_draw_emoji_with_blur_check(font, center + Vector2(-8, 8), "〰", 8, emoji_color, is_remembered)
+			_draw_emoji_with_blur_check(font, center + Vector2(12, 6), "〰", 7, emoji_color, is_remembered)
 
 # Obter emoji para tipo de terreno
 func _get_terrain_emoji(terrain_type: int) -> String:
@@ -1018,26 +1027,44 @@ func _get_terrain_emoji_color(terrain_type: int, is_remembered: bool = false) ->
 		_:
 			base_color = Color.BLACK
 	
-	# Se for terreno lembrado, clarear a cor (50% mais claro)
-	if is_remembered:
-		# Debug: Log color change
-		if debug_enabled and randf() < 0.05:
-			print("[EMOJI] Lightening color for remembered terrain type %d" % terrain_type)
-			print("[EMOJI] Original color: %s" % base_color)
-		
-		# Clareamento mais agressivo (75% em direção ao branco)
-		base_color = Color(
-			base_color.r + (1.0 - base_color.r) * 0.75,
-			base_color.g + (1.0 - base_color.g) * 0.75,
-			base_color.b + (1.0 - base_color.b) * 0.75,
-			base_color.a * 0.6  # Também reduzir opacidade
-		)
-		
-		# Debug: Log new color
-		if debug_enabled and randf() < 0.05:
-			print("[EMOJI] New lightened color: %s" % base_color)
+	# Emojis mantêm cor original mesmo em terreno lembrado (removido empalidecimento)
+	# if is_remembered: # Código removido conforme solicitado
 	
 	return base_color
+
+# Função auxiliar para desenhar emoji com ou sem blur
+func _draw_emoji_with_blur_check(font: Font, position: Vector2, emoji: String, size: int, color: Color, apply_blur: bool) -> void:
+	if apply_blur:
+		_draw_blurred_emoji(font, position, emoji, size, color)
+	else:
+		draw_string(font, position, emoji, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
+
+# Função para desenhar emoji com efeito de blur
+func _draw_blurred_emoji(font: Font, position: Vector2, emoji: String, size: int, color: Color) -> void:
+	# Criar efeito de blur mais intenso desenhando o emoji múltiplas vezes
+	var blur_offsets = [
+		# Camada 1: Blur próximo
+		Vector2(-1, -1), Vector2(0, -1), Vector2(1, -1),
+		Vector2(-1, 0),                   Vector2(1, 0),
+		Vector2(-1, 1),  Vector2(0, 1),  Vector2(1, 1),
+		# Camada 2: Blur médio
+		Vector2(-2, -2), Vector2(0, -2), Vector2(2, -2),
+		Vector2(-2, 0),                   Vector2(2, 0),
+		Vector2(-2, 2),  Vector2(0, 2),  Vector2(2, 2),
+		# Camada 3: Blur distante
+		Vector2(-3, -3), Vector2(0, -3), Vector2(3, -3),
+		Vector2(-3, 0),                   Vector2(3, 0),
+		Vector2(-3, 3),  Vector2(0, 3),  Vector2(3, 3)
+	]
+	
+	# Desenhar camadas de blur com opacidade muito reduzida
+	var blur_color = Color(color.r, color.g, color.b, color.a * 0.15)
+	for offset in blur_offsets:
+		draw_string(font, position + offset, emoji, HORIZONTAL_ALIGNMENT_CENTER, -1, size, blur_color)
+	
+	# Desenhar emoji principal com opacidade reduzida para efeito desfocado
+	var main_color = Color(color.r, color.g, color.b, color.a * 0.5)
+	draw_string(font, position, emoji, HORIZONTAL_ALIGNMENT_CENTER, -1, size, main_color)
 
 # Get terrain texture by type
 func _get_terrain_texture(terrain_type: int) -> Texture2D:
@@ -1086,7 +1113,39 @@ func try_simple_textured_draw(diamond_points: PackedVector2Array, texture: Textu
 	if debug_enabled and randf() < 0.01:
 		print("[TEXTURE] Drew textured polygon with %s" % texture.get_class())
 
-# Draw hexagon with dashed outline and 30° rotation
+# Draw hexagon with solid outline and 30° rotation
+func _draw_hexagon_solid_outline(center: Vector2, radius: float, color: Color, width: float):
+	var points = []
+	# Add 30° rotation (PI/6 radians) to each angle
+	var rotation_offset = PI / 6.0
+	for i in range(6):
+		var angle = i * PI / 3.0 + rotation_offset
+		var point = center + Vector2(cos(angle), sin(angle)) * radius
+		points.append(point)
+	
+	# Draw solid lines between points
+	for i in range(6):
+		var start_point = points[i]
+		var end_point = points[(i + 1) % 6]
+		draw_line(start_point, end_point, color, width)
+
+# Draw hexagon with striped outline (color + white) and 30° rotation
+func _draw_hexagon_striped_outline(center: Vector2, radius: float, color: Color, width: float):
+	var points = []
+	# Add 30° rotation (PI/6 radians) to each angle
+	var rotation_offset = PI / 6.0
+	for i in range(6):
+		var angle = i * PI / 3.0 + rotation_offset
+		var point = center + Vector2(cos(angle), sin(angle)) * radius
+		points.append(point)
+	
+	# Draw striped lines between points
+	for i in range(6):
+		var start_point = points[i]
+		var end_point = points[(i + 1) % 6]
+		_draw_striped_line(start_point, end_point, color, Color.WHITE, width)
+
+# Draw hexagon with dashed outline and 30° rotation (kept for compatibility)
 func _draw_hexagon_dashed_outline(center: Vector2, radius: float, color: Color, width: float):
 	var points = []
 	# Add 30° rotation (PI/6 radians) to each angle
@@ -1123,6 +1182,29 @@ func _draw_dashed_line(start: Vector2, end: Vector2, color: Color, width: float)
 		draw_line(dash_start, dash_end, color, width)
 		
 		current_pos += segment_length
+
+# Draw striped line between two points (alternating two colors)
+func _draw_striped_line(start: Vector2, end: Vector2, color1: Color, color2: Color, width: float):
+	var direction = end - start
+	var length = direction.length()
+	var normalized_dir = direction.normalized()
+	
+	# Stripe parameters
+	var stripe_length = 8.0
+	
+	var current_pos = 0.0
+	var use_color1 = true
+	while current_pos < length:
+		var stripe_start = start + normalized_dir * current_pos
+		var stripe_end_pos = min(current_pos + stripe_length, length)
+		var stripe_end = start + normalized_dir * stripe_end_pos
+		
+		# Draw stripe segment with alternating color
+		var stripe_color = color1 if use_color1 else color2
+		draw_line(stripe_start, stripe_end, stripe_color, width)
+		
+		current_pos += stripe_length
+		use_color1 = not use_color1  # Alternate colors
 
 
 # Draw 6-pointed star (Star of David) rotated 30 degrees
@@ -1161,7 +1243,8 @@ func _draw_hexagon_outline(center: Vector2, radius: float, color: Color, width: 
 		var end_point = points[(i + 1) % 6]
 		draw_line(start_point, end_point, color, width)
 
-func _render_grid_restored(hover_state: Dictionary):
+# Render only grid edges
+func _render_grid_edges(hover_state: Dictionary):
 	if not ("grid" in game_state):
 		return
 	
@@ -1197,6 +1280,14 @@ func _render_grid_restored(hover_state: Dictionary):
 				edge.get("terrain_type", 0),
 				is_remembered and not is_visible  # Pass remembered state
 			)
+
+# Render only grid points (stars) - called after domains to overlay them
+func _render_grid_points(hover_state: Dictionary):
+	if not ("grid" in game_state):
+		return
+	
+	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+	var current_player_id = current_player.id if current_player else 1
 	
 	# Draw points (with fog of war and remembered terrain)
 	for point_id in game_state.grid.points:
@@ -1205,23 +1296,31 @@ func _render_grid_restored(hover_state: Dictionary):
 		# Check if point is currently visible or remembered
 		var is_visible = true
 		var is_remembered = false
+		var is_hidden = false
 		
 		if game_state.get("fog_of_war_enabled", false):
 			is_visible = ToggleFogUseCase._is_position_visible_to_player(point.position, current_player_id, game_state)
 			if not is_visible:
 				is_remembered = ToggleFogUseCase.is_remembered_by_player("point", point_id, current_player_id, game_state)
+				if not is_remembered:
+					is_hidden = true
 		
-		if is_visible or is_remembered:
-			# Draw 6-pointed star (darker for remembered points)
-			var star_color = Color.WHITE
-			var star_pos = _apply_board_rotation(point.position.pixel_pos)
-			
-			if is_remembered and not is_visible:
-				# Use 50% lighter color for remembered points
-				star_color = Color(1.0, 1.0, 1.0, 0.5)  # 50% lighter white (more transparent)
-			
-			# Draw star
-			_draw_six_pointed_star(star_pos, 8.0, star_color)
+		# Draw star based on visibility state
+		var star_color: Color
+		var star_pos = _apply_board_rotation(point.position.pixel_pos)
+		
+		# Only draw visible stars (remembered stars are hidden)
+		if is_visible:
+			star_color = Color.WHITE
+		elif is_remembered or is_hidden:
+			# Remembered and hidden: Don't draw (skip)
+			continue
+		else:
+			# Default: White star
+			star_color = Color.WHITE
+		
+		# Draw star (reduced size)
+		_draw_six_pointed_star(star_pos, 12.0, star_color)
 
 func _render_main_ui():
 	var font = ThemeDB.fallback_font
@@ -1471,24 +1570,20 @@ func _render_units_with_fog(fog_settings: Dictionary, hover_state: Dictionary, f
 				# Unit has no actions - make emoji whitish
 				emoji_color = unit_color.lerp(Color.WHITE, 0.7)  # Blend with white
 			
-			# Draw emoji with team color - try multiple approaches for tinting
-			# Approach 1: Direct color parameter
-			draw_string(font, pos + Vector2(-12, 0), "🚶🏻‍♀️", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, emoji_color)
-			
-			# Approach 2: Draw colored circle behind emoji for tinting effect
-			if emoji_color != Color.WHITE:
-				draw_circle(pos, 14.0, Color(emoji_color.r, emoji_color.g, emoji_color.b, 0.3))
-				draw_string(font, pos + Vector2(-12, 0), "🚶🏻‍♀️", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, Color.WHITE)
+			# Draw emoji (removed colored circle background)
+			draw_string(font, pos + Vector2(-12, 0), "🚶🏻‍♀️", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, Color.WHITE)
 			
 			# Unit name below the unit (bold and italic) - moved more up
 			var unit_name_pos = pos + Vector2(0, 15)
 			_draw_bold_italic_text(font, unit_name_pos, unit.name, 12, unit_color)
 			
-			# Selection indicator removed - no yellow circle
+			# Selection indicator: team color glow behind emoji when selected
+			if is_selected:
+				_draw_team_color_glow(pos, unit_color)
 				
-			# Hover indicator (adjusted for 2x unit size)
+			# Hover indicator (adjusted for doubled star size)
 			if is_hovered:
-				draw_arc(pos, 23.0, 0, TAU, 32, Color.WHITE, 2.0)
+				draw_arc(pos, 31.0, 0, TAU, 32, Color.WHITE, 2.0)
 		else:
 			# Unit is hidden by fog - don't render anything
 			pass
@@ -1515,7 +1610,7 @@ func _render_fog_overlay(fog_settings: Dictionary) -> void:
 	# REMOVED: Dark fog overlay - no more screen darkening
 	# Fog of war is now handled purely by hiding/showing elements
 
-# Render movement targets with terrain information
+# Render movement targets with white glow around stars
 func _render_movement_targets_with_terrain(font: Font) -> void:
 	if not font or selected_unit_id == -1:
 		return
@@ -1528,32 +1623,105 @@ func _render_movement_targets_with_terrain(font: Font) -> void:
 		# Get terrain cost for this movement
 		var terrain_cost = MovementService.get_terrain_movement_cost(unit, target_pos, game_state.grid)
 		
-		# Use magenta color for all valid movement targets
-		var target_color = Color.MAGENTA
-		var border_color = Color.WHITE
-		
-		# Adjust opacity based on terrain cost
-		match terrain_cost:
-			1:  # Normal movement
-				target_color = Color(1.0, 0.0, 1.0, 0.6)  # Magenta
-			2:  # Difficult terrain
-				target_color = Color(1.0, 0.0, 1.0, 0.8)  # Darker magenta
-				border_color = Color.ORANGE
-			999:  # Impassable
-				target_color = Color.RED
-				border_color = Color.DARK_RED
-		
-		# Draw movement target with rotation (no border)
+		# Draw white glow around the star at this position
 		var rotated_pos = _apply_board_rotation(pos)
-		draw_circle(rotated_pos, 12.0, Color(target_color.r, target_color.g, target_color.b, 0.6))
+		_draw_white_glow_around_star(rotated_pos, terrain_cost)
 		
-		# Draw terrain cost indicator with rotation
+		# Draw terrain cost indicator if needed
 		if terrain_cost > 1 and terrain_cost < 999:
-			draw_string(font, rotated_pos + Vector2(-4, 4), str(terrain_cost), HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.WHITE)
+			draw_string(font, rotated_pos + Vector2(-4, 4), str(terrain_cost), HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.BLACK)
 		elif terrain_cost >= 999:
-			draw_string(font, rotated_pos + Vector2(-4, 4), "X", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.WHITE)
-		
-		# REMOVED: Terrain type emoji indicators - cleaner interface
+			draw_string(font, rotated_pos + Vector2(-4, 4), "X", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.RED)
+
+# Draw white glow around star for movement targets
+func _draw_white_glow_around_star(position: Vector2, terrain_cost: int) -> void:
+	# Create gradient glow effect with multiple circles (reduced brightness)
+	var glow_layers = [
+		{"radius": 18.0, "alpha": 0.08},
+		{"radius": 15.0, "alpha": 0.12},
+		{"radius": 12.0, "alpha": 0.16},
+		{"radius": 9.0, "alpha": 0.2}
+	]
+	
+	# Adjust glow color based on terrain cost
+	var glow_color: Color
+	match terrain_cost:
+		1:  # Normal movement - bright white glow
+			glow_color = Color.WHITE
+		2:  # Difficult terrain - orange glow
+			glow_color = Color.ORANGE
+		999:  # Impassable - red glow
+			glow_color = Color.RED
+		_:
+			glow_color = Color.WHITE
+	
+	# Draw gradient glow layers
+	for layer in glow_layers:
+		var layer_color = Color(glow_color.r, glow_color.g, glow_color.b, layer.alpha)
+		draw_circle(position, layer.radius, layer_color)
+
+# Draw team color outline around selected unit (following emoji shape)
+func _draw_team_color_outline(position: Vector2, team_color: Color) -> void:
+	# Draw outline that follows the emoji shape more closely
+	var outline_color = Color(team_color.r, team_color.g, team_color.b, 0.9)
+	
+	# Draw a rounded rectangle that better fits the emoji
+	var emoji_width = 24.0
+	var emoji_height = 32.0
+	var outline_thickness = 3.0
+	
+	# Calculate outline rectangle
+	var outline_rect = Rect2(
+		position.x - emoji_width/2 - outline_thickness,
+		position.y - emoji_height/2 - outline_thickness,
+		emoji_width + outline_thickness * 2,
+		emoji_height + outline_thickness * 2
+	)
+	
+	# Draw rounded rectangle outline
+	_draw_rounded_rect_outline(outline_rect, 8.0, outline_color, outline_thickness)
+
+# Draw team color glow behind selected unit
+func _draw_team_color_glow(position: Vector2, team_color: Color) -> void:
+	# Draw multiple circles with decreasing opacity for glow effect
+	var glow_layers = [
+		{"radius": 25.0, "alpha": 0.1},
+		{"radius": 20.0, "alpha": 0.15},
+		{"radius": 15.0, "alpha": 0.2},
+		{"radius": 10.0, "alpha": 0.25}
+	]
+	
+	for layer in glow_layers:
+		var glow_color = Color(team_color.r, team_color.g, team_color.b, layer.alpha)
+		draw_circle(position, layer.radius, glow_color)
+
+# Helper function to draw rounded rectangle outline
+func _draw_rounded_rect_outline(rect: Rect2, corner_radius: float, color: Color, thickness: float) -> void:
+	# Draw rounded rectangle by drawing multiple lines and arcs
+	var top_left = rect.position
+	var top_right = Vector2(rect.position.x + rect.size.x, rect.position.y)
+	var bottom_left = Vector2(rect.position.x, rect.position.y + rect.size.y)
+	var bottom_right = rect.position + rect.size
+	
+	# Draw the four sides (with corner radius offset)
+	# Top side
+	draw_line(Vector2(top_left.x + corner_radius, top_left.y), 
+			 Vector2(top_right.x - corner_radius, top_right.y), color, thickness)
+	# Right side
+	draw_line(Vector2(top_right.x, top_right.y + corner_radius), 
+			 Vector2(bottom_right.x, bottom_right.y - corner_radius), color, thickness)
+	# Bottom side
+	draw_line(Vector2(bottom_right.x - corner_radius, bottom_right.y), 
+			 Vector2(bottom_left.x + corner_radius, bottom_left.y), color, thickness)
+	# Left side
+	draw_line(Vector2(bottom_left.x, bottom_left.y - corner_radius), 
+			 Vector2(top_left.x, top_left.y + corner_radius), color, thickness)
+	
+	# Draw corner arcs
+	draw_arc(top_left + Vector2(corner_radius, corner_radius), corner_radius, PI, PI * 1.5, 8, color, thickness)
+	draw_arc(top_right + Vector2(-corner_radius, corner_radius), corner_radius, PI * 1.5, PI * 2, 8, color, thickness)
+	draw_arc(bottom_right + Vector2(-corner_radius, -corner_radius), corner_radius, 0, PI * 0.5, 8, color, thickness)
+	draw_arc(bottom_left + Vector2(corner_radius, -corner_radius), corner_radius, PI * 0.5, PI, 8, color, thickness)
 
 # NEW: Render build mode indicators
 func _render_build_mode(font: Font) -> void:

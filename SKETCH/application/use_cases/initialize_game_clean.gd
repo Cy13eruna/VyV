@@ -72,7 +72,9 @@ static func execute(player_count: int = 2) -> Dictionary:
 	
 	print("    Creating units and domains...")
 	# Create units and domains for each player
+	# Create units for each domain
 	var unit_id_counter = 1
+	var existing_unit_names = []  # Track existing names to prevent duplicates
 	var domain_id_counter = 1
 	var used_initials = []  # Track used domain initials
 	
@@ -167,6 +169,10 @@ static func execute(player_count: int = 2) -> Dictionary:
 			else:
 				unit_name = "Unit%d" % unit_id_counter
 			
+			# Validate and fix unit name
+			unit_name = _validate_unit_name(unit_name, existing_unit_names)
+			existing_unit_names.append(unit_name)
+			
 			var unit = Unit.new(unit_id_counter, player_id, unit_name, spawn_pos)
 			game_state.units[unit_id_counter] = unit
 			player.add_unit(unit_id_counter)
@@ -196,12 +202,36 @@ static func execute(player_count: int = 2) -> Dictionary:
 	game_state.turn_data = TurnService.initialize_turn_system(game_state.players)
 	print("    Turn system initialized")
 	
-	result.success = true
-	result.game_state = game_state
-	result.message = "Game initialized with %d players" % player_count
+	return {"success": true, "game_state": game_state}
+
+# Validate unit name: limit to 5 characters and ensure uniqueness
+static func _validate_unit_name(original_name: String, existing_names: Array) -> String:
+	# Limit to 5 characters
+	var name = original_name.substr(0, 5)
 	
-	print("    InitializeGameUseCase completed successfully")
-	return result
+	# Ensure uniqueness
+	var base_name = name
+	var counter = 1
+	while name in existing_names:
+		# If name exists, try with number suffix
+		if base_name.length() >= 4:
+			# If base name is 4+ chars, truncate to fit number
+			name = base_name.substr(0, 4) + str(counter)
+		else:
+			# If base name is short, just add number
+			name = base_name + str(counter)
+		
+		# Ensure result is still max 5 characters
+		name = name.substr(0, 5)
+		counter += 1
+		
+		# Safety check to prevent infinite loop
+		if counter > 99:
+			name = "U" + str(randi() % 9999).pad_zeros(4)
+			name = name.substr(0, 5)
+			break
+	
+	return name
 
 # Get spawn positions using hexagon corner algorithm
 static func _get_spawn_positions(grid_data: Dictionary, player_count: int) -> Array:
