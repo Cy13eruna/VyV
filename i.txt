@@ -1,11 +1,5 @@
-Interessaante sua analise ds domínios novos. Vou te dizer o que os domínios farão no futuro e com base nisso tu me dirá amelhor abordagem:
-- adicionarão estrututras nos losangos que o compõem, como pomares e aldeias
-- se conectarão cm outros domínios através de estradas
-- terão visibilidade dinâmica a depender de determinadas situações
-- poderão ser dominados por oponentes
-- novos domínios poderão ser criados em locais vazios do mapa
-- se um de seus 7 pontos for avistado, a área do domínio é visível
-Baseado nisso, o que tu sugere que façamos?
-
-Remova as cores especiais para terreno lembrado e substitua pelas cores de terreno comum, porém com um leve escurecimento.
-Aplique um blur intenso em cima deles também
+Ainda bugado.
+Caso: um dos 6 pontos externos do domínio estão sob visualização de uma unidade adversária
+O que devria acontecer: domínio revelado para a unidade adversária
+O que acontece: domínio só é revelado quando o ponto central está visível
+Como corrigir: expanda a visibilidade do domínio para seus 6 pontos externos e não apenas seu nucleo

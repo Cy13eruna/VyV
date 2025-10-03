@@ -278,27 +278,116 @@ static func _find_edge_between_positions(pos_a, pos_b, grid_data: Dictionary):
 	return null
 
 # Helper: Check if domain is visible to player
+# NEW RULE: Domain is visible if ANY of its 7 internal points is visible
 static func _is_domain_visible(domain, player_id: int, game_state: Dictionary) -> bool:
 	# Own domains are always visible
 	var domain_owner_id = domain.get("owner_id", -1)
 	if domain_owner_id == player_id:
 		return true
 	
-	# NEW: If domain has internal structure (check if it's an object vs dictionary)
+	# NEW: Check if domain has real internal structure (7 points)
 	if typeof(domain) == TYPE_OBJECT and domain.has_method("has_internal_structure") and domain.has_internal_structure():
+		# Domain with real structure: check if ANY of the 7 internal points is visible
 		for point_id in domain.internal_point_ids:
 			if point_id in game_state.grid.points:
 				var point = game_state.grid.points[point_id]
 				if _is_position_visible_to_player(point.position, player_id, game_state):
+					print("🔍 Domain %d revealed: point %d is visible" % [domain.id, point_id])
 					return true
 		return false
 	
-	# Fallback: Enemy domains are visible if their center is visible
+	# Fallback for dictionary domains (clean system): simulate 7-point check
 	var center_position = domain.get("center_position")
-	if center_position and _is_position_visible_to_player(center_position, player_id, game_state):
-		return true
+	if center_position:
+		print("🔍 Checking domain %d visibility (dictionary mode)" % domain.get("id", -1))
+		print("🔍 Center position type: %s" % typeof(center_position))
+		if center_position.has_method("get_string"):
+			print("🔍 Center position: %s" % center_position.get_string())
+		
+		# Check center position (point 1 of 7)
+		if _is_position_visible_to_player(center_position, player_id, game_state):
+			print("🔍 Domain %d revealed: center position visible" % domain.get("id", -1))
+			return true
+		
+		# Check 6 surrounding positions (points 2-7 of 7)
+		var surrounding_positions = _get_surrounding_positions(center_position)
+		print("🔍 Domain %d: checking %d surrounding positions" % [domain.get("id", -1), surrounding_positions.size()])
+		
+		for i in range(surrounding_positions.size()):
+			var pos = surrounding_positions[i]
+			if _is_position_visible_to_player(pos, player_id, game_state):
+				print("🔍 Domain %d revealed: surrounding position %d visible" % [domain.get("id", -1), i])
+				return true
+		
+		print("🔍 Domain %d: no positions visible" % domain.get("id", -1))
 	
 	return false
+
+# Helper: Get 6 surrounding positions around a center position (for domain visibility)
+static func _get_surrounding_positions(center_position) -> Array:
+	var surrounding = []
+	
+	# For clean system: positions have hex_coord property
+	if center_position.has_method("hex_coord") or "hex_coord" in center_position:
+		var hex_coord = center_position.hex_coord
+		
+		if hex_coord and hex_coord.has_method("get_neighbor"):
+			print("🔍 Using clean system hex_coord.get_neighbor()")
+			
+			# Use the clean system's get_neighbor method for all 6 directions
+			for direction in range(6):
+				var neighbor_coord = hex_coord.get_neighbor(direction)
+				
+				# Create position from coordinate using clean system
+				var pos_script = load("res://core/value_objects/position_clean.gd")
+				var neighbor_pos = pos_script.from_hex(neighbor_coord)
+				surrounding.append(neighbor_pos)
+			
+			print("🔍 Successfully calculated %d neighbors using clean system" % surrounding.size())
+			return surrounding
+	
+	# Fallback: Try to access hex_coord properties directly
+	if center_position.has_method("hex_coord") or "hex_coord" in center_position:
+		var hex_coord = center_position.hex_coord
+		
+		if hex_coord and "q" in hex_coord and "r" in hex_coord:
+			print("🔍 Using direct hex coordinate access")
+			
+			var q = hex_coord.q
+			var r = hex_coord.r
+			
+			# 6 hex directions using clean system coordinate system
+			var directions = [
+				[1, 0],   # East
+				[1, -1],  # Northeast
+				[0, -1],  # Northwest
+				[-1, 0],  # West
+				[-1, 1],  # Southwest
+				[0, 1]    # Southeast
+			]
+			
+			for dir in directions:
+				var neighbor_q = q + dir[0]
+				var neighbor_r = r + dir[1]
+				
+				# Create hex coordinate using clean system
+				var coord_script = load("res://core/value_objects/hex_coordinate_clean.gd")
+				var neighbor_coord = coord_script.new(neighbor_q, neighbor_r)
+				
+				# Create position from coordinate using clean system
+				var pos_script = load("res://core/value_objects/position_clean.gd")
+				var neighbor_pos = pos_script.from_hex(neighbor_coord)
+				surrounding.append(neighbor_pos)
+			
+			print("🔍 Manually calculated %d neighbors using clean system" % surrounding.size())
+			return surrounding
+	
+	print("❌ Could not access hex coordinate from position")
+	print("❌ Position type: %s" % typeof(center_position))
+	if center_position.has_method("get_string"):
+		print("❌ Position details: %s" % center_position.get_string())
+	
+	return surrounding
 
 # Helper: Check if grid point is visible to player
 static func _is_grid_point_visible(point, player_id: int, game_state: Dictionary) -> bool:
@@ -326,6 +415,92 @@ static func _validate_game_state(game_state: Dictionary, result: Dictionary) -> 
 static func _validate_game_state_simple(game_state: Dictionary) -> bool:
 	return "fog_of_war_enabled" in game_state
 
+# NEW: Test function to verify domain visibility logic
+static func test_domain_visibility(game_state: Dictionary, player_id: int) -> Dictionary:
+	var result = {
+		"total_domains": 0,
+		"visible_domains": 0,
+		"own_domains": 0,
+		"enemy_domains_visible": 0,
+		"details": []
+	}
+	
+	if not ("domains" in game_state):
+		return result
+	
+	for domain_id in game_state.domains:
+		var domain = game_state.domains[domain_id]
+		result.total_domains += 1
+		
+		var domain_owner = domain.get("owner_id", -1) if typeof(domain) == TYPE_DICTIONARY else domain.owner_id
+		var is_own = domain_owner == player_id
+		var is_visible = _is_domain_visible(domain, player_id, game_state)
+		
+		if is_own:
+			result.own_domains += 1
+		elif is_visible:
+			result.enemy_domains_visible += 1
+		
+		if is_visible:
+			result.visible_domains += 1
+		
+		result.details.append({
+			"domain_id": domain_id,
+			"owner_id": domain_owner,
+			"is_own": is_own,
+			"is_visible": is_visible,
+			"has_structure": typeof(domain) == TYPE_OBJECT and domain.has_method("has_internal_structure") and domain.has_internal_structure()
+		})
+	
+	print("🔍 Domain Visibility Test for Player %d:" % player_id)
+	print("  Total domains: %d" % result.total_domains)
+	print("  Own domains: %d" % result.own_domains)
+	print("  Visible enemy domains: %d" % result.enemy_domains_visible)
+	print("  Total visible: %d" % result.visible_domains)
+	
+	return result
+
+# NEW: Debug function to test position visibility
+static func debug_position_visibility(game_state: Dictionary, player_id: int, test_position) -> Dictionary:
+	var result = {
+		"position_visible": false,
+		"visible_from_units": [],
+		"visible_from_domains": [],
+		"details": []
+	}
+	
+	print("🔍 Testing position visibility for player %d" % player_id)
+	
+	# Check visibility from units
+	for unit_id in game_state.units:
+		var unit = game_state.units[unit_id]
+		if unit.owner_id == player_id:
+			if unit.position.equals(test_position):
+				result.visible_from_units.append("Unit %d (same position)" % unit_id)
+			elif unit.position.is_within_distance(test_position, 1):
+				if not _is_vision_blocked_by_terrain(unit.position, test_position, game_state):
+					result.visible_from_units.append("Unit %d (adjacent)" % unit_id)
+	
+	# Check visibility from domains
+	for domain_id in game_state.domains:
+		var domain = game_state.domains[domain_id]
+		var domain_owner = domain.get("owner_id", -1) if typeof(domain) == TYPE_DICTIONARY else domain.owner_id
+		if domain_owner == player_id:
+			var center_pos = domain.get("center_position")
+			if center_pos:
+				if center_pos.equals(test_position):
+					result.visible_from_domains.append("Domain %d (center)" % domain_id)
+				elif center_pos.is_within_distance(test_position, 1):
+					result.visible_from_domains.append("Domain %d (adjacent)" % domain_id)
+	
+	result.position_visible = result.visible_from_units.size() > 0 or result.visible_from_domains.size() > 0
+	
+	print("  Position visible: %s" % result.position_visible)
+	print("  Visible from units: %s" % str(result.visible_from_units))
+	print("  Visible from domains: %s" % str(result.visible_from_domains))
+	
+	return result
+
 # Check if a position is visible to a specific player
 static func _is_position_visible_to_player(position, player_id: int, game_state: Dictionary) -> bool:
 	if not ("units" in game_state and "domains" in game_state and "grid" in game_state):
@@ -344,17 +519,30 @@ static func _is_position_visible_to_player(position, player_id: int, game_state:
 				if not _is_vision_blocked_by_terrain(unit.position, position, game_state):
 					return true
 	
-	# Check visibility from player's domains (ONLY 7 internal points)
+	# Check visibility from player's domains
 	for domain_id in game_state.domains:
 		var domain = game_state.domains[domain_id]
-		if domain.owner_id == player_id:
-			# Domain can see ONLY its internal 7 points (center + 6 that COMPOSE the domain)
-			if domain.center_position.equals(position):
-				return true
-			
-			# Domain can see ONLY 6 points that COMPOSE the domain (internal, not external)
-			if domain.center_position.is_within_distance(position, 1):
-				return true
+		# Handle both dictionary and object domains
+		var domain_owner = domain.get("owner_id", -1) if typeof(domain) == TYPE_DICTIONARY else domain.owner_id
+		if domain_owner == player_id:
+			# NEW: If domain has real internal structure, use the actual 7 points
+			if typeof(domain) == TYPE_OBJECT and domain.has_method("has_internal_structure") and domain.has_internal_structure():
+				# Check if position matches any of the 7 internal points
+				for point_id in domain.internal_point_ids:
+					if point_id in game_state.grid.points:
+						var domain_point = game_state.grid.points[point_id]
+						if domain_point.position.equals(position):
+							return true
+			else:
+				# Fallback for dictionary domains: simulate 7-point visibility
+				var center_pos = domain.get("center_position")
+				if center_pos:
+					# Domain can see its center position
+					if center_pos.equals(position):
+						return true
+					# Domain can see 6 surrounding positions
+					if center_pos.is_within_distance(position, 1):
+						return true
 	
 	return false
 

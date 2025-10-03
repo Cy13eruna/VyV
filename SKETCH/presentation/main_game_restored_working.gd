@@ -212,6 +212,15 @@ func _unhandled_input(event):
 				show_performance_graph = not show_performance_graph
 				print("Performance graph: %s" % ("ON" if show_performance_graph else "OFF"))
 				queue_redraw()
+			KEY_F9:
+				# NEW: Test domain visibility logic
+				_test_domain_visibility()
+			KEY_F10:
+				# NEW: Test detailed domain position visibility
+				_test_detailed_domain_visibility()
+			KEY_F11:
+				# NEW: Debug position structure
+				_debug_position_structure()
 			KEY_TAB:
 				print("TAB pressed - Switch Dashboard Tab")
 				if show_analytics_dashboard:
@@ -403,6 +412,112 @@ func _handle_build_mode_click(point_id: int):
 			return
 	
 	print("❌ No buildable edges at this location")
+
+# NEW: Test domain visibility logic
+func _test_domain_visibility():
+	print("\n=== 🔍 TESTING DOMAIN VISIBILITY LOGIC ===")
+	
+	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+	if not current_player:
+		print("❌ No current player found")
+		return
+	
+	# Test visibility for current player
+	var test_result = ToggleFogUseCase.test_domain_visibility(game_state, current_player.id)
+	
+	print("\n📊 DETAILED RESULTS:")
+	for detail in test_result.details:
+		var status = "👁️ VISIBLE" if detail.is_visible else "🙈 HIDDEN"
+		var ownership = "👤 OWN" if detail.is_own else "👥 ENEMY"
+		var structure = "🏗️ REAL" if detail.has_structure else "📋 DICT"
+		
+		print("  Domain %d (%s, %s, %s): %s" % [
+			detail.domain_id,
+			ownership,
+			structure,
+			"Player %d" % detail.owner_id,
+			status
+		])
+	
+	print("\n🎯 SUMMARY:")
+	print("  ✅ New visibility rule: Domain visible if ANY of 7 points is seen")
+	print("  📊 Results: %d/%d enemy domains visible" % [test_result.enemy_domains_visible, test_result.total_domains - test_result.own_domains])
+	print("  🔄 Press F9 again to re-test after moving units")
+	print("  🔎 Press F10 to test specific domain positions")
+	print("=== 🔍 TEST COMPLETED ===\n")
+
+# NEW: Test detailed domain position visibility
+func _test_detailed_domain_visibility():
+	print("\n=== 🔎 DETAILED DOMAIN POSITION TEST ===")
+	
+	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+	if not current_player:
+		print("❌ No current player found")
+		return
+	
+	# Test each enemy domain's positions
+	for domain_id in game_state.domains:
+		var domain = game_state.domains[domain_id]
+		var domain_owner = domain.get("owner_id", -1)
+		
+		if domain_owner != current_player.id:
+			print("\n🏰 Testing Enemy Domain %d (Player %d):" % [domain_id, domain_owner])
+			
+			# Test center position
+			var center_pos = domain.get("center_position")
+			if center_pos:
+				print("  🎯 Center position test:")
+				var center_result = ToggleFogUseCase.debug_position_visibility(game_state, current_player.id, center_pos)
+				
+				# Test surrounding positions
+				print("  🔄 Surrounding positions test:")
+				var surrounding = ToggleFogUseCase._get_surrounding_positions(center_pos)
+				for i in range(surrounding.size()):
+					var pos = surrounding[i]
+					print("    Position %d:" % (i + 1))
+					var pos_result = ToggleFogUseCase.debug_position_visibility(game_state, current_player.id, pos)
+				
+				# Final domain visibility test
+				var domain_visible = ToggleFogUseCase._is_domain_visible(domain, current_player.id, game_state)
+				print("  👁️ Final domain visibility: %s" % ("✅ VISIBLE" if domain_visible else "❌ HIDDEN"))
+	
+	print("\n=== 🔎 DETAILED TEST COMPLETED ===\n")
+
+# NEW: Debug position structure
+func _debug_position_structure():
+	print("\n=== 🔧 POSITION STRUCTURE DEBUG ===")
+	
+	# Debug domain positions
+	for domain_id in game_state.domains:
+		var domain = game_state.domains[domain_id]
+		var center_pos = domain.get("center_position")
+		
+		print("\n🏰 Domain %d:" % domain_id)
+		print("  Domain type: %s" % typeof(domain))
+		print("  Domain keys: %s" % str(domain.keys()))
+		
+		if center_pos:
+			print("  Center position type: %s" % typeof(center_pos))
+			print("  Center position methods: %s" % str(center_pos.get_method_list()))
+			
+			if "hex_coord" in center_pos:
+				var hex_coord = center_pos.hex_coord
+				print("  Hex coord type: %s" % typeof(hex_coord))
+				if hex_coord:
+					print("  Hex coord methods: %s" % str(hex_coord.get_method_list()))
+					if "q" in hex_coord and "r" in hex_coord:
+						print("  Hex coord q,r: (%d, %d)" % [hex_coord.q, hex_coord.r])
+					else:
+						print("  Hex coord missing q,r properties")
+			else:
+				print("  No hex_coord property found")
+			
+			if center_pos.has_method("get_string"):
+				print("  Position string: %s" % center_pos.get_string())
+		else:
+			print("  No center_position found")
+	
+	print("\n=== 🔧 STRUCTURE DEBUG COMPLETED ===\n")
 
 # Game logic
 func _select_unit(unit_id: int):
@@ -926,7 +1041,7 @@ func _render_main_ui():
 	
 	var controls = [
 		"🎮 CONTROLS: Click unit → Click position | SPACE: Fog | ENTER: Skip | B: Build | F1: Debug",
-		"🏆 OBJECTIVE: Eliminate all enemy units to win! | 🏗️ Build structures for power!"
+		"🏆 OBJECTIVE: Eliminate all enemy units to win! | 🔍 F9: Test | 🔎 F10: Detail | 🔧 F11: Debug"
 	]
 	
 	for i in range(controls.size()):
