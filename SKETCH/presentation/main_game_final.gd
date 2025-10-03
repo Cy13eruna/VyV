@@ -164,7 +164,7 @@ func _enhance_terrain_variety():
 	# Add some terrain variety to make the game more interesting
 	if "edges" in game_state.grid:
 		var edge_count = game_state.grid.edges.size()
-		var terrain_distribution = [0.5, 0.2, 0.2, 0.1]  # FIELD, FOREST, MOUNTAIN, WATER
+		var terrain_distribution = [6.0/12.0, 2.0/12.0, 2.0/12.0, 2.0/12.0]  # FIELD, FOREST, MOUNTAIN, WATER
 		
 		for edge_id in game_state.grid.edges:
 			var edge = game_state.grid.edges[edge_id]

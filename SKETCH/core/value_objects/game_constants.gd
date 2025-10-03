@@ -21,10 +21,10 @@ enum TerrainType {
 
 # Terrain Distribution
 const TERRAIN_DISTRIBUTION = {
-	TerrainType.FIELD: 0.5,
-	TerrainType.FOREST: 0.167,
-	TerrainType.MOUNTAIN: 0.167,
-	TerrainType.WATER: 0.167
+	TerrainType.FIELD: 6.0/12.0,    # 6/12 = 50%
+	TerrainType.FOREST: 2.0/12.0,   # 2/12 = 16.67%
+	TerrainType.MOUNTAIN: 2.0/12.0, # 2/12 = 16.67%
+	TerrainType.WATER: 2.0/12.0     # 2/12 = 16.67%
 }
 
 # Unit Configuration

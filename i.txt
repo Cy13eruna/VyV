@@ -1,7 +1,7 @@
-- aumente um pouco os domínios
-- remova o tracejado, faça com que os domínios sejam linhas uniformes
-- Reduza o tamanho das estrelas e a intensidade de brilho
-- aumente o blur das texturas
-- estrela no centro do domínio será da cor do mesmo
-- remova a caixa de seleção das unidades. Substitua por um brilho da cor do time do mesmo (brilho por detras do emoji)
-- Limite o número de caracteres de nome de unidade para cinco e crie uma regra que proiba duas unidades terem o mesmo nome
+Tem algo de errado com a geração de terreno. Corrija as proporções:
+- campo: 6/12
+- água: 2/12
+- montanha: 2/12
+- floresta: 2/12
+
+Faça com que as estrelas lembradas não sejam mais transparentes e que sua cor seja preta
