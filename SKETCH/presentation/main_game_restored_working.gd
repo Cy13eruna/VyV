@@ -29,6 +29,10 @@ var valid_movement_targets: Array = []
 var game_over: bool = false
 var winner_player = null
 
+# Menu state
+var in_menu: bool = true
+var selected_player_count: int = 0
+
 # Structure building system removed during cleanup
 # var build_mode: bool = false
 # var selected_structure_type: int = 0
@@ -76,22 +80,20 @@ var textures_loaded: bool = false
 
 
 func _ready():
-	print("=== 🎮 V&V CLEAN FINAL GAME STARTING 🎮 ===")
+	print("=== 🎮 V&V GAME STARTING 🎮 ===")
 	print("🏗️ Complete ONION Architecture Implementation")
 	print("📊 All Technical Systems Integrated")
 	print("==================================================")
 	
 	setup_debug_and_analytics()
-	setup_final_game()
-	setup_complete_input_system()
-	
-	print("🚀 V&V Clean Final Game Ready!")
-	print("🎯 Click units to select, click positions to move")
-	print("⌨️  SPACE: Toggle fog | ENTER: Skip turn | F1: Debug info")
-	print("🔍 F6: Analytics Dashboard | F7: Debug Overlay | F8: Performance Graph")
 	
 	# Load terrain textures
 	_load_terrain_textures()
+	
+	# Start in menu mode - wait for player count selection
+	print("🎮 Waiting for player count selection...")
+	print("Press 2, 3, 4, or 6 to select number of players")
+	queue_redraw()
 
 # Load terrain textures from files
 func _load_terrain_textures():
@@ -162,10 +164,14 @@ func setup_debug_and_analytics():
 	print("✅ Simple debug system ready")
 
 func setup_final_game():
-	print("🎲 Initializing complete game with all features...")
+	# This function is now deprecated - use setup_final_game_with_count instead
+	setup_final_game_with_count(2)
+
+func setup_final_game_with_count(player_count: int):
+	print("🎲 Initializing complete game with %d players..." % player_count)
 	
-	# Initialize game with full feature set
-	var init_result = InitializeGameUseCase.execute(2)
+	# Initialize game with selected player count
+	var init_result = InitializeGameUseCase.execute(player_count)
 	
 	if init_result.success:
 		game_state = init_result.game_state
@@ -205,6 +211,75 @@ func setup_final_game():
 	else:
 		print("❌ Game initialization failed: %s" % init_result.message)
 		game_state = GameState.create_empty_game_state()
+
+# Get player count from console input
+func _get_player_count_from_input() -> int:
+	print("\n=== 🎮 V&V GAME SETUP ===")
+	print("Choose number of players:")
+	print("2 players -> Map diameter: 7 stars")
+	print("3 players -> Map diameter: 9 stars")
+	print("4 players -> Map diameter: 13 stars")
+	print("6 players -> Map diameter: 18 stars")
+	print("\nEnter number of players (2, 3, 4, or 6): ")
+	
+	# For now, we'll use a default since Godot console input is complex
+	# In a real implementation, this would read from console
+	var valid_counts = [2, 3, 4, 6]
+	var default_count = 2
+	
+	# Try to read from command line arguments if available
+	var args = OS.get_cmdline_args()
+	for arg in args:
+		if arg.begins_with("--players="):
+			var count_str = arg.split("=")[1]
+			var count = count_str.to_int()
+			if count in valid_counts:
+				print("Using player count from command line: %d" % count)
+				return count
+	
+	# For development, cycle through different counts based on time
+	# This allows testing different map sizes easily
+	var time_based_index = int(Time.get_unix_time_from_system()) % valid_counts.size()
+	var selected_count = valid_counts[time_based_index]
+	
+	print("Using player count: %d (auto-selected for testing)" % selected_count)
+	print("To specify player count, use: --players=N (where N is 2, 3, 4, or 6)")
+	print("========================\n")
+	
+	return selected_count
+
+# Handle menu input for player count selection
+func _handle_menu_input(event):
+	if event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_2:
+				_start_game_with_players(2)
+			KEY_3:
+				_start_game_with_players(3)
+			KEY_4:
+				_start_game_with_players(4)
+			KEY_6:
+				_start_game_with_players(6)
+			KEY_ESCAPE:
+				print("Game cancelled")
+				get_tree().quit()
+
+# Start game with selected number of players
+func _start_game_with_players(player_count: int):
+	print("\n=== Starting game with %d players ===" % player_count)
+	selected_player_count = player_count
+	in_menu = false
+	
+	# Now initialize the game
+	setup_final_game_with_count(player_count)
+	setup_complete_input_system()
+	
+	print("🚀 V&V Game Ready!")
+	print("🎯 Click units to select, click positions to move")
+	print("⌨️  SPACE: Toggle fog | ENTER: Skip turn | F1: Debug info")
+	print("🔍 F6: Analytics Dashboard | F7: Debug Overlay | F8: Performance Graph")
+	
+	queue_redraw()
 
 func setup_complete_input_system():
 	print("🎮 Setting up complete input system...")
@@ -248,6 +323,11 @@ func _enhance_terrain_variety():
 				edge.terrain_type = 3  # WATER
 
 func _unhandled_input(event):
+	# Handle menu input first
+	if in_menu:
+		_handle_menu_input(event)
+		return
+	
 	if game_state.is_empty() or not input_manager:
 		return
 	
@@ -750,6 +830,11 @@ func _check_power_changes():
 
 # Rendering
 func _draw():
+	# Show menu if in menu state
+	if in_menu:
+		_render_menu()
+		return
+	
 	if game_state.is_empty():
 		return
 	
@@ -802,6 +887,41 @@ func _draw():
 	# Render simple analytics dashboard
 	if show_analytics_dashboard:
 		_render_simple_analytics_dashboard(font)
+
+# Render player count selection menu
+func _render_menu():
+	# Draw background
+	draw_rect(Rect2(0, 0, 1024, 768), Color(0.1, 0.1, 0.2))
+	
+	var font = ThemeDB.fallback_font
+	if not font:
+		return
+	
+	# Title
+	draw_string(font, Vector2(512, 150), "V&V - Vales & Vales", HORIZONTAL_ALIGNMENT_CENTER, -1, 48, Color.WHITE)
+	draw_string(font, Vector2(512, 200), "Strategy Game", HORIZONTAL_ALIGNMENT_CENTER, -1, 24, Color.LIGHT_GRAY)
+	
+	# Instructions
+	draw_string(font, Vector2(512, 280), "Choose Number of Players:", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, Color.YELLOW)
+	
+	# Player options
+	var options = [
+		{"key": "2", "players": 2, "diameter": 7, "y": 350},
+		{"key": "3", "players": 3, "diameter": 9, "y": 400},
+		{"key": "4", "players": 4, "diameter": 13, "y": 450},
+		{"key": "6", "players": 6, "diameter": 18, "y": 500}
+	]
+	
+	for option in options:
+		var text = "Press [%s] - %d Players (Map: %d stars diameter)" % [option.key, option.players, option.diameter]
+		draw_string(font, Vector2(512, option.y), text, HORIZONTAL_ALIGNMENT_CENTER, -1, 20, Color.WHITE)
+	
+	# Footer
+	draw_string(font, Vector2(512, 600), "Press ESC to quit", HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color.LIGHT_GRAY)
+	
+	# Game info
+	draw_string(font, Vector2(512, 680), "Features: Fog of War, Terrain Variety, Strategic Combat", HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.CYAN)
+	draw_string(font, Vector2(512, 710), "Architecture: Clean ONION Design with Use Cases", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.GREEN)
 
 func _render_domains(fog_settings: Dictionary):
 	if not ("domains" in game_state):

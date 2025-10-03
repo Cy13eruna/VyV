@@ -70,17 +70,40 @@ func activate() -> void:
 func deactivate() -> void:
 	is_active = false
 
-# Get default color for player ID
+# Get random color for player (from specified palette)
+static func get_random_color(used_colors: Array = []) -> Color:
+	var available_colors = [
+		Color(0.5, 0.0, 1.0),   # Roxo (Purple)
+		Color.RED,              # Vermelho (Red)
+		Color.MAGENTA,          # Magenta
+		Color.YELLOW,           # Amarelo (Yellow)
+		Color.CYAN,             # Ciano (Cyan)
+		Color.GREEN             # Verde (Green)
+	]
+	
+	# Filter out already used colors
+	var unused_colors = []
+	for color in available_colors:
+		if color not in used_colors:
+			unused_colors.append(color)
+	
+	# If all colors are used, start reusing them
+	if unused_colors.is_empty():
+		unused_colors = available_colors.duplicate()
+	
+	# Return random color from unused colors
+	return unused_colors[randi() % unused_colors.size()]
+
+# Get default color for player ID (legacy compatibility)
 static func get_default_color(player_id: int) -> Color:
+	# This is kept for compatibility but should use get_random_color instead
 	var colors = [
-		Color.RED,
-		Color(0.5, 0.0, 1.0),  # Purple (#8000FF)
-		Color.GREEN,
-		Color.YELLOW,
-		Color.PURPLE,
-		Color.ORANGE,
-		Color.CYAN,
-		Color.MAGENTA
+		Color(0.5, 0.0, 1.0),   # Roxo (Purple)
+		Color.RED,              # Vermelho (Red)
+		Color.MAGENTA,          # Magenta
+		Color.YELLOW,           # Amarelo (Yellow)
+		Color.CYAN,             # Ciano (Cyan)
+		Color.GREEN             # Verde (Green)
 	]
 	return colors[(player_id - 1) % colors.size()]
 

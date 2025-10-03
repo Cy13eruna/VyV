@@ -25,14 +25,36 @@ static func execute(player_count: int = 2) -> Dictionary:
 	}
 	
 	print("    Validating player count...")
-	# Validate player count
-	if player_count < 2 or player_count > 8:
-		result.message = "Invalid player count: %d" % player_count
+	# Validate player count (only 2, 3, 4, 6 allowed)
+	var valid_counts = [2, 3, 4, 6]
+	if player_count not in valid_counts:
+		result.message = "Invalid player count: %d. Valid counts: %s" % [player_count, str(valid_counts)]
 		print("    ERROR: Invalid player count")
 		return result
 	print("    Player count valid")
 	
 	print("    Initializing game state...")
+	# Calculate grid radius based on player count
+	# Players -> Diameter -> Radius (diameter = 2*radius + 1)
+	# 2 -> 7 -> 3
+	# 3 -> 9 -> 4  
+	# 4 -> 13 -> 6
+	# 6 -> 18 -> 8.5 -> 9 (rounded up)
+	var grid_radius: int
+	match player_count:
+		2:
+			grid_radius = 3  # Diameter 7
+		3:
+			grid_radius = 4  # Diameter 9
+		4:
+			grid_radius = 6  # Diameter 13
+		6:
+			grid_radius = 9  # Diameter 19 (closest to 18)
+		_:
+			grid_radius = 3  # Default fallback
+	
+	print("    Using grid radius: %d (diameter: %d stars)" % [grid_radius, 2 * grid_radius + 1])
+	
 	# Initialize game state
 	var game_state = {
 		"grid": {},
@@ -43,7 +65,7 @@ static func execute(player_count: int = 2) -> Dictionary:
 		"fog_of_war_enabled": true,
 		"game_settings": {
 			"player_count": player_count,
-			"grid_radius": 3,
+			"grid_radius": grid_radius,
 			"units_per_player": 1,
 			"domains_per_player": 1
 		}
@@ -51,18 +73,21 @@ static func execute(player_count: int = 2) -> Dictionary:
 	print("    Game state created")
 	
 	print("    Generating grid...")
-	# Generate grid using GridService
-	game_state.grid = GridService.generate_hex_grid(3)
+	# Generate grid using GridService with calculated radius
+	game_state.grid = GridService.generate_hex_grid(grid_radius)
 	print("    Grid generated successfully")
 	
 	print("    Creating players...")
-	# Create players
+	# Create players with random colors
+	var used_colors = []
 	for i in range(player_count):
 		var player_id = i + 1
 		var player_name = "Player %d" % player_id
-		var player_color = Player.get_default_color(player_id)
+		var player_color = Player.get_random_color(used_colors)
+		used_colors.append(player_color)
 		var player = Player.new(player_id, player_name, player_color)
 		game_state.players[player_id] = player
+		print("    Player %d: %s with color %s" % [player_id, player_name, _color_to_name(player_color)])
 	print("    Players created")
 	
 	print("    Getting spawn positions...")
@@ -203,6 +228,23 @@ static func execute(player_count: int = 2) -> Dictionary:
 	print("    Turn system initialized")
 	
 	return {"success": true, "game_state": game_state}
+
+# Helper function to convert color to name for logging
+static func _color_to_name(color: Color) -> String:
+	if color == Color(0.5, 0.0, 1.0):
+		return "Roxo"
+	elif color == Color.RED:
+		return "Vermelho"
+	elif color == Color.MAGENTA:
+		return "Magenta"
+	elif color == Color.YELLOW:
+		return "Amarelo"
+	elif color == Color.CYAN:
+		return "Ciano"
+	elif color == Color.GREEN:
+		return "Verde"
+	else:
+		return "Desconhecido"
 
 # Validate unit name: limit to 5 characters and ensure uniqueness
 static func _validate_unit_name(original_name: String, existing_names: Array) -> String:
