@@ -1,0 +1,15 @@
+Água - Padrão de Textura
+Usar: 〰 bem juntinhos um dos outros
+
+Padrão visual:
+〰〰〰〰〰〰〰〰〰〰〰〰〰〰〰〰
+ 〰〰〰〰〰〰〰〰〰〰〰〰〰〰〰
+〰〰〰〰〰〰〰〰〰〰〰〰〰〰〰〰
+ 〰〰〰〰〰〰〰〰〰〰〰〰〰〰〰
+〰〰〰〰〰〰〰〰〰〰〰〰〰〰〰〰
+ 〰〰〰〰〰〰〰〰〰〰〰〰〰〰〰
+
+Alternativa: ~~~~~~~~~~~~~~~~~~
+
+Cor de fundo: Azul água (#5096C8)
+Cor do símbolo: Azul escuro (#1E64B4)

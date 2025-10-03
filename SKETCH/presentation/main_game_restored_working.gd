@@ -50,12 +50,12 @@ const TERRAIN_COLORS = {
 	"WATER": Color(0.0, 1.0, 1.0)       # 00FFFF - cyan
 }
 
-# Remembered terrain colors (radically whitened versions)
+# Remembered terrain colors (50% lighter than normal terrain)
 const REMEMBERED_TERRAIN_COLORS = {
-	"FIELD": Color(0.85, 0.95, 0.85),    # Very light green (almost white)
-	"FOREST": Color(0.8, 0.9, 0.8),      # Very light green (almost white)
-	"MOUNTAIN": Color(0.9, 0.9, 0.9),    # Very light gray (almost white)
-	"WATER": Color(0.85, 0.95, 0.95)     # Very light cyan (almost white)
+	"FIELD": Color(0.5, 1.0, 0.5),      # 50% lighter bright green
+	"FOREST": Color(0.5, 0.7, 0.5),     # 50% lighter dark green
+	"MOUNTAIN": Color(0.7, 0.7, 0.7),   # 50% lighter gray
+	"WATER": Color(0.5, 1.0, 1.0)       # 50% lighter cyan
 }
 
 # UI state
@@ -68,6 +68,12 @@ var current_dashboard_tab: int = 0
 
 # Power tracking for sprite updates
 var previous_domain_powers: Dictionary = {}
+
+# Texture system for terrain
+var terrain_textures: Dictionary = {}
+var textures_loaded: bool = false
+
+
 
 func _ready():
 	print("=== 🎮 V&V CLEAN FINAL GAME STARTING 🎮 ===")
@@ -83,6 +89,69 @@ func _ready():
 	print("🎯 Click units to select, click positions to move")
 	print("⌨️  SPACE: Toggle fog | ENTER: Skip turn | F1: Debug info")
 	print("🔍 F6: Analytics Dashboard | F7: Debug Overlay | F8: Performance Graph")
+	
+	# Load terrain textures
+	_load_terrain_textures()
+
+# Load terrain textures from files
+func _load_terrain_textures():
+	print("🎨 Loading terrain textures...")
+	print("🔍 Current working directory: %s" % OS.get_executable_path().get_base_dir())
+	
+	# Define texture paths for each terrain type (relative to project root)
+	var texture_paths = {
+		"FIELD": "res://textures/field/texture.png",
+		"FOREST": "res://textures/forest/texture.png",
+		"MOUNTAIN": "res://textures/mountain/texture.png",
+		"WATER": "res://textures/water/texture.png"
+	}
+	
+	# Also try .tres files as fallback
+	var texture_paths_tres = {
+		"FIELD": "res://textures/field/texture.tres",
+		"FOREST": "res://textures/forest/texture.tres",
+		"MOUNTAIN": "res://textures/mountain/texture.tres",
+		"WATER": "res://textures/water/texture.tres"
+	}
+	
+	# Load each texture
+	for terrain_name in texture_paths:
+		var texture_path = texture_paths[terrain_name]
+		var texture_path_tres = texture_paths_tres[terrain_name]
+		
+		print("🔍 Checking texture: %s" % terrain_name)
+		
+		# Try PNG first
+		if FileAccess.file_exists(texture_path):
+			print("📁 Found PNG file: %s" % texture_path)
+			var texture = load(texture_path) as Texture2D
+			if texture:
+				terrain_textures[terrain_name] = texture
+				print("✅ Loaded PNG texture: %s" % texture_path)
+			else:
+				print("❌ Failed to load PNG texture: %s" % texture_path)
+		# Try TRES as fallback
+		elif FileAccess.file_exists(texture_path_tres):
+			print("📁 Found TRES file: %s" % texture_path_tres)
+			var texture = load(texture_path_tres) as Texture2D
+			if texture:
+				terrain_textures[terrain_name] = texture
+				print("✅ Loaded TRES texture: %s" % texture_path_tres)
+			else:
+				print("❌ Failed to load TRES texture: %s" % texture_path_tres)
+		else:
+			print("📁 No texture files found for %s (using solid color)" % terrain_name)
+			print("   Checked: %s" % texture_path)
+			print("   Checked: %s" % texture_path_tres)
+	
+	textures_loaded = true
+	print("🎨 Texture loading completed. Loaded %d textures." % terrain_textures.size())
+	if terrain_textures.size() == 0:
+		print("⚠️  No textures loaded - using solid colors as fallback")
+	else:
+		print("✅ Textures available: %s" % str(terrain_textures.keys()))
+
+
 
 func setup_debug_and_analytics():
 	print("🔍 Setting up debug systems...")
@@ -221,6 +290,12 @@ func _unhandled_input(event):
 			KEY_F11:
 				# NEW: Debug position structure
 				_debug_position_structure()
+			KEY_F12:
+				# NEW: Debug texture system
+				_debug_texture_system()
+			KEY_F5:
+				# NEW: Debug emoji colors
+				_debug_emoji_colors()
 			KEY_TAB:
 				print("TAB pressed - Switch Dashboard Tab")
 				if show_analytics_dashboard:
@@ -519,6 +594,63 @@ func _debug_position_structure():
 	
 	print("\n=== 🔧 STRUCTURE DEBUG COMPLETED ===\n")
 
+# NEW: Debug texture system
+func _debug_texture_system():
+	print("\n=== 🎨 TEXTURE SYSTEM DEBUG ===")
+	
+	print("Textures loaded: %s" % textures_loaded)
+	print("Terrain textures count: %d" % terrain_textures.size())
+	
+	for terrain_name in terrain_textures:
+		var texture = terrain_textures[terrain_name]
+		print("  %s: %s (class: %s)" % [terrain_name, texture, texture.get_class() if texture else "null"])
+		if texture:
+			print("    Size: %dx%d" % [texture.get_width(), texture.get_height()])
+	
+	# Test texture retrieval
+	print("\nTesting texture retrieval:")
+	for i in range(4):
+		var texture = _get_terrain_texture(i)
+		var terrain_names = ["FIELD", "FOREST", "MOUNTAIN", "WATER"]
+		print("  Type %d (%s): %s" % [i, terrain_names[i], "Found" if texture else "Not found"])
+	
+	print("\n=== 🎨 TEXTURE DEBUG COMPLETED ===\n")
+
+# NEW: Debug emoji colors
+func _debug_emoji_colors():
+	print("\n=== 🌈 EMOJI COLOR DEBUG ===")
+	
+	print("Testing emoji colors for all terrain types:")
+	
+	for terrain_type in range(4):
+		var terrain_names = ["FIELD", "FOREST", "MOUNTAIN", "WATER"]
+		var terrain_name = terrain_names[terrain_type]
+		
+		print("\n%s (Type %d):" % [terrain_name, terrain_type])
+		
+		# Test normal color
+		var normal_color = _get_terrain_emoji_color(terrain_type, false)
+		print("  Normal: %s" % normal_color)
+		
+		# Test remembered color
+		var remembered_color = _get_terrain_emoji_color(terrain_type, true)
+		print("  Remembered: %s" % remembered_color)
+		
+		# Calculate difference
+		var diff_r = remembered_color.r - normal_color.r
+		var diff_g = remembered_color.g - normal_color.g
+		var diff_b = remembered_color.b - normal_color.b
+		var diff_a = remembered_color.a - normal_color.a
+		
+		print("  Difference: R:%.2f G:%.2f B:%.2f A:%.2f" % [diff_r, diff_g, diff_b, diff_a])
+		
+		if diff_r > 0 or diff_g > 0 or diff_b > 0:
+			print("  ✅ Color is lighter when remembered")
+		else:
+			print("  ❌ Color is NOT lighter when remembered")
+	
+	print("\n=== 🌈 EMOJI COLOR DEBUG COMPLETED ===\n")
+
 # Game logic
 func _select_unit(unit_id: int):
 	selected_unit_id = unit_id
@@ -772,8 +904,9 @@ func _draw_bold_italic_text(font: Font, position: Vector2, text: String, size: i
 	draw_string(font, centered_pos + Vector2(1, -1), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
 
 
-# Draw diamond-shaped path between two points
-func _draw_diamond_path(start_pos: Vector2, end_pos: Vector2, color: Color, thickness: float) -> void:
+
+# Draw diamond-shaped path between two points with emoji support
+func _draw_diamond_path(start_pos: Vector2, end_pos: Vector2, color: Color, thickness: float, terrain_type: int = 0, is_remembered: bool = false) -> void:
 	# Calculate path direction and perpendicular
 	var direction = (end_pos - start_pos).normalized()
 	var perpendicular = Vector2(-direction.y, direction.x)
@@ -802,8 +935,156 @@ func _draw_diamond_path(start_pos: Vector2, end_pos: Vector2, color: Color, thic
 		side_bottom   # Obtuse side
 	])
 	
-	# Draw filled diamond
+	# NOVA ABORDAGEM: Desenhar emojis DIRETAMENTE no diamante
+	# Primeiro desenhar o diamante com cor de fundo
 	draw_colored_polygon(diamond_points, color)
+	
+	# Depois desenhar os emojis DIRETAMENTE por cima
+	_draw_emoji_on_diamond(diamond_points, terrain_type, is_remembered)
+
+# NOVA FUNÇÃO: Desenhar emojis diretamente no diamante
+func _draw_emoji_on_diamond(diamond_points: PackedVector2Array, terrain_type: int, is_remembered: bool = false) -> void:
+	# Debug: Log emoji drawing
+	if debug_enabled and randf() < 0.02:
+		print("[EMOJI] Drawing emoji for terrain type %d, is_remembered: %s" % [terrain_type, is_remembered])
+	
+	# Calcular centro do diamante
+	var center = Vector2.ZERO
+	for point in diamond_points:
+		center += point
+	center /= diamond_points.size()
+	
+	# Obter emoji e cor para o tipo de terreno
+	var emoji_text = _get_terrain_emoji(terrain_type)
+	var emoji_color = _get_terrain_emoji_color(terrain_type, is_remembered)
+	
+	# Debug: Log final color
+	if debug_enabled and randf() < 0.02:
+		print("[EMOJI] Final emoji color: %s" % emoji_color)
+	
+	# Desenhar múltiplos emojis espalhados no diamante
+	var font = ThemeDB.fallback_font
+	if font and emoji_text != "":
+		# Desenhar emoji no centro
+		draw_string(font, center + Vector2(-6, 3), emoji_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, emoji_color)
+		
+		# Desenhar emojis adicionais espalhados
+		if terrain_type == 0:  # FIELD - semicolons espalhados
+			draw_string(font, center + Vector2(-15, -8), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
+			draw_string(font, center + Vector2(10, -5), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
+			draw_string(font, center + Vector2(-8, 12), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
+			draw_string(font, center + Vector2(15, 8), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
+		elif terrain_type == 1:  # FOREST - árvores espalhadas
+			draw_string(font, center + Vector2(-12, -6), "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
+			draw_string(font, center + Vector2(8, -3), "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, 8, emoji_color)
+			draw_string(font, center + Vector2(-5, 10), "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, emoji_color)
+		elif terrain_type == 2:  # MOUNTAIN - montanhas espalhadas
+			draw_string(font, center + Vector2(-10, -4), "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, emoji_color)
+			draw_string(font, center + Vector2(12, -2), "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, 8, emoji_color)
+			draw_string(font, center + Vector2(-3, 8), "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, 7, emoji_color)
+		elif terrain_type == 3:  # WATER - ondas espalhadas
+			draw_string(font, center + Vector2(-14, -6), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
+			draw_string(font, center + Vector2(6, -2), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, emoji_color)
+			draw_string(font, center + Vector2(-8, 8), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 8, emoji_color)
+			draw_string(font, center + Vector2(12, 6), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 7, emoji_color)
+
+# Obter emoji para tipo de terreno
+func _get_terrain_emoji(terrain_type: int) -> String:
+	match terrain_type:
+		0:  # FIELD
+			return "؛"  # Semicolon invertido
+		1:  # FOREST
+			return "🌳"  # Árvore
+		2:  # MOUNTAIN
+			return "⛰"  # Montanha
+		3:  # WATER
+			return "〰"  # Onda
+		_:
+			return ""
+
+# Obter cor do emoji para tipo de terreno (com suporte a terreno lembrado)
+func _get_terrain_emoji_color(terrain_type: int, is_remembered: bool = false) -> Color:
+	var base_color: Color
+	
+	match terrain_type:
+		0:  # FIELD
+			base_color = Color(0.2, 0.4, 0.2)  # Verde escuro para semicolons
+		1:  # FOREST
+			base_color = Color(0.1, 0.6, 0.1)  # Verde brilhante para árvores
+		2:  # MOUNTAIN
+			base_color = Color(0.3, 0.3, 0.4)  # Cinza escuro para montanhas
+		3:  # WATER
+			base_color = Color(0.1, 0.3, 0.6)  # Azul escuro para ondas
+		_:
+			base_color = Color.BLACK
+	
+	# Se for terreno lembrado, clarear a cor (50% mais claro)
+	if is_remembered:
+		# Debug: Log color change
+		if debug_enabled and randf() < 0.05:
+			print("[EMOJI] Lightening color for remembered terrain type %d" % terrain_type)
+			print("[EMOJI] Original color: %s" % base_color)
+		
+		# Clareamento mais agressivo (75% em direção ao branco)
+		base_color = Color(
+			base_color.r + (1.0 - base_color.r) * 0.75,
+			base_color.g + (1.0 - base_color.g) * 0.75,
+			base_color.b + (1.0 - base_color.b) * 0.75,
+			base_color.a * 0.6  # Também reduzir opacidade
+		)
+		
+		# Debug: Log new color
+		if debug_enabled and randf() < 0.05:
+			print("[EMOJI] New lightened color: %s" % base_color)
+	
+	return base_color
+
+# Get terrain texture by type
+func _get_terrain_texture(terrain_type: int) -> Texture2D:
+	if not textures_loaded:
+		return null
+	
+	match terrain_type:
+		0:  # FIELD
+			return terrain_textures.get("FIELD")
+		1:  # FOREST
+			return terrain_textures.get("FOREST")
+		2:  # MOUNTAIN
+			return terrain_textures.get("MOUNTAIN")
+		3:  # WATER
+			return terrain_textures.get("WATER")
+		_:
+			return null
+
+# Draw textured diamond using UV mapping
+func _draw_textured_diamond(diamond_points: PackedVector2Array, texture: Texture2D, tint_color: Color) -> void:
+	# Debug: Log texture drawing attempt
+	if debug_enabled and randf() < 0.05:  # Log occasionally
+		print("[TEXTURE] Drawing textured diamond with texture: %s" % texture)
+	
+	# Try simple approach first - just draw with texture
+	try_simple_textured_draw(diamond_points, texture, tint_color)
+
+func try_simple_textured_draw(diamond_points: PackedVector2Array, texture: Texture2D, tint_color: Color) -> void:
+	# Simple UV mapping - map diamond to full texture
+	var uv_points = PackedVector2Array([
+		Vector2(0.5, 0.0),  # Top tip
+		Vector2(1.0, 0.5),  # Right side
+		Vector2(0.5, 1.0),  # Bottom tip
+		Vector2(0.0, 0.5)   # Left side
+	])
+	
+	# Check if texture is valid
+	if texture == null:
+		if debug_enabled:
+			print("[TEXTURE] Texture is null, using solid color")
+		draw_colored_polygon(diamond_points, tint_color)
+		return
+	
+	# Try to draw textured polygon
+	draw_colored_polygon(diamond_points, tint_color, uv_points, texture)
+	if debug_enabled and randf() < 0.01:
+		print("[TEXTURE] Drew textured polygon with %s" % texture.get_class())
 
 # Draw hexagon with dashed outline and 30° rotation
 func _draw_hexagon_dashed_outline(center: Vector2, radius: float, color: Color, width: float):
@@ -907,12 +1188,14 @@ func _render_grid_restored(hover_state: Dictionary):
 			# Get terrain color from restored palette
 			var terrain_color = _get_restored_terrain_color(edge.get("terrain_type", 0), is_remembered and not is_visible)
 			
-			# Draw diamond-shaped path (no blur for remembered terrain)
+			# Draw diamond-shaped path with emojis (pass remembered state)
 			_draw_diamond_path(
 				_apply_board_rotation(point_a.position.pixel_pos),
 				_apply_board_rotation(point_b.position.pixel_pos),
 				terrain_color,
-				PATH_THICKNESS
+				PATH_THICKNESS,
+				edge.get("terrain_type", 0),
+				is_remembered and not is_visible  # Pass remembered state
 			)
 	
 	# Draw points (with fog of war and remembered terrain)
@@ -929,15 +1212,15 @@ func _render_grid_restored(hover_state: Dictionary):
 				is_remembered = ToggleFogUseCase.is_remembered_by_player("point", point_id, current_player_id, game_state)
 		
 		if is_visible or is_remembered:
-			# Draw 6-pointed star (no blur for remembered points)
+			# Draw 6-pointed star (darker for remembered points)
 			var star_color = Color.WHITE
 			var star_pos = _apply_board_rotation(point.position.pixel_pos)
 			
 			if is_remembered and not is_visible:
-				# Use very light color for remembered points (almost white)
-				star_color = Color(0.95, 0.95, 0.95)  # Almost white
+				# Use 50% lighter color for remembered points
+				star_color = Color(1.0, 1.0, 1.0, 0.5)  # 50% lighter white (more transparent)
 			
-			# Draw normal star (no blur)
+			# Draw star
 			_draw_six_pointed_star(star_pos, 8.0, star_color)
 
 func _render_main_ui():

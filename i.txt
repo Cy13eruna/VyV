@@ -1,5 +1,6 @@
-Ainda bugado.
-Caso: um dos 6 pontos externos do domínio estão sob visualização de uma unidade adversária
-O que devria acontecer: domínio revelado para a unidade adversária
-O que acontece: domínio só é revelado quando o ponto central está visível
-Como corrigir: expanda a visibilidade do domínio para seus 6 pontos externos e não apenas seu nucleo
+Agora crie as texturas. Ei-las:
+
+campo: vários ponte-e-virgulas (;) de cabeça pra baixo bem juntinhos um dos outros
+montanha: vários ⛰ bem juntinhos um dos outros
+florestas: vários 🌳 bem juntinhos um dos outros
+água: vários 〰 bem juntinhos um dos outros
