@@ -33,6 +33,18 @@ var winner_player = null
 var in_menu: bool = true
 var selected_player_count: int = 0
 
+# Camera/Zoom state
+var camera_offset: Vector2 = Vector2.ZERO
+var zoom_level: float = 1.0
+var min_zoom: float = 0.3
+var max_zoom: float = 3.0
+var zoom_step: float = 0.1
+
+# Drag state
+var is_dragging: bool = false
+var drag_start_pos: Vector2 = Vector2.ZERO
+var drag_start_offset: Vector2 = Vector2.ZERO
+
 # Structure building system removed during cleanup
 # var build_mode: bool = false
 # var selected_structure_type: int = 0
@@ -281,6 +293,102 @@ func _start_game_with_players(player_count: int):
 	
 	queue_redraw()
 
+# Handle camera input (zoom and drag)
+func _handle_camera_input(event):
+	# Handle mouse wheel for zoom
+	if event is InputEventMouseButton:
+		if event.pressed:
+			match event.button_index:
+				MOUSE_BUTTON_WHEEL_UP:
+					_zoom_at_point(event.position, zoom_step)
+				MOUSE_BUTTON_WHEEL_DOWN:
+					_zoom_at_point(event.position, -zoom_step)
+				MOUSE_BUTTON_MIDDLE:
+					# Start dragging with middle mouse button
+					_start_drag(event.position)
+				MOUSE_BUTTON_RIGHT:
+					# Alternative: right mouse button for drag
+					_start_drag(event.position)
+		else:
+			# Stop dragging when mouse button is released
+			if event.button_index == MOUSE_BUTTON_MIDDLE or event.button_index == MOUSE_BUTTON_RIGHT:
+				_stop_drag()
+	
+	# Handle mouse motion for dragging
+	elif event is InputEventMouseMotion:
+		if is_dragging:
+			_update_drag(event.position)
+	
+	# Handle keyboard shortcuts for zoom
+	elif event is InputEventKey and event.pressed:
+		match event.keycode:
+			KEY_EQUAL, KEY_PLUS:  # + key for zoom in
+				_zoom_at_center(zoom_step)
+			KEY_MINUS:  # - key for zoom out
+				_zoom_at_center(-zoom_step)
+			KEY_0:  # 0 key to reset zoom and position
+				_reset_camera()
+			KEY_HOME:  # Home key to center camera
+				_center_camera()
+
+# Zoom at a specific point (mouse position)
+func _zoom_at_point(mouse_pos: Vector2, zoom_delta: float):
+	var old_zoom = zoom_level
+	zoom_level = clamp(zoom_level + zoom_delta, min_zoom, max_zoom)
+	
+	if zoom_level != old_zoom:
+		# Adjust camera offset to zoom towards mouse position
+		var screen_center = Vector2(512, 384)  # Screen center
+		var zoom_factor = zoom_level / old_zoom
+		
+		# Calculate offset adjustment to zoom towards mouse
+		var mouse_offset = mouse_pos - screen_center
+		camera_offset = (camera_offset + mouse_offset) * zoom_factor - mouse_offset
+		
+		queue_redraw()
+
+# Zoom at screen center
+func _zoom_at_center(zoom_delta: float):
+	var old_zoom = zoom_level
+	zoom_level = clamp(zoom_level + zoom_delta, min_zoom, max_zoom)
+	
+	if zoom_level != old_zoom:
+		queue_redraw()
+
+# Start dragging
+func _start_drag(mouse_pos: Vector2):
+	is_dragging = true
+	drag_start_pos = mouse_pos
+	drag_start_offset = camera_offset
+	# Change cursor to indicate dragging
+	Input.set_default_cursor_shape(Input.CURSOR_DRAG)
+
+# Update drag position
+func _update_drag(mouse_pos: Vector2):
+	if is_dragging:
+		var drag_delta = mouse_pos - drag_start_pos
+		camera_offset = drag_start_offset + drag_delta / zoom_level
+		queue_redraw()
+
+# Stop dragging
+func _stop_drag():
+	is_dragging = false
+	# Reset cursor
+	Input.set_default_cursor_shape(Input.CURSOR_ARROW)
+
+# Reset camera to default position and zoom
+func _reset_camera():
+	camera_offset = Vector2.ZERO
+	zoom_level = 1.0
+	queue_redraw()
+	print("📷 Camera reset to default position and zoom")
+
+# Center camera on the map
+func _center_camera():
+	camera_offset = Vector2.ZERO
+	queue_redraw()
+	print("📷 Camera centered")
+
 func setup_complete_input_system():
 	print("🎮 Setting up complete input system...")
 	
@@ -327,6 +435,9 @@ func _unhandled_input(event):
 	if in_menu:
 		_handle_menu_input(event)
 		return
+	
+	# Handle zoom and camera controls
+	_handle_camera_input(event)
 	
 	if game_state.is_empty() or not input_manager:
 		return
@@ -398,19 +509,25 @@ func _unhandled_input(event):
 				#	_update_buildable_edges()
 				#	queue_redraw()
 	
-	# Use InputManager for game input with rotation correction
+	# Use InputManager for game input with full transformation correction
 	if event is InputEventMouseButton and event.pressed:
-		# Apply reverse rotation to mouse clicks
+		# Skip if this is a camera control event
+		if event.button_index == MOUSE_BUTTON_MIDDLE or event.button_index == MOUSE_BUTTON_RIGHT:
+			return
+		# Apply reverse transformation to mouse clicks
 		var corrected_event = event.duplicate()
-		corrected_event.position = _apply_reverse_board_rotation(event.position)
+		corrected_event.position = _apply_reverse_full_transform(event.position)
 		input_manager.handle_input_event(corrected_event, game_state.grid, game_state.units)
 	elif event is InputEventMouseMotion:
-		# Apply reverse rotation to mouse motion
+		# Skip if dragging
+		if is_dragging:
+			return
+		# Apply reverse transformation to mouse motion
 		var corrected_event = event.duplicate()
-		corrected_event.position = _apply_reverse_board_rotation(event.position)
+		corrected_event.position = _apply_reverse_full_transform(event.position)
 		input_manager.handle_input_event(corrected_event, game_state.grid, game_state.units)
 	else:
-		# Other events (keyboard) don't need rotation correction
+		# Other events (keyboard) don't need transformation correction
 		input_manager.handle_input_event(event, game_state.grid, game_state.units)
 
 # Input event handlers
@@ -763,6 +880,16 @@ func _save_game_state():
 func _load_game_state():
 	print("📁 Load game state (not implemented yet)")
 
+# Apply camera transformation (zoom and offset) to a position
+func _apply_camera_transform(pos: Vector2) -> Vector2:
+	var screen_center = Vector2(512, 384)
+	return (pos + camera_offset) * zoom_level + screen_center * (1.0 - zoom_level)
+
+# Apply reverse camera transformation (for input)
+func _apply_reverse_camera_transform(screen_pos: Vector2) -> Vector2:
+	var screen_center = Vector2(512, 384)
+	return (screen_pos - screen_center * (1.0 - zoom_level)) / zoom_level - camera_offset
+
 # Apply 30-degree rotation to all positions
 func _apply_board_rotation(pos: Vector2) -> Vector2:
 	var angle = deg_to_rad(BOARD_ROTATION)
@@ -790,6 +917,14 @@ func _apply_reverse_board_rotation(pos: Vector2) -> Vector2:
 		relative_pos.x * sin_a + relative_pos.y * cos_a
 	)
 	return rotated + center
+
+# Apply both camera transform and board rotation
+func _apply_full_transform(pos: Vector2) -> Vector2:
+	return _apply_camera_transform(_apply_board_rotation(pos))
+
+# Apply reverse of both transformations (for input)
+func _apply_reverse_full_transform(screen_pos: Vector2) -> Vector2:
+	return _apply_reverse_board_rotation(_apply_reverse_camera_transform(screen_pos))
 
 func _get_restored_terrain_color(terrain_type: int, is_remembered: bool = false) -> Color:
 	var color_set = REMEMBERED_TERRAIN_COLORS if is_remembered else TERRAIN_COLORS
@@ -936,51 +1071,56 @@ func _render_domains(fog_settings: Dictionary):
 			domain_visible = ToggleFogUseCase.is_visible_to_player("domain", domain, fog_settings.player_id, game_state)
 		
 		if domain_visible:
-			var center_pos = _apply_board_rotation(domain.center_position.pixel_pos)
+			var center_pos = _apply_full_transform(domain.center_position.pixel_pos)
 			var player = game_state.players[domain.owner_id]
 			var color = player.color
 			
-			# UPDATED: Hexagonal domains with solid outline, rotated 30°
-			_draw_hexagon_solid_outline(center_pos, DOMAIN_RADIUS, color, 6.0)
+			# UPDATED: Hexagonal domains with solid outline, rotated 30° - with zoom support
+			var zoomed_radius = DOMAIN_RADIUS * zoom_level
+			var zoomed_width = 6.0 * zoom_level
+			_draw_hexagon_solid_outline(center_pos, zoomed_radius, color, zoomed_width)
 			
 			# Draw domain info below the domain (bold and italic)
 			var font = ThemeDB.fallback_font
 			if font:
-				# Domain name with space and power on same line - moved more down
+				# Domain name with space and power on same line - moved more down - with zoom support
 				var domain_info = "%s ⭐%d" % [domain.name, domain.power]
-				var domain_pos = center_pos + Vector2(0, DOMAIN_RADIUS + 25)
+				var domain_pos = center_pos + Vector2(0, (DOMAIN_RADIUS + 25) * zoom_level)
 				_draw_bold_italic_text(font, domain_pos, domain_info, 14, color)
 
-# Draw text with bold and italic effect (properly centered)
+# Draw text with bold and italic effect (properly centered) - with zoom support
 func _draw_bold_italic_text(font: Font, position: Vector2, text: String, size: int, color: Color) -> void:
+	# Apply zoom to text size
+	var zoomed_size = int(size * zoom_level)
+	
 	# Calculate text size for proper centering
-	var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, size)
+	var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, zoomed_size)
 	var centered_pos = position - Vector2(text_size.x / 2, 0)
 	
-	# REAL Italic effect: multiple draws with progressive slant
+	# REAL Italic effect: multiple draws with progressive slant (scaled with zoom)
 	var italic_offsets = [
 		Vector2(0, 0),   # Base
-		Vector2(1, -2),  # Top slant
-		Vector2(2, -4),  # More top slant
-		Vector2(-1, 2),  # Bottom slant
-		Vector2(-2, 4)   # More bottom slant
+		Vector2(1, -2) * zoom_level,  # Top slant
+		Vector2(2, -4) * zoom_level,  # More top slant
+		Vector2(-1, 2) * zoom_level,  # Bottom slant
+		Vector2(-2, 4) * zoom_level   # More bottom slant
 	]
 	
-	# Bold effect: multiple draws with slight offsets
+	# Bold effect: multiple draws with slight offsets (scaled with zoom)
 	var bold_offsets = [
-		Vector2(-1, -1), Vector2(0, -1), Vector2(1, -1),
-		Vector2(-1, 0),                   Vector2(1, 0),
-		Vector2(-1, 1),  Vector2(0, 1),  Vector2(1, 1)
+		Vector2(-1, -1) * zoom_level, Vector2(0, -1) * zoom_level, Vector2(1, -1) * zoom_level,
+		Vector2(-1, 0) * zoom_level,                                Vector2(1, 0) * zoom_level,
+		Vector2(-1, 1) * zoom_level,  Vector2(0, 1) * zoom_level,  Vector2(1, 1) * zoom_level
 	]
 	
 	# Draw italic slanted versions for italic effect
 	for italic_offset in italic_offsets:
 		# Draw bold outline
 		for bold_offset in bold_offsets:
-			draw_string(font, centered_pos + italic_offset + bold_offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color.BLACK)
+			draw_string(font, centered_pos + italic_offset + bold_offset, text, HORIZONTAL_ALIGNMENT_LEFT, -1, zoomed_size, Color.BLACK)
 	
-	# Draw main text with slight italic slant
-	draw_string(font, centered_pos + Vector2(1, -1), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
+	# Draw main text with slight italic slant (scaled with zoom)
+	draw_string(font, centered_pos + Vector2(1, -1) * zoom_level, text, HORIZONTAL_ALIGNMENT_LEFT, -1, zoomed_size, color)
 
 
 
@@ -1044,28 +1184,34 @@ func _draw_emoji_on_diamond(diamond_points: PackedVector2Array, terrain_type: in
 	# Desenhar múltiplos emojis espalhados no diamante
 	var font = ThemeDB.fallback_font
 	if font and emoji_text != "":
-		# Desenhar emoji no centro (sem blur - removido conforme solicitado)
-		draw_string(font, center + Vector2(-6, 3), emoji_text, HORIZONTAL_ALIGNMENT_CENTER, -1, 12, emoji_color)
+		# Aplicar zoom aos tamanhos dos emojis e offsets
+		var base_size = int(12 * zoom_level)
+		var small_size = int(10 * zoom_level)
+		var smaller_size = int(8 * zoom_level)
+		var smallest_size = int(7 * zoom_level)
 		
-		# Desenhar emojis adicionais espalhados (sem blur)
+		# Desenhar emoji no centro (sem blur - removido conforme solicitado)
+		draw_string(font, center + Vector2(-6, 3) * zoom_level, emoji_text, HORIZONTAL_ALIGNMENT_CENTER, -1, base_size, emoji_color)
+		
+		# Desenhar emojis adicionais espalhados (sem blur) - com zoom aplicado aos offsets
 		if terrain_type == 0:  # FIELD - semicolons espalhados
-			draw_string(font, center + Vector2(-15, -8), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
-			draw_string(font, center + Vector2(10, -5), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
-			draw_string(font, center + Vector2(-8, 12), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
-			draw_string(font, center + Vector2(15, 8), "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
+			draw_string(font, center + Vector2(-15, -8) * zoom_level, "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, small_size, emoji_color)
+			draw_string(font, center + Vector2(10, -5) * zoom_level, "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, small_size, emoji_color)
+			draw_string(font, center + Vector2(-8, 12) * zoom_level, "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, small_size, emoji_color)
+			draw_string(font, center + Vector2(15, 8) * zoom_level, "؛", HORIZONTAL_ALIGNMENT_CENTER, -1, small_size, emoji_color)
 		elif terrain_type == 1:  # FOREST - árvores espalhadas
-			draw_string(font, center + Vector2(-12, -6), "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
-			draw_string(font, center + Vector2(8, -3), "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, 8, emoji_color)
-			draw_string(font, center + Vector2(-5, 10), "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, emoji_color)
+			draw_string(font, center + Vector2(-12, -6) * zoom_level, "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, small_size, emoji_color)
+			draw_string(font, center + Vector2(8, -3) * zoom_level, "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, smaller_size, emoji_color)
+			draw_string(font, center + Vector2(-5, 10) * zoom_level, "🌳", HORIZONTAL_ALIGNMENT_CENTER, -1, int(9 * zoom_level), emoji_color)
 		elif terrain_type == 2:  # MOUNTAIN - montanhas espalhadas
-			draw_string(font, center + Vector2(-10, -4), "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, emoji_color)
-			draw_string(font, center + Vector2(12, -2), "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, 8, emoji_color)
-			draw_string(font, center + Vector2(-3, 8), "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, 7, emoji_color)
+			draw_string(font, center + Vector2(-10, -4) * zoom_level, "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, int(9 * zoom_level), emoji_color)
+			draw_string(font, center + Vector2(12, -2) * zoom_level, "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, smaller_size, emoji_color)
+			draw_string(font, center + Vector2(-3, 8) * zoom_level, "⛰", HORIZONTAL_ALIGNMENT_CENTER, -1, smallest_size, emoji_color)
 		elif terrain_type == 3:  # WATER - ondas espalhadas
-			draw_string(font, center + Vector2(-14, -6), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 10, emoji_color)
-			draw_string(font, center + Vector2(6, -2), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 9, emoji_color)
-			draw_string(font, center + Vector2(-8, 8), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 8, emoji_color)
-			draw_string(font, center + Vector2(12, 6), "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, 7, emoji_color)
+			draw_string(font, center + Vector2(-14, -6) * zoom_level, "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, small_size, emoji_color)
+			draw_string(font, center + Vector2(6, -2) * zoom_level, "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, int(9 * zoom_level), emoji_color)
+			draw_string(font, center + Vector2(-8, 8) * zoom_level, "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, smaller_size, emoji_color)
+			draw_string(font, center + Vector2(12, 6) * zoom_level, "〰", HORIZONTAL_ALIGNMENT_CENTER, -1, smallest_size, emoji_color)
 
 # Obter emoji para tipo de terreno
 func _get_terrain_emoji(terrain_type: int) -> String:
@@ -1343,8 +1489,8 @@ func _render_grid_edges(hover_state: Dictionary):
 			
 			# Draw diamond-shaped path with emojis (pass remembered state)
 			_draw_diamond_path(
-				_apply_board_rotation(point_a.position.pixel_pos),
-				_apply_board_rotation(point_b.position.pixel_pos),
+				_apply_full_transform(point_a.position.pixel_pos),
+				_apply_full_transform(point_b.position.pixel_pos),
 				terrain_color,
 				PATH_THICKNESS,
 				edge.get("terrain_type", 0),
@@ -1377,7 +1523,7 @@ func _render_grid_points(hover_state: Dictionary):
 		
 		# Draw star based on visibility state
 		var star_color: Color
-		var star_pos = _apply_board_rotation(point.position.pixel_pos)
+		var star_pos = _apply_full_transform(point.position.pixel_pos)
 		
 		# Draw stars based on visibility with placeholder system
 		if is_visible:
@@ -1393,8 +1539,9 @@ func _render_grid_points(hover_state: Dictionary):
 			# Default: Black placeholder star
 			star_color = Color.BLACK
 		
-		# Draw star (reduced size)
-		_draw_six_pointed_star(star_pos, 12.0, star_color)
+		# Draw star (reduced size) - with zoom support
+		var zoomed_star_radius = 12.0 * zoom_level
+		_draw_six_pointed_star(star_pos, zoomed_star_radius, star_color)
 
 func _render_main_ui():
 	var font = ThemeDB.fallback_font
@@ -1452,17 +1599,18 @@ func _render_main_ui():
 		#	draw_string(font, Vector2(20, 120), structures_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
 	
 	# Controls panel
-	var controls_rect = Rect2(10, 680, 400, 80)
+	var controls_rect = Rect2(10, 660, 400, 100)
 	draw_rect(controls_rect, Color(0, 0, 0, 0.7))
 	
 	var controls = [
 		"🎮 CONTROLS: Click unit → Click position | SPACE: Fog | ENTER: Skip | F1: Debug",
+		"📷 CAMERA: Mouse wheel: Zoom | Right/Middle drag: Pan | +/-: Zoom | 0: Reset | Home: Center",
 		"🏆 OBJECTIVE: Eliminate all enemy units to win! | 🔍 F9: Test | 🔎 F10: Detail | 🔧 F11: Debug"
 	]
 	
 	for i in range(controls.size()):
 		var text = controls[i]
-		draw_string(font, Vector2(20, 700 + i * 20), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color.WHITE)
+		draw_string(font, Vector2(20, 680 + i * 16), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, Color.WHITE)
 
 func _render_debug_ui():
 	if not show_debug_info:
@@ -1630,7 +1778,7 @@ func _render_units_with_fog(fog_settings: Dictionary, hover_state: Dictionary, f
 		
 		if is_visible:
 			# Render visible unit with restored style
-			var pos = _apply_board_rotation(unit.position.pixel_pos)
+			var pos = _apply_full_transform(unit.position.pixel_pos)
 			var is_selected = unit_id == selected_unit_id
 			var is_hovered = unit_id in hover_state and hover_state[unit_id]
 			
@@ -1644,20 +1792,24 @@ func _render_units_with_fog(fog_settings: Dictionary, hover_state: Dictionary, f
 				# Unit has no actions - make emoji whitish
 				emoji_color = unit_color.lerp(Color.WHITE, 0.7)  # Blend with white
 			
-			# Draw emoji (removed colored circle background)
-			draw_string(font, pos + Vector2(-12, 0), "🚶🏻‍♀️", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, Color.WHITE)
+			# Draw emoji (removed colored circle background) - with zoom support
+			var unit_emoji_size = int(32 * zoom_level)
+			var unit_emoji_offset = Vector2(-12, 0) * zoom_level
+			draw_string(font, pos + unit_emoji_offset, "🚶🏻‍♀️", HORIZONTAL_ALIGNMENT_CENTER, -1, unit_emoji_size, Color.WHITE)
 			
-			# Unit name below the unit (bold and italic) - moved more up
-			var unit_name_pos = pos + Vector2(0, 15)
+			# Unit name below the unit (bold and italic) - moved more up - with zoom support
+			var unit_name_pos = pos + Vector2(0, 15 * zoom_level)
 			_draw_bold_italic_text(font, unit_name_pos, unit.name, 12, unit_color)
 			
 			# Selection indicator: team color glow behind emoji when selected
 			if is_selected:
 				_draw_team_color_glow(pos, unit_color)
 				
-			# Hover indicator (adjusted for doubled star size)
+			# Hover indicator (adjusted for doubled star size) - with zoom support
 			if is_hovered:
-				draw_arc(pos, 31.0, 0, TAU, 32, Color.WHITE, 2.0)
+				var hover_radius = 31.0 * zoom_level
+				var hover_width = 2.0 * zoom_level
+				draw_arc(pos, hover_radius, 0, TAU, 32, Color.WHITE, hover_width)
 		else:
 			# Unit is hidden by fog - don't render anything
 			pass
@@ -1698,25 +1850,29 @@ func _render_movement_targets_with_terrain(font: Font) -> void:
 		var terrain_cost = MovementService.get_terrain_movement_cost(unit, target_pos, game_state.grid)
 		
 		# Draw team color glow around the star at this position
-		var rotated_pos = _apply_board_rotation(pos)
+		var rotated_pos = _apply_full_transform(pos)
 		var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
 		var team_color = current_player.color if current_player else Color.WHITE
 		_draw_team_color_glow_around_star(rotated_pos, terrain_cost, team_color)
 		
-		# Draw terrain cost indicator if needed
+		# Draw terrain cost indicator if needed - with zoom support
 		if terrain_cost > 1 and terrain_cost < 999:
-			draw_string(font, rotated_pos + Vector2(-4, 4), str(terrain_cost), HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.BLACK)
+			var cost_size = int(12 * zoom_level)
+			var cost_offset = Vector2(-4, 4) * zoom_level
+			draw_string(font, rotated_pos + cost_offset, str(terrain_cost), HORIZONTAL_ALIGNMENT_CENTER, -1, cost_size, Color.BLACK)
 		elif terrain_cost >= 999:
-			draw_string(font, rotated_pos + Vector2(-4, 4), "X", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.RED)
+			var cost_size = int(12 * zoom_level)
+			var cost_offset = Vector2(-4, 4) * zoom_level
+			draw_string(font, rotated_pos + cost_offset, "X", HORIZONTAL_ALIGNMENT_CENTER, -1, cost_size, Color.RED)
 
-# Draw team color glow around star for movement targets
+# Draw team color glow around star for movement targets - with zoom support
 func _draw_team_color_glow_around_star(position: Vector2, terrain_cost: int, team_color: Color) -> void:
-	# Create gradient glow effect with multiple circles (increased brightness)
+	# Create gradient glow effect with multiple circles (increased brightness) - scaled with zoom
 	var glow_layers = [
-		{"radius": 20.0, "alpha": 0.15},
-		{"radius": 16.0, "alpha": 0.25},
-		{"radius": 12.0, "alpha": 0.35},
-		{"radius": 8.0, "alpha": 0.45}
+		{"radius": 20.0 * zoom_level, "alpha": 0.15},
+		{"radius": 16.0 * zoom_level, "alpha": 0.25},
+		{"radius": 12.0 * zoom_level, "alpha": 0.35},
+		{"radius": 8.0 * zoom_level, "alpha": 0.45}
 	]
 	
 	# Use team color as base, adjust intensity based on terrain cost
@@ -1761,14 +1917,14 @@ func _draw_team_color_outline(position: Vector2, team_color: Color) -> void:
 	# Draw rounded rectangle outline
 	_draw_rounded_rect_outline(outline_rect, 8.0, outline_color, outline_thickness)
 
-# Draw team color glow behind selected unit
+# Draw team color glow behind selected unit - with zoom support
 func _draw_team_color_glow(position: Vector2, team_color: Color) -> void:
-	# Draw multiple circles with decreasing opacity for glow effect
+	# Draw multiple circles with decreasing opacity for glow effect - scaled with zoom
 	var glow_layers = [
-		{"radius": 25.0, "alpha": 0.1},
-		{"radius": 20.0, "alpha": 0.15},
-		{"radius": 15.0, "alpha": 0.2},
-		{"radius": 10.0, "alpha": 0.25}
+		{"radius": 25.0 * zoom_level, "alpha": 0.1},
+		{"radius": 20.0 * zoom_level, "alpha": 0.15},
+		{"radius": 15.0 * zoom_level, "alpha": 0.2},
+		{"radius": 10.0 * zoom_level, "alpha": 0.25}
 	]
 	
 	for layer in glow_layers:
