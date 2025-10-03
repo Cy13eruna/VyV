@@ -50,12 +50,12 @@ const TERRAIN_COLORS = {
 	"WATER": Color(0.0, 1.0, 1.0)       # 00FFFF - cyan
 }
 
-# Remembered terrain colors (darkened versions of normal terrain)
+# Remembered terrain colors (radically whitened versions)
 const REMEMBERED_TERRAIN_COLORS = {
-	"FIELD": Color(0.0, 0.7, 0.0),      # Darkened bright green
-	"FOREST": Color(0.0, 0.28, 0.0),    # Darkened dark green
-	"MOUNTAIN": Color(0.28, 0.28, 0.28), # Darkened gray
-	"WATER": Color(0.0, 0.7, 0.7)       # Darkened cyan
+	"FIELD": Color(0.85, 0.95, 0.85),    # Very light green (almost white)
+	"FOREST": Color(0.8, 0.9, 0.8),      # Very light green (almost white)
+	"MOUNTAIN": Color(0.9, 0.9, 0.9),    # Very light gray (almost white)
+	"WATER": Color(0.85, 0.95, 0.95)     # Very light cyan (almost white)
 }
 
 # UI state
@@ -771,21 +771,6 @@ func _draw_bold_italic_text(font: Font, position: Vector2, text: String, size: i
 	# Draw main text with slight italic slant
 	draw_string(font, centered_pos + Vector2(1, -1), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, color)
 
-# Draw blurred diamond-shaped path for remembered terrain
-func _draw_blurred_diamond_path(start_pos: Vector2, end_pos: Vector2, color: Color, thickness: float) -> void:
-	# Draw multiple layers with increasing transparency and size for blur effect
-	var blur_layers = [
-		{"alpha": 0.1, "size_mult": 1.8},
-		{"alpha": 0.15, "size_mult": 1.5},
-		{"alpha": 0.2, "size_mult": 1.3},
-		{"alpha": 0.3, "size_mult": 1.1},
-		{"alpha": 0.6, "size_mult": 1.0}  # Main layer
-	]
-	
-	for layer in blur_layers:
-		var blur_color = Color(color.r, color.g, color.b, layer.alpha)
-		var blur_thickness = thickness * layer.size_mult
-		_draw_diamond_path(start_pos, end_pos, blur_color, blur_thickness)
 
 # Draw diamond-shaped path between two points
 func _draw_diamond_path(start_pos: Vector2, end_pos: Vector2, color: Color, thickness: float) -> void:
@@ -858,20 +843,6 @@ func _draw_dashed_line(start: Vector2, end: Vector2, color: Color, width: float)
 		
 		current_pos += segment_length
 
-# Draw blurred 6-pointed star for remembered points
-func _draw_blurred_six_pointed_star(center: Vector2, radius: float, color: Color) -> void:
-	# Draw multiple layers with increasing transparency and size for blur effect
-	var blur_layers = [
-		{"alpha": 0.1, "size_mult": 1.6},
-		{"alpha": 0.15, "size_mult": 1.4},
-		{"alpha": 0.2, "size_mult": 1.2},
-		{"alpha": 0.4, "size_mult": 1.0}  # Main layer
-	]
-	
-	for layer in blur_layers:
-		var blur_color = Color(color.r, color.g, color.b, layer.alpha)
-		var blur_radius = radius * layer.size_mult
-		_draw_six_pointed_star(center, blur_radius, blur_color)
 
 # Draw 6-pointed star (Star of David) rotated 30 degrees
 func _draw_six_pointed_star(center: Vector2, radius: float, color: Color) -> void:
@@ -936,23 +907,13 @@ func _render_grid_restored(hover_state: Dictionary):
 			# Get terrain color from restored palette
 			var terrain_color = _get_restored_terrain_color(edge.get("terrain_type", 0), is_remembered and not is_visible)
 			
-			# Draw diamond-shaped path with blur effect for remembered terrain
-			if is_remembered and not is_visible:
-				# Draw multiple blurred layers for remembered terrain
-				_draw_blurred_diamond_path(
-					_apply_board_rotation(point_a.position.pixel_pos),
-					_apply_board_rotation(point_b.position.pixel_pos),
-					terrain_color,
-					PATH_THICKNESS
-				)
-			else:
-				# Draw normal diamond path
-				_draw_diamond_path(
-					_apply_board_rotation(point_a.position.pixel_pos),
-					_apply_board_rotation(point_b.position.pixel_pos),
-					terrain_color,
-					PATH_THICKNESS
-				)
+			# Draw diamond-shaped path (no blur for remembered terrain)
+			_draw_diamond_path(
+				_apply_board_rotation(point_a.position.pixel_pos),
+				_apply_board_rotation(point_b.position.pixel_pos),
+				terrain_color,
+				PATH_THICKNESS
+			)
 	
 	# Draw points (with fog of war and remembered terrain)
 	for point_id in game_state.grid.points:
@@ -968,17 +929,16 @@ func _render_grid_restored(hover_state: Dictionary):
 				is_remembered = ToggleFogUseCase.is_remembered_by_player("point", point_id, current_player_id, game_state)
 		
 		if is_visible or is_remembered:
-			# Draw 6-pointed white star with blur effect for remembered points
+			# Draw 6-pointed star (no blur for remembered points)
 			var star_color = Color.WHITE
 			var star_pos = _apply_board_rotation(point.position.pixel_pos)
 			
 			if is_remembered and not is_visible:
-				# Draw blurred star for remembered points
-				star_color = Color.LIGHT_GRAY
-				_draw_blurred_six_pointed_star(star_pos, 8.0, star_color)
-			else:
-				# Draw normal star
-				_draw_six_pointed_star(star_pos, 8.0, star_color)
+				# Use very light color for remembered points (almost white)
+				star_color = Color(0.95, 0.95, 0.95)  # Almost white
+			
+			# Draw normal star (no blur)
+			_draw_six_pointed_star(star_pos, 8.0, star_color)
 
 func _render_main_ui():
 	var font = ThemeDB.fallback_font
