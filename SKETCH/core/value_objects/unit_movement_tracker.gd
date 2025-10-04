@@ -16,6 +16,23 @@ enum MovementDirection {
 # Static storage for unit movement directions
 static var unit_directions = {}
 
+# Board rotation constant (matches main game)
+const BOARD_ROTATION = 30.0
+
+# Apply 30-degree rotation to position (same as main game)
+static func _apply_board_rotation(pos: Vector2) -> Vector2:
+	var angle = deg_to_rad(BOARD_ROTATION)
+	var cos_a = cos(angle)
+	var sin_a = sin(angle)
+	
+	var center = Vector2(512, 384)
+	var relative_pos = pos - center
+	var rotated = Vector2(
+		relative_pos.x * cos_a - relative_pos.y * sin_a,
+		relative_pos.x * sin_a + relative_pos.y * cos_a
+	)
+	return rotated + center
+
 # Track unit movement and determine direction
 static func track_unit_movement(unit_id: int, from_position, to_position) -> MovementDirection:
 	if not from_position or not to_position:
@@ -46,8 +63,12 @@ static func track_unit_movement(unit_id: int, from_position, to_position) -> Mov
 		print("[MOVEMENT_TRACKER] Warning: Cannot extract pixel position from to_position")
 		return MovementDirection.NONE
 	
-	# Calculate horizontal movement (no rotation applied)
-	var delta_x = to_pixel.x - from_pixel.x
+	# Apply 30-degree rotation to coordinates before calculating direction
+	var rotated_from = _apply_board_rotation(from_pixel)
+	var rotated_to = _apply_board_rotation(to_pixel)
+	
+	# Calculate horizontal movement (with rotation applied)
+	var delta_x = rotated_to.x - rotated_from.x
 	
 	# Determine direction based on horizontal movement (simple method)
 	var direction: MovementDirection
@@ -61,8 +82,8 @@ static func track_unit_movement(unit_id: int, from_position, to_position) -> Mov
 	# Store the direction for this unit
 	unit_directions[unit_id] = direction
 	
-	# DEBUG: Log detalhado do movimento
-	print("[MOVEMENT_TRACKER] Unit %d: from(%.1f,%.1f) to(%.1f,%.1f) delta_x=%.1f -> %s" % [unit_id, from_pixel.x, from_pixel.y, to_pixel.x, to_pixel.y, delta_x, _direction_to_string(direction)])
+	# DEBUG: Log detalhado do movimento (com rotação aplicada)
+	print("[MOVEMENT_TRACKER] Unit %d: from(%.1f,%.1f) to(%.1f,%.1f) rotated_delta_x=%.1f -> %s" % [unit_id, rotated_from.x, rotated_from.y, rotated_to.x, rotated_to.y, delta_x, _direction_to_string(direction)])
 	
 	return direction
 

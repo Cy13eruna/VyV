@@ -67,7 +67,7 @@ var drag_start_offset: Vector2 = Vector2.ZERO
 var debug_enabled: bool = true
 
 # RESTORED GAMEPLAY CONSTANTS
-const BOARD_ROTATION = 0.0
+const BOARD_ROTATION = 30.0
 const PATH_THICKNESS = 13.3  # Reduced 3x from 40.0
 const HEX_SIZE = 40.0  # From game constants
 const DOMAIN_RADIUS = HEX_SIZE * 1.95  # Increased from 1.85 to 1.95
