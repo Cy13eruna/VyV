@@ -1,2 +1,8 @@
-- inversão de emoji por direção está funcionando perfeitamente com exceção de uma única direção. Corrija-a sem comprometer as demais. Eis a direção problemática e  comportamento que ela deverá ter:
-    - move-se para direita superior: emoji inverte
+spawn de 4 jogadores não está respeitando a regra. Eis a regra de spawn para 4 jogadores:
+    0. selecione aleatoriamente uma ponta do tabuleiro
+    1. posicione um jogador nessa ponta
+    2. aleatoriamente selecione uma ponta adjacente
+    3. posicione outro jogador nessa ponta
+    4. encontre as duas pontas opostas a essas duas pontas ocupadas por jogadores
+    5. posicione um jogador em cada uma dessas duas pontas opostas
+    6. pronto! temos duas duplas de jogadores cada um numa extremidade do tabuleiro

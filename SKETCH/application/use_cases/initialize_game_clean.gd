@@ -296,6 +296,15 @@ static func _get_spawn_positions(grid_data: Dictionary, player_count: int) -> Ar
 	
 	print("    Found %d corner points" % corner_points.size())
 	
+	# CRITICAL: Sort corner points by angle to ensure proper hexagon order
+	corner_points.sort_custom(_compare_corners_by_angle)
+	
+	# DEBUG: Log corner positions after sorting
+	for i in range(corner_points.size()):
+		var corner = corner_points[i]
+		var angle = atan2(corner.position.pixel_pos.y - 384, corner.position.pixel_pos.x - 512) * 180.0 / PI
+		print("    Corner %d: q=%d, r=%d, pixel=(%.1f,%.1f), angle=%.1f°" % [i, corner.coordinate.q, corner.coordinate.r, corner.position.pixel_pos.x, corner.position.pixel_pos.y, angle])
+	
 	# Get all points with exactly 6 connections (perfect hex centers)
 	var six_connection_points = []
 	for point_id in grid_data.points:
@@ -396,35 +405,75 @@ static func _select_corners_3_players(corner_points: Array) -> Array:
 	
 	return selected_corners
 
-# Função auxiliar para ordenar corners por ângulo
+# Função auxiliar para ordenar corners por ângulo (usando coordenadas de pixel)
 static func _compare_corners_by_angle(a, b) -> bool:
-	# Calcular ângulo de cada corner em relação ao centro (0,0)
-	var angle_a = atan2(a.position.hex_coord.r, a.position.hex_coord.q)
-	var angle_b = atan2(b.position.hex_coord.r, b.position.hex_coord.q)
+	# Calcular ângulo de cada corner em relação ao centro da tela (512, 384)
+	var center = Vector2(512, 384)
+	var pos_a = a.position.pixel_pos - center
+	var pos_b = b.position.pixel_pos - center
+	var angle_a = atan2(pos_a.y, pos_a.x)
+	var angle_b = atan2(pos_b.y, pos_b.x)
 	return angle_a < angle_b
 
-# Corner selection rules for 4 players: todo jogador deve estar adjacente a uma ponta vazia
+# Corner selection rules for 4 players: duas duplas em extremidades opostas
 static func _select_corners_4_players(corner_points: Array) -> Array:
 	var selected_corners = []
 	
-	# Para 4 jogadores onde cada um deve estar adjacente a uma ponta vazia:
-	# Isso significa que 4 pontas são ocupadas e 2 ficam vazias
-	# As pontas vazias devem estar adjacentes para que todos os 4 jogadores tenham uma ponta vazia adjacente
-	# Opções válidas: deixar vazias (0,1), (1,2), (2,3), (3,4), (4,5), (5,0)
-	var empty_pairs = [[0,1], [1,2], [2,3], [3,4], [4,5], [5,0]]
+	# Algoritmo conforme especificado no i.txt:
+	# 0. selecione aleatoriamente uma ponta do tabuleiro
+	# 1. posicione um jogador nessa ponta
+	# 2. aleatoriamente selecione uma ponta adjacente
+	# 3. posicione outro jogador nessa ponta
+	# 4. encontre as duas pontas opostas a essas duas pontas ocupadas por jogadores
+	# 5. posicione um jogador em cada uma dessas duas pontas opostas
+	# 6. pronto! temos duas duplas de jogadores cada um numa extremidade do tabuleiro
 	
-	# Escolher par de pontas vazias
-	var chosen_empty_pair = empty_pairs[randi() % empty_pairs.size()]
+	if corner_points.size() < 6:
+		print("    ERROR: Insufficient corner points for 4 players")
+		return selected_corners
 	
-	# Ocupar as outras 4 pontas
-	var occupied_corners = []
-	for i in range(6):
-		if i not in chosen_empty_pair:
-			occupied_corners.append(i)
+	# Passo 0 e 1: Selecionar ponta aleatória para jogador 1
+	var first_corner_index = randi() % 6
+	selected_corners.append(corner_points[first_corner_index])
+	var first_corner = corner_points[first_corner_index]
+	print("    Player 1: Corner %d (randomly selected) at q=%d,r=%d pixel=(%.1f,%.1f)" % [first_corner_index, first_corner.coordinate.q, first_corner.coordinate.r, first_corner.position.pixel_pos.x, first_corner.position.pixel_pos.y])
 	
-	for i in occupied_corners:
-		if i < corner_points.size():
-			selected_corners.append(corner_points[i])
+	# Passo 2 e 3: Selecionar ponta adjacente para jogador 2
+	# Pontas adjacentes são (index-1) e (index+1) com wrap-around
+	var adjacent_indices = [
+		(first_corner_index - 1 + 6) % 6,  # Ponta anterior (com wrap)
+		(first_corner_index + 1) % 6       # Ponta seguinte (com wrap)
+	]
+	var second_corner_index = adjacent_indices[randi() % 2]
+	selected_corners.append(corner_points[second_corner_index])
+	var second_corner = corner_points[second_corner_index]
+	print("    Player 2: Corner %d (adjacent to %d) at q=%d,r=%d pixel=(%.1f,%.1f)" % [second_corner_index, first_corner_index, second_corner.coordinate.q, second_corner.coordinate.r, second_corner.position.pixel_pos.x, second_corner.position.pixel_pos.y])
+	
+	# Passo 4 e 5: Encontrar as duas pontas opostas
+	# Em um hexágono, a ponta oposta está a 3 posições de distância
+	var third_corner_index = (first_corner_index + 3) % 6
+	var fourth_corner_index = (second_corner_index + 3) % 6
+	
+	selected_corners.append(corner_points[third_corner_index])
+	selected_corners.append(corner_points[fourth_corner_index])
+	
+	var third_corner = corner_points[third_corner_index]
+	var fourth_corner = corner_points[fourth_corner_index]
+	
+	print("    Player 3: Corner %d (opposite to %d) at q=%d,r=%d pixel=(%.1f,%.1f)" % [third_corner_index, first_corner_index, third_corner.coordinate.q, third_corner.coordinate.r, third_corner.position.pixel_pos.x, third_corner.position.pixel_pos.y])
+	print("    Player 4: Corner %d (opposite to %d) at q=%d,r=%d pixel=(%.1f,%.1f)" % [fourth_corner_index, second_corner_index, fourth_corner.coordinate.q, fourth_corner.coordinate.r, fourth_corner.position.pixel_pos.x, fourth_corner.position.pixel_pos.y])
+	
+	# DEBUG: Verificar distâncias entre os pares
+	var distance_pair1 = first_corner.position.pixel_pos.distance_to(second_corner.position.pixel_pos)
+	var distance_pair2 = third_corner.position.pixel_pos.distance_to(fourth_corner.position.pixel_pos)
+	var distance_opposite1 = first_corner.position.pixel_pos.distance_to(third_corner.position.pixel_pos)
+	var distance_opposite2 = second_corner.position.pixel_pos.distance_to(fourth_corner.position.pixel_pos)
+	
+	print("    Distance between pair 1 (players 1-2): %.1f" % distance_pair1)
+	print("    Distance between pair 2 (players 3-4): %.1f" % distance_pair2)
+	print("    Distance between opposites (1-3): %.1f" % distance_opposite1)
+	print("    Distance between opposites (2-4): %.1f" % distance_opposite2)
+	print("    Result: Two pairs at opposite ends of the board")
 	
 	return selected_corners
 
