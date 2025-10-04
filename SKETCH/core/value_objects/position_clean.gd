@@ -15,7 +15,7 @@ func _init(coordinate, pixel_position: Vector2):
 # Create position from hex coordinate
 static func from_hex(coord, hex_size: float = 40.0, 
 					 center: Vector2 = Vector2(400, 300), 
-					 rotation: float = PI/3.0):
+					 rotation: float = 0.0):
 	var pixel = coord.to_pixel(hex_size, center, rotation)
 	var script = load("res://core/value_objects/position_clean.gd")
 	return script.new(coord, pixel)
@@ -23,7 +23,7 @@ static func from_hex(coord, hex_size: float = 40.0,
 # Create position from pixel
 static func from_pixel(pixel: Vector2, hex_size: float = 40.0,
 					   center: Vector2 = Vector2(400, 300),
-					   rotation: float = PI/3.0):
+					   rotation: float = 0.0):
 	var hex_script = load("res://core/value_objects/hex_coordinate_clean.gd")
 	var coord = hex_script.from_pixel(pixel, hex_size, center, rotation)
 	var script = load("res://core/value_objects/position_clean.gd")

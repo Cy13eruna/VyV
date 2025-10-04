@@ -29,9 +29,21 @@ var valid_movement_targets: Array = []
 var game_over: bool = false
 var winner_player = null
 
+# UI Components
+var skip_turn_button: Button
+var new_game_button: Button
+
 # Menu state
 var in_menu: bool = true
 var selected_player_count: int = 0
+var menu_options: Array = []
+var hovered_menu_option: int = -1
+var clicked_menu_option: int = -1
+
+# Turn transition state
+var in_turn_transition: bool = false
+var transition_button: Button
+var next_player_id: int = -1
 
 # Camera/Zoom state
 var camera_offset: Vector2 = Vector2.ZERO
@@ -55,7 +67,7 @@ var drag_start_offset: Vector2 = Vector2.ZERO
 var debug_enabled: bool = true
 
 # RESTORED GAMEPLAY CONSTANTS
-const BOARD_ROTATION = 30.0
+const BOARD_ROTATION = 0.0
 const PATH_THICKNESS = 13.3  # Reduced 3x from 40.0
 const HEX_SIZE = 40.0  # From game constants
 const DOMAIN_RADIUS = HEX_SIZE * 1.95  # Increased from 1.85 to 1.95
@@ -85,6 +97,12 @@ var current_dashboard_tab: int = 0
 # Power tracking for sprite updates
 var previous_domain_powers: Dictionary = {}
 
+# REMOVIDO: Unit direction tracking for emoji flipping
+# var unit_directions: Dictionary = {}  # unit_id -> bool (true = facing_right)
+
+# Domain terrain counting system
+var domain_terrain_counts: Dictionary = {}  # domain_id -> {"FIELD": count, "FOREST": count, etc}
+
 # Texture system for terrain
 var terrain_textures: Dictionary = {}
 var textures_loaded: bool = false
@@ -99,8 +117,34 @@ func _ready():
 	
 	setup_debug_and_analytics()
 	
+	# TEMPORARIAMENTE DESABILITADO: Initialize emoji texture atlas
+	# var EmojiTextureAtlas = load("res://infrastructure/rendering/emoji_texture_atlas.gd")
+	# if EmojiTextureAtlas:
+	#	EmojiTextureAtlas.initialize_atlas()
+	#	print("🎨 Emoji texture atlas initialized")
+	# else:
+	#	print("⚠️ Emoji texture atlas failed to load - using fallback")
+	print("🎨 Emoji texture atlas temporarily disabled - using original rendering")
+	
+	# Initialize unit movement tracker
+	var UnitMovementTracker = load("res://core/value_objects/unit_movement_tracker.gd")
+	if UnitMovementTracker:
+		UnitMovementTracker.clear_all_directions()
+		print("🧭 Unit movement tracker initialized")
+	else:
+		print("⚠️ Unit movement tracker failed to load")
+	
 	# Load terrain textures
 	_load_terrain_textures()
+	
+	# Create and setup skip turn button
+	_setup_skip_turn_button()
+	
+	# Create and setup new game button
+	_setup_new_game_button()
+	
+	# Create and setup transition button
+	_setup_transition_button()
 	
 	# Start in menu mode - wait for player count selection
 	print("🎮 Waiting for player count selection...")
@@ -175,6 +219,117 @@ func setup_debug_and_analytics():
 	
 	print("✅ Simple debug system ready")
 
+# Setup skip turn button
+func _setup_skip_turn_button():
+	print("⏭️ Setting up skip turn button...")
+	
+	# Create skip turn button
+	skip_turn_button = Button.new()
+	skip_turn_button.text = "Skip Turn"
+	skip_turn_button.custom_minimum_size = Vector2(120, 40)
+	skip_turn_button.position = Vector2(880, 20)  # Top right corner
+	skip_turn_button.visible = false  # Hidden during menu
+	
+	# Connect button signal
+	skip_turn_button.pressed.connect(_on_skip_turn)
+	
+	# Add button to scene
+	add_child(skip_turn_button)
+	
+	print("✅ Skip turn button ready")
+
+# Setup new game button
+func _setup_new_game_button():
+	print("🔄 Setting up new game button...")
+	
+	# Create new game button
+	new_game_button = Button.new()
+	new_game_button.text = "New Game"
+	new_game_button.custom_minimum_size = Vector2(120, 40)
+	new_game_button.position = Vector2(20, 20)  # Top left corner
+	new_game_button.visible = false  # Hidden during menu, shown only during game
+	
+	# Connect button signal
+	new_game_button.pressed.connect(_on_new_game)
+	
+	# Add button to scene
+	add_child(new_game_button)
+	
+	print("✅ New game button ready")
+
+# Setup transition button
+func _setup_transition_button():
+	print("▶️ Setting up turn transition button...")
+	
+	# Create transition button
+	transition_button = Button.new()
+	transition_button.text = "START"
+	transition_button.custom_minimum_size = Vector2(200, 60)
+	transition_button.position = Vector2(412, 354)  # Center of screen
+	transition_button.visible = false  # Hidden by default
+	
+	# Connect button signal
+	transition_button.pressed.connect(_on_transition_start)
+	
+	# Add button to scene
+	add_child(transition_button)
+	
+	print("✅ Turn transition button ready")
+
+# Update skip button color based on current player
+func _update_skip_button_color():
+	if not skip_turn_button or game_state.is_empty():
+		return
+	
+	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+	if current_player:
+		skip_turn_button.modulate = current_player.color
+	else:
+		skip_turn_button.modulate = Color.WHITE
+
+# Handle transition button click
+func _on_transition_start():
+	print("▶️ Starting turn for player %d" % next_player_id)
+	
+	# NOVO: Auto-centralizar câmera no início do turno com zoom otimizado
+	_center_camera(selected_player_count)
+	print("📷 Camera auto-centered for new turn with optimized zoom")
+	
+	# Hide transition screen
+	in_turn_transition = false
+	transition_button.visible = false
+	
+	# Show skip button again
+	if skip_turn_button:
+		skip_turn_button.visible = true
+	
+	# Update skip button color for current player
+	_update_skip_button_color()
+	
+	queue_redraw()
+
+# Show turn transition screen
+func _show_turn_transition():
+	print("🔄 Showing turn transition screen...")
+	
+	# Get current player (the one who will play next)
+	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
+	if current_player:
+		next_player_id = current_player.id
+		
+		# Set transition button color to match next player
+		transition_button.modulate = current_player.color
+		
+		# Show transition screen
+		in_turn_transition = true
+		transition_button.visible = true
+		
+		# Hide skip button during transition
+		if skip_turn_button:
+			skip_turn_button.visible = false
+		
+		print("🎯 Turn transition ready for player: %s" % current_player.name)
+
 func setup_final_game():
 	# This function is now deprecated - use setup_final_game_with_count instead
 	setup_final_game_with_count(2)
@@ -220,6 +375,9 @@ func setup_final_game_with_count(player_count: int):
 		
 		# Initialize power tracking
 		_check_power_changes()
+		
+		# Update skip button color after game initialization
+		_update_skip_button_color()
 	else:
 		print("❌ Game initialization failed: %s" % init_result.message)
 		game_state = GameState.create_empty_game_state()
@@ -262,6 +420,29 @@ func _get_player_count_from_input() -> int:
 
 # Handle menu input for player count selection
 func _handle_menu_input(event):
+	# Handle mouse motion for hover detection
+	if event is InputEventMouseMotion:
+		hovered_menu_option = -1
+		for i in range(menu_options.size()):
+			var option = menu_options[i]
+			if option.rect.has_point(event.position):
+				hovered_menu_option = i
+				break
+		queue_redraw()
+	
+	# Handle mouse clicks on menu options
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		for i in range(menu_options.size()):
+			var option = menu_options[i]
+			if option.rect.has_point(event.position):
+				clicked_menu_option = i
+				queue_redraw()
+				# Pequeno delay para mostrar o feedback visual
+				await get_tree().create_timer(0.1).timeout
+				_start_game_with_players(option.players)
+				return
+	
+	# Handle keyboard input (backup)
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
 			KEY_2:
@@ -282,9 +463,19 @@ func _start_game_with_players(player_count: int):
 	selected_player_count = player_count
 	in_menu = false
 	
+	# Show skip turn button and new game button
+	if skip_turn_button:
+		skip_turn_button.visible = true
+	if new_game_button:
+		new_game_button.visible = true
+	
 	# Now initialize the game
 	setup_final_game_with_count(player_count)
 	setup_complete_input_system()
+	
+	# NOVO: Aplicar auto-zoom inicial baseado no tamanho do mapa
+	_center_camera(player_count)
+	print("📷 Initial camera positioning with auto-zoom applied")
 	
 	print("🚀 V&V Game Ready!")
 	print("🎯 Click units to select, click positions to move")
@@ -330,6 +521,15 @@ func _handle_camera_input(event):
 				_reset_camera()
 			KEY_HOME:  # Home key to center camera
 				_center_camera()
+			# NOVO: Setas invertidas - direita vai para esquerda, cima vai para baixo, etc.
+			KEY_LEFT:
+				_move_camera_with_arrow(Vector2(50, 0))  # Invertido: esquerda move para direita
+			KEY_RIGHT:
+				_move_camera_with_arrow(Vector2(-50, 0))  # Invertido: direita move para esquerda
+			KEY_UP:
+				_move_camera_with_arrow(Vector2(0, 50))  # Invertido: cima move para baixo
+			KEY_DOWN:
+				_move_camera_with_arrow(Vector2(0, -50))  # Invertido: baixo move para cima
 
 # Zoom at a specific point (mouse position)
 func _zoom_at_point(mouse_pos: Vector2, zoom_delta: float):
@@ -383,11 +583,46 @@ func _reset_camera():
 	queue_redraw()
 	print("📷 Camera reset to default position and zoom")
 
-# Center camera on the map
-func _center_camera():
-	camera_offset = Vector2.ZERO
+# Center camera on the map with auto-zoom based on player count
+func _center_camera(player_count: int = 0):
+	# Ajustar offset para centralizar melhor o mapa (estava muito alto)
+	camera_offset = Vector2(0, 30)  # Move o mapa um pouco para baixo
+	
+	# NOVO: Auto-zoom baseado no número de jogadores e tamanho do mapa
+	if player_count > 0:
+		var optimal_zoom = _calculate_optimal_zoom(player_count)
+		zoom_level = optimal_zoom
+		print("📷 Camera centered with auto-zoom %.2f for %d players" % [optimal_zoom, player_count])
+	else:
+		print("📷 Camera centered with improved positioning")
+	
 	queue_redraw()
-	print("📷 Camera centered")
+
+# NOVO: Calcular zoom ótimo baseado no número de jogadores
+func _calculate_optimal_zoom(player_count: int) -> float:
+	# Mapear contagem de jogadores para diâmetro do mapa e zoom apropriado
+	match player_count:
+		2:
+			# 2 jogadores: diâmetro 9 - zoom maior para mapa menor
+			return 1.2
+		3:
+			# 3 jogadores: diâmetro 11 - zoom médio-alto
+			return 1.0
+		4:
+			# 4 jogadores: diâmetro 13 - zoom médio
+			return 0.8
+		6:
+			# 6 jogadores: diâmetro 15 - zoom menor para mapa maior
+			return 0.6
+		_:
+			# Padrão: zoom normal
+			return 1.0
+
+# NOVO: Mover câmera com setas (como botão direito do mouse)
+func _move_camera_with_arrow(direction: Vector2):
+	camera_offset += direction / zoom_level
+	queue_redraw()
+	print("📷 Camera moved with arrow keys")
 
 func setup_complete_input_system():
 	print("🎮 Setting up complete input system...")
@@ -497,8 +732,13 @@ func _unhandled_input(event):
 				else:
 					print("Dashboard not active")
 			KEY_ENTER:
-				# RESTORED: Manual skip turn only
-				_on_skip_turn()
+				# NOVO: ENTER inicia turno na tela START, pula turno no jogo
+				if in_turn_transition:
+					# Na tela START: ENTER inicia o turno
+					_on_transition_start()
+				else:
+					# No jogo: ENTER pula o turno
+					_on_skip_turn()
 			# KEY_B:
 				# Toggle build mode - DISABLED
 				# _toggle_build_mode()
@@ -602,6 +842,9 @@ func _on_fog_toggle():
 		# Log fog toggle
 		if debug_enabled:
 			print("[DEBUG] Fog toggled: %s" % ("ON" if fog_result.fog_enabled else "OFF"))
+	
+	# NOVO: Limpar seleção quando SPACE é pressionado para evitar persistência de clique
+	_clear_selection()
 	queue_redraw()
 
 func _on_skip_turn():
@@ -612,6 +855,12 @@ func _on_skip_turn():
 			game_over = true
 			winner_player = skip_result.winner
 			print("🏆 GAME OVER! Winner: %s" % (winner_player.name if winner_player else "Draw"))
+			# Hide skip button when game is over
+			if skip_turn_button:
+				skip_turn_button.visible = false
+		else:
+			# Game continues - show turn transition
+			_show_turn_transition()
 		# Check for power changes after turn advance (domains may generate power)
 		_check_power_changes()
 	_clear_selection()
@@ -620,6 +869,46 @@ func _on_skip_turn():
 func _on_quit_game():
 	print("👋 Game quit requested")
 	get_tree().quit()
+
+# Handle new game button click
+func _on_new_game():
+	print("🔄 New game requested")
+	
+	# Reset game state
+	game_state = {}
+	selected_unit_id = -1
+	valid_movement_targets.clear()
+	game_over = false
+	winner_player = null
+	in_turn_transition = false
+	
+	# Reset tracking variables
+	previous_domain_powers.clear()
+	
+	# Reset unit movement tracking
+	var UnitMovementTracker = load("res://core/value_objects/unit_movement_tracker.gd")
+	if UnitMovementTracker:
+		UnitMovementTracker.clear_all_directions()
+		print("🧭 Unit movement tracking reset")
+	else:
+		print("⚠️ Unit movement tracker failed to load for reset")
+	
+	# Hide game UI
+	if skip_turn_button:
+		skip_turn_button.visible = false
+	if new_game_button:
+		new_game_button.visible = false
+	if transition_button:
+		transition_button.visible = false
+	
+	# Return to menu
+	in_menu = true
+	selected_player_count = 0
+	hovered_menu_option = -1
+	clicked_menu_option = -1
+	
+	print("🎮 Returned to player selection menu")
+	queue_redraw()
 
 # Structure building functions removed during cleanup
 # func _toggle_build_mode():
@@ -817,6 +1106,10 @@ func _select_unit(unit_id: int):
 func _attempt_unit_movement(target_position):
 	if selected_unit_id == -1:
 		return
+	
+	# REMOVIDO: Lógica de direção do movimento para emoji direcional
+	# A substituição de emoji baseada na direção foi removida conforme solicitado
+	
 	var move_result = MoveUnitUseCase.execute(selected_unit_id, target_position, game_state)
 	
 	if move_result.success:
@@ -970,6 +1263,11 @@ func _draw():
 		_render_menu()
 		return
 	
+	# Show turn transition if in transition state
+	if in_turn_transition:
+		_render_turn_transition()
+		return
+	
 	if game_state.is_empty():
 		return
 	
@@ -1023,40 +1321,45 @@ func _draw():
 	if show_analytics_dashboard:
 		_render_simple_analytics_dashboard(font)
 
-# Render player count selection menu
+# Render player count selection menu (MINIMALISTA)
 func _render_menu():
-	# Draw background
-	draw_rect(Rect2(0, 0, 1024, 768), Color(0.1, 0.1, 0.2))
+	# Draw black background
+	draw_rect(Rect2(0, 0, 1024, 768), Color.BLACK)
 	
 	var font = ThemeDB.fallback_font
 	if not font:
 		return
 	
-	# Title
-	draw_string(font, Vector2(512, 150), "V&V - Vales & Vales", HORIZONTAL_ALIGNMENT_CENTER, -1, 48, Color.WHITE)
-	draw_string(font, Vector2(512, 200), "Strategy Game", HORIZONTAL_ALIGNMENT_CENTER, -1, 24, Color.LIGHT_GRAY)
-	
-	# Instructions
-	draw_string(font, Vector2(512, 280), "Choose Number of Players:", HORIZONTAL_ALIGNMENT_CENTER, -1, 32, Color.YELLOW)
-	
-	# Player options
-	var options = [
-		{"key": "2", "players": 2, "diameter": 7, "y": 350},
-		{"key": "3", "players": 3, "diameter": 9, "y": 400},
-		{"key": "4", "players": 4, "diameter": 13, "y": 450},
-		{"key": "6", "players": 6, "diameter": 18, "y": 500}
+	# MINIMALISTA: Apenas as opções de jogadores, sem título, sem instruções, sem footer
+	# Player options - clickable areas (NOVOS VALORES ATUALIZADOS)
+	menu_options = [
+		{"players": 2, "diameter": 9, "y": 300, "rect": Rect2(412, 285, 200, 40)},
+		{"players": 3, "diameter": 11, "y": 360, "rect": Rect2(412, 345, 200, 40)},
+		{"players": 4, "diameter": 13, "y": 420, "rect": Rect2(412, 405, 200, 40)},
+		{"players": 6, "diameter": 15, "y": 480, "rect": Rect2(412, 465, 200, 40)}
 	]
 	
-	for option in options:
-		var text = "Press [%s] - %d Players (Map: %d stars diameter)" % [option.key, option.players, option.diameter]
-		draw_string(font, Vector2(512, option.y), text, HORIZONTAL_ALIGNMENT_CENTER, -1, 20, Color.WHITE)
+	for i in range(menu_options.size()):
+		var option = menu_options[i]
+		# NOVO: Cores baseadas no estado (hover magenta, click verde)
+		var text_color = Color.WHITE
+		if clicked_menu_option == i:
+			text_color = Color.GREEN  # Verde quando clicado
+		elif hovered_menu_option == i:
+			text_color = Color.MAGENTA  # Magenta quando hover
+		
+		# MINIMALISTA: Apenas os números, sem caixas
+		var text = "%d" % option.players
+		var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, 32)
+		draw_string(font, Vector2(512 - text_size.x/2, option.y), text, HORIZONTAL_ALIGNMENT_LEFT, -1, 32, text_color)
+
+# Render turn transition screen (MINIMALISTA)
+func _render_turn_transition():
+	# Draw black background
+	draw_rect(Rect2(0, 0, 1024, 768), Color.BLACK)
 	
-	# Footer
-	draw_string(font, Vector2(512, 600), "Press ESC to quit", HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color.LIGHT_GRAY)
-	
-	# Game info
-	draw_string(font, Vector2(512, 680), "Features: Fog of War, Terrain Variety, Strategic Combat", HORIZONTAL_ALIGNMENT_CENTER, -1, 14, Color.CYAN)
-	draw_string(font, Vector2(512, 710), "Architecture: Clean ONION Design with Use Cases", HORIZONTAL_ALIGNMENT_CENTER, -1, 12, Color.GREEN)
+	# MINIMALISTA: Apenas o botão START é visível
+	# Sem texto adicional, sem instruções, apenas o botão com a cor do jogador
 
 func _render_domains(fog_settings: Dictionary):
 	if not ("domains" in game_state):
@@ -1075,9 +1378,19 @@ func _render_domains(fog_settings: Dictionary):
 			var player = game_state.players[domain.owner_id]
 			var color = player.color
 			
-			# UPDATED: Hexagonal domains with solid outline, rotated 30° - with zoom support
+			# NOVO: Brilho hexagonal branco nas proporções da moldura do domínio
 			var zoomed_radius = DOMAIN_RADIUS * zoom_level
 			var zoomed_width = 6.0 * zoom_level
+			
+			# Brilho com as mesmas proporções da moldura, encaixando perfeitamente
+			# Usar o mesmo raio mas com largura ligeiramente maior para criar o brilho
+			var glow_width = zoomed_width + (4.0 * zoom_level)  # Largura um pouco maior
+			var glow_color = Color(1.0, 1.0, 1.0, 0.6)  # Branco semi-transparente
+			
+			# Desenhar brilho com o mesmo raio da moldura
+			_draw_hexagon_solid_outline(center_pos, zoomed_radius, glow_color, glow_width)
+			
+			# Domínio principal por cima do brilho (mesmas proporções)
 			_draw_hexagon_solid_outline(center_pos, zoomed_radius, color, zoomed_width)
 			
 			# Draw domain info below the domain (bold and italic)
@@ -1561,33 +1874,8 @@ func _render_main_ui():
 		draw_string(font, Vector2(512, 420), "Press ESC to quit", HORIZONTAL_ALIGNMENT_CENTER, -1, 16, Color.LIGHT_GRAY)
 		return
 	
-	# Current player panel
-	var current_player = TurnService.get_current_player(game_state.turn_data, game_state.players)
-	if current_player:
-		var panel_rect = Rect2(10, 10, 300, 120)
-		draw_rect(panel_rect, Color(0, 0, 0, 0.7))
-		draw_rect(panel_rect, current_player.color, false, 2.0)
-		
-		var player_text = "Current Player: %s" % current_player.name
-		draw_string(font, Vector2(20, 35), player_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 18, current_player.color)
-		
-		var summary = GameState.get_game_state_summary(game_state)
-		var turn_text = "Turn: %d" % summary.current_turn
-		draw_string(font, Vector2(20, 60), turn_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
-		
-		var fog_text = "Fog of War: %s" % ("ON" if summary.fog_enabled else "OFF")
-		draw_string(font, Vector2(20, 80), fog_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
-		
-		# Units with actions
-		var units_with_actions = 0
-		for unit_id in current_player.unit_ids:
-			if unit_id in game_state.units:
-				var unit = game_state.units[unit_id]
-				if unit.can_move():
-					units_with_actions += 1
-		
-		var actions_text = "Units ready: %d" % units_with_actions
-		draw_string(font, Vector2(20, 100), actions_text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14, Color.WHITE)
+	# REMOVIDO: Current player panel (conforme solicitado)
+	# O quadrado de informações na parte superior esquerda foi removido
 		
 		# TEMPORARY: Structure system disabled
 		# if "structures" in game_state:
@@ -1792,18 +2080,39 @@ func _render_units_with_fog(fog_settings: Dictionary, hover_state: Dictionary, f
 				# Unit has no actions - make emoji whitish
 				emoji_color = unit_color.lerp(Color.WHITE, 0.7)  # Blend with white
 			
-			# Draw emoji (removed colored circle background) - with zoom support
+			# TEMPORARIAMENTE DESABILITADO: Selection indicator
+			# if is_selected:
+			#	_draw_team_color_glow(pos, unit_color)
+			
+			# NOVO: Sistema simplificado com inversão e tingimento
+			var unit_emoji = "🚶🏻‍♀️"  # Unit emoji
 			var unit_emoji_size = int(32 * zoom_level)
 			var unit_emoji_offset = Vector2(-12, 0) * zoom_level
-			draw_string(font, pos + unit_emoji_offset, "🚶🏻‍♀️", HORIZONTAL_ALIGNMENT_CENTER, -1, unit_emoji_size, Color.WHITE)
+			
+			# Verificar se deve inverter o emoji baseado na direção do movimento
+			var should_flip = _should_flip_unit_emoji(unit_id)
+			
+			# Calcular cor melhorada do time
+			var enhanced_team_color = _get_enhanced_team_color(unit_color, has_actions)
+			
+			# DEBUG: Verificar tingimento
+			if debug_enabled and randf() < 0.1:
+				print("[TINGIMENTO] Unit %d: Original=%s Enhanced=%s Flip=%s" % [unit_id, unit_color, enhanced_team_color, should_flip])
+			
+			if should_flip:
+				# Desenhar emoji invertido horizontalmente
+				_draw_flipped_emoji(font, pos + unit_emoji_offset, unit_emoji, unit_emoji_size, enhanced_team_color)
+			else:
+				# Desenhar emoji normal
+				draw_string(font, pos + unit_emoji_offset, unit_emoji, HORIZONTAL_ALIGNMENT_CENTER, -1, unit_emoji_size, enhanced_team_color)
+			
+			# DEBUG: Log rendering
+			if debug_enabled and randf() < 0.01:
+				print("[UNIT_RENDER] Drawing unit %d at %s with color %s" % [unit_id, pos, unit_color])
 			
 			# Unit name below the unit (bold and italic) - moved more up - with zoom support
 			var unit_name_pos = pos + Vector2(0, 15 * zoom_level)
 			_draw_bold_italic_text(font, unit_name_pos, unit.name, 12, unit_color)
-			
-			# Selection indicator: team color glow behind emoji when selected
-			if is_selected:
-				_draw_team_color_glow(pos, unit_color)
 				
 			# Hover indicator (adjusted for doubled star size) - with zoom support
 			if is_hovered:
@@ -1930,6 +2239,44 @@ func _draw_team_color_glow(position: Vector2, team_color: Color) -> void:
 	for layer in glow_layers:
 		var glow_color = Color(team_color.r, team_color.g, team_color.b, layer.alpha)
 		draw_circle(position, layer.radius, glow_color)
+
+# Verificar se deve inverter emoji baseado na direção do movimento
+func _should_flip_unit_emoji(unit_id: int) -> bool:
+	var UnitMovementTracker = load("res://core/value_objects/unit_movement_tracker.gd")
+	if UnitMovementTracker:
+		return UnitMovementTracker.should_flip_emoji(unit_id)
+	return false
+
+# Calcular cor melhorada do time com efeitos
+func _get_enhanced_team_color(team_color: Color, has_actions: bool) -> Color:
+	# TESTE EXTREMO: Usar cor fixa para garantir que tingimento funcione
+	var enhanced_color = Color.CYAN  # Cor fixa muito visível
+	
+	# DEBUG: Log da cor aplicada
+	print("[TINGIMENTO_TEST] Aplicando cor fixa CYAN para teste")
+	
+	if not has_actions:
+		# Unidade exausta - misturar com branco
+		enhanced_color = Color.YELLOW  # Cor diferente para exausto
+		print("[TINGIMENTO_TEST] Unidade exausta - usando YELLOW")
+	
+	return enhanced_color
+
+# Desenhar emoji invertido horizontalmente (centralizado)
+func _draw_flipped_emoji(font: Font, position: Vector2, emoji: String, size: int, color: Color) -> void:
+	# Calcular tamanho do texto para centralização
+	var text_size = font.get_string_size(emoji, HORIZONTAL_ALIGNMENT_CENTER, -1, size)
+	
+	# Aplicar transformação de inversão horizontal centrada
+	draw_set_transform(position, 0, Vector2(-1, 1))
+	
+	# Desenhar emoji ajustado para centralização
+	# Quando invertemos, precisamos ajustar a posição X
+	var adjusted_pos = Vector2(-text_size.x, 0)
+	draw_string(font, adjusted_pos, emoji, HORIZONTAL_ALIGNMENT_CENTER, -1, size, color)
+	
+	# Restaurar transformação original
+	draw_set_transform(Vector2.ZERO, 0, Vector2.ONE)
 
 # Helper function to draw rounded rectangle outline
 func _draw_rounded_rect_outline(rect: Rect2, corner_radius: float, color: Color, thickness: float) -> void:

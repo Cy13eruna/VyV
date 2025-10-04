@@ -8,6 +8,7 @@ extends RefCounted
 # Preload clean services
 const MovementService = preload("res://application/services/movement_service_clean.gd")
 const TurnService = preload("res://application/services/turn_service_clean.gd")
+const UnitMovementTracker = preload("res://core/value_objects/unit_movement_tracker.gd")
 
 # Execute unit movement
 static func execute(unit_id: int, target_position, game_state: Dictionary) -> Dictionary:
@@ -79,8 +80,14 @@ static func execute(unit_id: int, target_position, game_state: Dictionary) -> Di
 			result.message = "Insufficient power"
 			return result
 	
+	# Store original position for movement tracking
+	var original_position = unit.position
+	
 	# Execute movement using MovementService
 	if MovementService.move_unit_to(unit, target_position, game_state.grid, game_state.units):
+		# Track unit movement direction for emoji effects
+		UnitMovementTracker.track_unit_movement(unit_id, original_position, target_position)
+		
 		result.success = true
 		result.action_consumed = true
 		result.message = "Movement successful"

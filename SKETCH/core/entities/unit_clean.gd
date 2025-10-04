@@ -23,6 +23,10 @@ func _init(unit_id: int, player_id: int, unit_name: String, start_position):
 # Move unit to new position
 func move_to(new_position) -> bool:
 	if can_move():
+		# Track movement direction for emoji effects
+		var UnitMovementTracker = load("res://core/value_objects/unit_movement_tracker.gd")
+		UnitMovementTracker.track_unit_movement(id, position, new_position)
+		
 		position = new_position
 		consume_action()
 		return true
@@ -97,6 +101,17 @@ func get_color() -> Color:
 # Get unit display emoji
 func get_emoji() -> String:
 	return "🚶🏻‍♀️"
+
+# Check if emoji should be flipped based on movement direction
+func should_flip_emoji() -> bool:
+	var UnitMovementTracker = load("res://core/value_objects/unit_movement_tracker.gd")
+	return UnitMovementTracker.should_flip_emoji(id)
+
+# Get team color for this unit (requires game state)
+func get_team_color(game_state: Dictionary) -> Color:
+	if owner_id in game_state.players:
+		return game_state.players[owner_id].color
+	return Color.WHITE
 
 # String representation for debugging
 func get_string() -> String:

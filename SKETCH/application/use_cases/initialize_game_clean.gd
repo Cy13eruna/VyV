@@ -34,24 +34,24 @@ static func execute(player_count: int = 2) -> Dictionary:
 	print("    Player count valid")
 	
 	print("    Initializing game state...")
-	# Calculate grid radius based on player count
+	# Calculate grid radius based on player count (NOVOS VALORES ATUALIZADOS)
 	# Players -> Diameter -> Radius (diameter = 2*radius + 1)
-	# 2 -> 7 -> 3
-	# 3 -> 9 -> 4  
+	# 2 -> 9 -> 4
+	# 3 -> 11 -> 5  
 	# 4 -> 13 -> 6
-	# 6 -> 18 -> 8.5 -> 9 (rounded up)
+	# 6 -> 15 -> 7
 	var grid_radius: int
 	match player_count:
 		2:
-			grid_radius = 3  # Diameter 7
-		3:
 			grid_radius = 4  # Diameter 9
+		3:
+			grid_radius = 5  # Diameter 11
 		4:
 			grid_radius = 6  # Diameter 13
 		6:
-			grid_radius = 9  # Diameter 19 (closest to 18)
+			grid_radius = 7  # Diameter 15
 		_:
-			grid_radius = 3  # Default fallback
+			grid_radius = 4  # Default fallback
 	
 	print("    Using grid radius: %d (diameter: %d stars)" % [grid_radius, 2 * grid_radius + 1])
 	
@@ -173,13 +173,18 @@ static func execute(player_count: int = 2) -> Dictionary:
 			var domain_name = ""
 			var chosen_initial = ""
 			
+			# NOVO: Get all available initials (not used yet)
+			var available_initials = []
 			for initial in domain_names.keys():
 				if initial not in used_initials:
-					chosen_initial = initial
-					var names_for_initial = domain_names[initial]
-					domain_name = names_for_initial[randi() % names_for_initial.size()]
-					used_initials.append(initial)
-					break
+					available_initials.append(initial)
+			
+			# Randomly select from available initials
+			if available_initials.size() > 0:
+				chosen_initial = available_initials[randi() % available_initials.size()]
+				var names_for_initial = domain_names[chosen_initial]
+				domain_name = names_for_initial[randi() % names_for_initial.size()]
+				used_initials.append(chosen_initial)
 			
 			if domain_name == "":
 				# Fallback if we run out of initials
@@ -275,14 +280,14 @@ static func _validate_unit_name(original_name: String, existing_names: Array) ->
 	
 	return name
 
-# Get spawn positions using hexagon corner algorithm
+# Get spawn positions using corner + 6-connection algorithm with spawn rules
 static func _get_spawn_positions(grid_data: Dictionary, player_count: int) -> Array:
 	var spawn_positions = []
 	
 	# Initialize random seed for different spawns each game
 	randomize()
 	
-	# Step 1: Get all corner points (hexagon tips)
+	# Get all corner points (hexagon tips)
 	var corner_points = []
 	for point_id in grid_data.points:
 		var point = grid_data.points[point_id]
@@ -298,44 +303,150 @@ static func _get_spawn_positions(grid_data: Dictionary, player_count: int) -> Ar
 		if point.connected_edges.size() == 6:
 			six_connection_points.append(point)
 	
-	# Shuffle 6-connection points for additional randomness
-	six_connection_points.shuffle()
-	
 	print("    Found %d points with 6 connections" % six_connection_points.size())
 	
-	# Randomize corner selection for each game
-	var available_corners = corner_points.duplicate()
-	available_corners.shuffle()  # Randomize the order
+	# Apply spawn rules based on player count to select corners
+	var selected_corners = []
+	match player_count:
+		2:
+			# 2 players: não podem estar em pontas adjacentes, mínimo uma ponta do hexágono de distância
+			selected_corners = _select_corners_2_players(corner_points)
+		3:
+			# 3 players: não podem estar em pontas adjacentes, mínimo uma ponta do hexágono de distância
+			selected_corners = _select_corners_3_players(corner_points)
+		4:
+			# 4 players: todo jogador deve estar adjacente a uma ponta vazia do hexágono
+			selected_corners = _select_corners_4_players(corner_points)
+		6:
+			# 6 players: um por ponta
+			selected_corners = _select_corners_6_players(corner_points)
+		_:
+			# Fallback para configurações não suportadas
+			print("    WARNING: Unsupported player count %d, using fallback" % player_count)
+			selected_corners = _select_corners_fallback(corner_points, player_count)
 	
-	# For each player, find spawn position using the algorithm
-	for player_index in range(player_count):
-		# Step 1: Select random corner from shuffled list
-		var corner_index = player_index % available_corners.size()
-		var selected_corner = available_corners[corner_index]
-		
-		print("    Player %d: Selected corner at %s" % [player_index + 1, selected_corner.position.hex_coord.get_string()])
-		
-		# Step 2: Find closest point with 6 connections to this corner
-		var closest_six_point = null
-		var min_distance = 999999.0
-		
-		for six_point in six_connection_points:
-			var distance = selected_corner.position.hex_coord.distance_to(six_point.position.hex_coord)
-			if distance < min_distance:
-				min_distance = distance
-				closest_six_point = six_point
+	# For each selected corner, find closest 6-connection point
+	for i in range(selected_corners.size()):
+		var corner = selected_corners[i]
+		var closest_six_point = _find_closest_six_connection_point(corner, six_connection_points)
 		
 		if closest_six_point != null:
-			print("    Player %d: Found closest 6-connection point at distance %.1f" % [player_index + 1, min_distance])
-			# Step 3: Spawn at this point
 			spawn_positions.append(closest_six_point.position)
+			print("    Player %d: Corner %d -> 6-connection point" % [i + 1, corner_points.find(corner)])
 		else:
-			print("    Player %d: No 6-connection point found, using corner" % [player_index + 1])
-			# Fallback: use the corner itself
-			spawn_positions.append(selected_corner.position)
+			# Fallback: use corner itself
+			spawn_positions.append(corner.position)
+			print("    Player %d: Corner %d (no 6-connection found)" % [i + 1, corner_points.find(corner)])
 	
 	print("    Generated %d spawn positions" % spawn_positions.size())
 	return spawn_positions
+
+# Find closest 6-connection point to a corner
+static func _find_closest_six_connection_point(corner, six_connection_points: Array):
+	var closest_point = null
+	var min_distance = 999999.0
+	
+	for six_point in six_connection_points:
+		var distance = corner.position.hex_coord.distance_to(six_point.position.hex_coord)
+		if distance < min_distance:
+			min_distance = distance
+			closest_point = six_point
+	
+	return closest_point
+
+# Corner selection rules for 2 players: não adjacentes, mínimo uma ponta de distância
+static func _select_corners_2_players(corner_points: Array) -> Array:
+	var selected_corners = []
+	
+	# Hexágono tem 6 pontas (0,1,2,3,4,5)
+	# Para não serem adjacentes com mínimo uma ponta de distância:
+	# Opções válidas: (0,2), (0,3), (0,4), (1,3), (1,4), (1,5), (2,4), (2,5), (3,5)
+	var valid_pairs = [[0,2], [0,3], [0,4], [1,3], [1,4], [1,5], [2,4], [2,5], [3,5]]
+	
+	# Escolher par aleatório
+	var chosen_pair = valid_pairs[randi() % valid_pairs.size()]
+	
+	for i in chosen_pair:
+		if i < corner_points.size():
+			selected_corners.append(corner_points[i])
+	
+	return selected_corners
+
+# Corner selection rules for 3 players: não adjacentes, mínimo uma ponta de distância
+static func _select_corners_3_players(corner_points: Array) -> Array:
+	var selected_corners = []
+	
+	# Algoritmo robusto: selecionar 3 corners não adjacentes
+	# Primeiro, ordenar corners por posição para garantir ordem consistente
+	var sorted_corners = corner_points.duplicate()
+	sorted_corners.sort_custom(_compare_corners_by_angle)
+	
+	# Para 6 corners em um hexágono, selecionar alternados (0,2,4) garante não adjacência
+	if sorted_corners.size() >= 6:
+		# Selecionar corners alternados para garantir distância mínima
+		selected_corners.append(sorted_corners[0])  # Corner 0
+		selected_corners.append(sorted_corners[2])  # Corner 2 (pula 1)
+		selected_corners.append(sorted_corners[4])  # Corner 4 (pula 3)
+		print("    3 players: Selected corners 0, 2, 4 (alternated)")
+	else:
+		# Fallback para casos com menos corners
+		for i in range(min(3, sorted_corners.size())):
+			selected_corners.append(sorted_corners[i])
+		print("    3 players: Fallback selection (insufficient corners)")
+	
+	return selected_corners
+
+# Função auxiliar para ordenar corners por ângulo
+static func _compare_corners_by_angle(a, b) -> bool:
+	# Calcular ângulo de cada corner em relação ao centro (0,0)
+	var angle_a = atan2(a.position.hex_coord.r, a.position.hex_coord.q)
+	var angle_b = atan2(b.position.hex_coord.r, b.position.hex_coord.q)
+	return angle_a < angle_b
+
+# Corner selection rules for 4 players: todo jogador deve estar adjacente a uma ponta vazia
+static func _select_corners_4_players(corner_points: Array) -> Array:
+	var selected_corners = []
+	
+	# Para 4 jogadores onde cada um deve estar adjacente a uma ponta vazia:
+	# Isso significa que 4 pontas são ocupadas e 2 ficam vazias
+	# As pontas vazias devem estar adjacentes para que todos os 4 jogadores tenham uma ponta vazia adjacente
+	# Opções válidas: deixar vazias (0,1), (1,2), (2,3), (3,4), (4,5), (5,0)
+	var empty_pairs = [[0,1], [1,2], [2,3], [3,4], [4,5], [5,0]]
+	
+	# Escolher par de pontas vazias
+	var chosen_empty_pair = empty_pairs[randi() % empty_pairs.size()]
+	
+	# Ocupar as outras 4 pontas
+	var occupied_corners = []
+	for i in range(6):
+		if i not in chosen_empty_pair:
+			occupied_corners.append(i)
+	
+	for i in occupied_corners:
+		if i < corner_points.size():
+			selected_corners.append(corner_points[i])
+	
+	return selected_corners
+
+# Corner selection rules for 6 players: um por ponta
+static func _select_corners_6_players(corner_points: Array) -> Array:
+	var selected_corners = []
+	
+	# Simples: um jogador em cada ponta do hexágono
+	for i in range(min(6, corner_points.size())):
+		selected_corners.append(corner_points[i])
+	
+	return selected_corners
+
+# Fallback para configurações não suportadas
+static func _select_corners_fallback(corner_points: Array, player_count: int) -> Array:
+	var selected_corners = []
+	
+	# Usar algoritmo antigo como fallback
+	for i in range(min(player_count, corner_points.size())):
+		selected_corners.append(corner_points[i])
+	
+	return selected_corners
 
 # Generate terrain variation (future implementation)
 static func _generate_terrain(grid_data: Dictionary) -> bool:
