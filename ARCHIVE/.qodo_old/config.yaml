@@ -1,0 +1,64 @@
+# Configuração Qodo para Vagabonds & Valleys
+# Jogo de estratégia por turnos - Godot Engine
+# Parceria: Diretor Criativo + Executor Técnico (Qodo)
+
+project:
+  name: "Vagabonds & Valleys"
+  type: "godot_game"
+  description: "Jogo de estratégia por turnos desenvolvido em Godot"
+  engine: "godot"
+  engine_version: "4.x"  # Versão mais recente
+  
+# Configuração de linguagens
+languages:
+  primary: "gdscript"
+  secondary: "csharp"  # Livre para usar quando necessário
+  auto_detect: true
+
+# Comportamento de colaboração
+collaboration:
+  role: "technical_partner"  # Parceiro técnico
+  auto_suggestions: true     # Pode sugerir automaticamente
+  ambiguity_handling: "stop_and_ask"  # PARE e pergunte IMEDIATAMENTE
+  leadership: "technical_performance"  # Liderança na parte técnica/performance
+
+# Configurações de análise
+analysis:
+  enabled: true
+  real_time: true
+  focus_areas:
+    - performance_optimization
+    - godot_best_practices
+    - code_structure
+    - memory_management
+    - game_architecture
+
+# Documentação automática
+documentation:
+  enabled: true
+  auto_generate: true
+  formats:
+    - inline_comments
+    - markdown_docs
+    - godot_docs
+  
+# Notificações ativas
+notifications:
+  enabled: true
+  real_time: true
+  channels:
+    - console
+    - file_log
+  types:
+    - performance_alerts
+    - best_practice_suggestions
+    - ambiguity_detection
+    - optimization_opportunities
+
+# Configurações específicas do Godot
+godot:
+  scene_analysis: true
+  script_optimization: true
+  resource_management: true
+  signal_system_check: true
+  node_structure_validation: true

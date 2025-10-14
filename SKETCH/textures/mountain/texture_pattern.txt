@@ -1,0 +1,15 @@
+Montanha - Padrão de Textura
+Usar: ⛰ bem juntinhos um dos outros
+
+Padrão visual:
+⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰
+ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰
+⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰
+ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰
+⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰
+ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰ ⛰
+
+Alternativa: ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲ ▲
+
+Cor de fundo: Cinza azulado (#B4B4C8)
+Cor do símbolo: Cinza escuro (#646478)

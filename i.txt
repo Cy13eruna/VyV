@@ -1,0 +1,1 @@
+Fish está imediatamente concedendo poder para o domínio onde foi instalado. O correto é ele produzir apenas no início de cada turno

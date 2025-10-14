@@ -1,0 +1,26 @@
+[application]
+
+config/name="Triangular System V&V"
+run/main_scene="res://main_game.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+
+[autoload]
+
+GameConstants="*res://data/constants.gd"
+TerrainSystem="*res://systems/terrain_system.gd"
+HexGridSystem="*res://systems/hex_grid_system.gd"
+GameManager="*res://systems/game_manager.gd"
+InputSystem="*res://systems/input_system.gd"
+RenderSystem="*res://systems/render_system.gd"
+UISystem="*res://systems/ui_system.gd"
+UnitSystem="*res://systems/unit_system.gd"
+PowerSystem="*res://systems/power_system.gd"
+VisibilitySystem="*res://systems/visibility_system.gd"
+MovementSystem="*res://systems/movement_system.gd"
+GridGenerationSystem="*res://systems/grid_generation_system.gd"
+FallbackSystem="*res://systems/fallback_system.gd"
+DrawingSystem="*res://systems/drawing_system.gd"
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"

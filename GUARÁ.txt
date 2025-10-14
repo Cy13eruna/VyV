@@ -1,0 +1,36 @@
+Qodo, ignore esse arquivo. Ele serve apenas para eu me guiar.
+
+- Shaman:
+    - novo treinamento
+    - escolhe um alvo adjacente para mudar de time
+    - o alvo permanecerá consumindo recursos de seu dominio natal, porém será controlado pelo jogador dono do shaman
+    - respeita as regras de alcance (não executa através de montanha e agua)
+    - acrescenta o emoji 🕊 na cabeça da unidade
+
+- Guardian:
+    - novo treinamento
+    - sempre que levar dano, cura ou qualquer outro efeito, refltirá para o alvo
+    - assim:
+        - se levar 2 de dano, devolverá 2 de dano para o atacante
+        - se for curado, curará o curandeiro
+        - se for convertido por um shaman, converterá o shaman de volta
+    - apenas um requisito: o agente precisa estar adjacente ao guardião, se não a reflexão não funciona
+    - acrescenta o emoji 🛡 no centro da unidade
+
+- Warrior:
+    - novo treinamento
+    - identico a fighter, só que o dano é 2
+    - acrescenta o emoji 🪓 a esquerda da unidade
+
+- Archer:
+    - novo treinamento
+    - idêntico a fighter, só que ataca alvos a até duas estrelas de distância
+    - acrescenta o emoji 🏹 a direita da unidade
+
+- Sailor:
+    - novo treinamneto
+    - permite andar, curar, atacar e tudo mais através de água
+
+- Whale:
+    - upgrade de domínio
+    - ao utilizar esse upgrade, o domínio receberá imediatamente uma quantidade aleatória de poder que variará de número_de_aguas até número_de_aguas*2

@@ -1,0 +1,13 @@
+Campo - Padrão de Textura
+Usar: ponto-e-vírgulas (;) de cabeça para baixo bem juntinhos
+
+Padrão visual:
+؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛
+ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛
+؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛
+ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛
+؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛
+ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛ ؛
+
+Cor de fundo: Verde claro (#C8E6C8)
+Cor do símbolo: Verde escuro (#507050)
