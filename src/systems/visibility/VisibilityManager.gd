@@ -1,28 +1,29 @@
 # res://src/systems/visibility/VisibilityManager.gd
 extends RefCounted
 
+# Memória persistente do que cada jogador já explorou (FOW permanente)
 # Estrutura: { player_id: { "revealed_edges": {} } }
 var player_memories: Dictionary = {}
 
-func _ensure_player_data(player_id: int) -> void:
-	if not player_memories.has(player_id):
-		player_memories[player_id] = { "revealed_edges": {} }
-
-## Processa a neblina garantindo o acesso correto ao Resource GridData
-func update_fog(active_units: Array, grid_mgr: Node2D, painter: Node2D, current_player_id: int, terrain_mgr = null) -> void:
-	if not grid_mgr or not grid_mgr.data or not painter: return
+## Função principal que orquestra a neblina e a visibilidade das unidades
+func update_visibility(
+	active_units: Array, 
+	grid_mgr: Node2D, 
+	current_player_id: int, 
+	terrain_mgr: Object,
+	force_instant: bool = false
+) -> void:
 	
-	var grid_resource = grid_mgr.data
-	if not "nodes" in grid_resource:
-		push_error("VisibilityManager: Resource de grid não possui dicionário 'nodes'")
-		return
+	if not grid_mgr or not grid_mgr.painter: return
 	
-	var nodes_dict = grid_resource.nodes
+	var painter = grid_mgr.painter
+	var nodes_dict = grid_mgr.data.nodes
+	
 	_ensure_player_data(current_player_id)
 	var memory = player_memories[current_player_id]
 	var lit_nodes: Array = []
 	
-	# 1. Visibilidade em tempo real e Revelação por Proximidade
+	# --- 1. CÁLCULO DE ILUMINAÇÃO (O QUE ESTÁ VISÍVEL AGORA) ---
 	for unit in active_units:
 		if not is_instance_valid(unit) or unit.owner_id != current_player_id: 
 			continue
@@ -34,43 +35,61 @@ func update_fog(active_units: Array, grid_mgr: Node2D, painter: Node2D, current_
 		if nodes_dict.has(origin):
 			var neighbors = nodes_dict[origin].neighbors
 			for n in neighbors:
-				# --- REGRA: Revelação Adjacente ---
-				# Revela as 6 arestas tocando o Vagabond na memória, independente de bloqueio
-				if terrain_mgr:
-					var adj_edge_id = _get_edge_id(origin, n)
-					if not memory.revealed_edges.has(adj_edge_id):
-						memory.revealed_edges[adj_edge_id] = true
+				# Revelação Adjacente (Memória Permanente de arestas próximas)
+				var adj_edge_id = _get_edge_id(origin, n)
+				memory.revealed_edges[adj_edge_id] = true
 				
-				# --- Lógica de Iluminação ---
+				# Lógica de Bloqueio de Visão (Tempo Real)
 				var blocked = false
 				if terrain_mgr and terrain_mgr.has_method("blocks_vision"):
 					blocked = terrain_mgr.blocks_vision(origin, n)
 				
-				# Se não houver bloqueio, o nó vizinho fica "aceso" (lit)
-				if not blocked:
-					if not n in lit_nodes: 
-						lit_nodes.append(n)
+				if not blocked and not n in lit_nodes: 
+					lit_nodes.append(n)
 	
-	# 2. Processamento de arestas distantes (Memória Permanente)
+	# --- 2. MEMÓRIA DISTANTE (REVELA ARESTAS ENTRE DOIS NÓS ILUMINADOS) ---
 	if terrain_mgr and terrain_mgr.get("edges"):
 		for edge_key in terrain_mgr.edges.keys():
 			if memory.revealed_edges.has(edge_key): continue
 			
 			var points = _parse_edge_key(edge_key)
-			if points.size() < 2: continue
-			
-			# Revela arestas distantes se o jogador puder ver os dois nós que ela conecta
-			if points[0] in lit_nodes and points[1] in lit_nodes:
-				memory.revealed_edges[edge_key] = true
+			if points.size() >= 2:
+				if points[0] in lit_nodes and points[1] in lit_nodes:
+					memory.revealed_edges[edge_key] = true
 	
-	# 3. Sincronização com o Pintor
+	# --- 3. ATUALIZAÇÃO VISUAL DOS VAGABONDS (ABSORVIDO DO MAIN) ---
+	_process_unit_hiding(active_units, lit_nodes, current_player_id, force_instant)
+	
+	# --- 4. SINCRONIZAÇÃO COM O PAINTER ---
 	painter.lit_nodes = lit_nodes
 	painter.revealed_edges = memory.revealed_edges.keys()
 	
 	if painter.has_method("refresh_fog_layers"):
 		painter.refresh_fog_layers()
 
-# Utilitário para gerar a chave da aresta no mesmo formato do Terrain.gd
+# --- MÉTODOS PRIVADOS ---
+
+## Gerencia quem deve ou não aparecer na tela
+func _process_unit_hiding(units: Array, lit_nodes: Array, current_id: int, instant: bool) -> void:
+	for v in units:
+		if not is_instance_valid(v): continue
+		
+		# Se é do próprio jogador, sempre visível e opaco
+		if v.owner_id == current_id:
+			v.visible = true
+			v.modulate.a = 1.0
+			# Garante que a UI de AP apareça corretamente
+			if instant and v.has_method("_animate_ap_change"):
+				v._animate_ap_change()
+		else:
+			# Se é inimigo, usa a lógica de FOW interna da unidade
+			if v.has_method("update_fow_visibility"):
+				v.update_fow_visibility(lit_nodes, instant)
+
+func _ensure_player_data(player_id: int) -> void:
+	if not player_memories.has(player_id):
+		player_memories[player_id] = { "revealed_edges": {} }
+
 func _get_edge_id(a: Vector2, b: Vector2) -> String:
 	if a.x < b.x or (a.x == b.x and a.y < b.y):
 		return str(a) + "_" + str(b)
