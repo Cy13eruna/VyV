@@ -11,6 +11,7 @@ var ui_manager: Node
 var grid_manager: Node2D
 var vagabond_manager: Node2D
 var turn_manager: Node
+var visibility_manager: RefCounted 
 var camera_controller: Camera2D
 
 # Referência ao HUD persistente
@@ -18,8 +19,6 @@ var game_hud: Control = null
 
 func _ready() -> void:
 	randomize()
-	
-	# --- NOVO: Define a cor de fundo do motor como Branco ---
 	RenderingServer.set_default_clear_color(Color.WHITE)
 	
 	_create_hierarchy()
@@ -79,6 +78,10 @@ func _setup_managers() -> void:
 		vagabond_manager.name = "VagabondManager"
 		world.add_child(vagabond_manager)
 	
+	var vis_script = load("res://src/systems/visibility/VisibilityManager.gd")
+	if vis_script:
+		visibility_manager = vis_script.new()
+
 	var cam_script = load("res://src/systems/camera/CameraController.gd")
 	if cam_script:
 		camera_controller = Camera2D.new()
@@ -99,6 +102,8 @@ func _on_match_requested(player_count: int) -> void:
 	if vagabond_manager: 
 		vagabond_manager.spawn_players(player_count, turn_manager, radius)
 	
+	_update_fog(true)
+	
 	if not game_hud:
 		var hud_script = load("res://src/ui/GameHUD.gd")
 		if hud_script:
@@ -110,12 +115,19 @@ func _on_match_requested(player_count: int) -> void:
 func _on_turn_started(player_data: Dictionary) -> void:
 	if grid_manager: 
 		grid_manager._deselect_all()
+	
+	if vagabond_manager:
+		vagabond_manager.restore_all_units_ap()
+		
+	# Pequeno aguardo para garantir que o motor processou as posições do novo turno
+	await get_tree().process_frame
+	
+	_update_fog(true)
 		
 	ui_manager.change_screen("res://src/ui/PlayerTurnScreen.gd", player_data)
 
 func _on_end_turn_requested() -> void:
 	if turn_manager:
-		print("Main: Fim de turno solicitado pela UI.")
 		turn_manager.next_turn()
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -129,9 +141,39 @@ func _unhandled_input(event: InputEvent) -> void:
 					vagabond_manager.active_vagabonds, 
 					turn_manager.current_player_index
 				)
-	
-	if event.is_action_pressed("ui_accept"):
-		get_viewport().set_input_as_handled()
+				# Durante movimento, a neblina atualiza suavemente
+				_update_fog.call_deferred(false)
+
+# --- LÓGICA DE VISIBILIDADE CENTRALIZADA ---
+
+func _update_fog(force_instant: bool = false) -> void:
+	if visibility_manager and grid_manager and vagabond_manager and turn_manager:
+		var current_player = turn_manager.current_player_index
+		
+		# 1. Atualiza o terreno (GridPainter)
+		visibility_manager.update_fog(
+			vagabond_manager.active_vagabonds, 
+			grid_manager.data, 
+			grid_manager.painter,
+			current_player
+		)
+		
+		# 2. Sincroniza unidades
+		var current_lit_nodes = grid_manager.painter.lit_nodes
+		
+		for v in vagabond_manager.active_vagabonds:
+			if not is_instance_valid(v): continue
+			
+			if v.owner_id == current_player:
+				# FORÇA visibilidade total para o dono do turno
+				v.visible = true
+				v.modulate.a = 1.0
+				# Reset de escala/visual caso tenha vindo de um estado exausto
+				if force_instant and v.has_method("_animate_ap_change"):
+					v._animate_ap_change()
+			else:
+				# Inimigos: usam lógica de Fog suave (gameplay) ou instantânea (troca de turno)
+				v.update_fow_visibility(current_lit_nodes, force_instant)
 
 func _on_focus_changed(control: Control) -> void:
 	if control:

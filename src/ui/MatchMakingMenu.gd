@@ -49,7 +49,7 @@ func _on_option_selected(player_count: int) -> void:
 	if is_inside_tree():
 		var v_port = get_viewport()
 		if v_port:
-			var focus_owner = v_port.get_focused_control() # Versão Godot 4+
+			var focus_owner = v_port.gui_get_focus_owner() # Versão Godot 4+
 			if focus_owner:
 				focus_owner.release_focus()
 	
