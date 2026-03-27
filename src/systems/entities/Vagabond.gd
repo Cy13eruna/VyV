@@ -11,8 +11,7 @@ func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_i
 	self.grid_pos = p_grid_pos
 	self.vagabond_color = p_color
 	
-	# Sincronização de posição:
-	# Definimos a global_position para garantir que ele ignore deslocamentos do pai
+	# Sincronização de posição
 	self.global_position = p_global_pos
 	
 	# Garante que as unidades fiquem acima do GridPainter
@@ -27,45 +26,45 @@ func _create_visuals() -> void:
 	for child in get_children():
 		child.queue_free()
 
-	# 1. Base Visual (Um círculo para facilitar o clique)
-	# Como não temos uma textura, usamos um Polygon2D pequeno como "sombra/base"
-	var base = Polygon2D.new()
-	var points = []
-	for i in range(8):
-		var angle = i * (PI / 4.0)
-		points.append(Vector2(cos(angle), sin(angle)) * 15.0)
-	base.polygon = points
-	base.color = vagabond_color
-	base.color.a = 0.5 # Semi-transparente
-	add_child(base)
-
-	# 2. Emoji do Vagabond
+	# 1. Emoji do Vagabond (Agora colorido com a cor do jogador)
 	var emoji_label = Label.new()
 	emoji_label.text = "🚶"
-	# Centralização absoluta para o clique bater com o visual
 	emoji_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	emoji_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	emoji_label.custom_minimum_size = Vector2(40, 40)
+	# Usamos modulate para colorir o emoji sem perder os detalhes
+	emoji_label.modulate = vagabond_color
+	emoji_label.add_theme_font_size_override("font_size", 24)
 	emoji_label.position = Vector2(-20, -35) 
 	add_child(emoji_label)
 	
-	# 3. Texto de Identificação
+	# 2. Texto de Identificação (Colorido com a cor do jogador)
 	var text_label = Label.new()
-	# Mostra o ID do player para facilitar o debug de quem é a vez
-	text_label.text = "VAGABOND"
+	text_label.text = "VAGABOND" # Simplificado para "P0", "P1", etc.
 	text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	text_label.add_theme_color_override("font_color", Color.WHITE)
-	text_label.add_theme_font_size_override("font_size", 12)
-	text_label.add_theme_constant_override("outline_size", 4)
+	
+	# Aplicando a cor do jogador ao texto
+	text_label.add_theme_color_override("font_color", vagabond_color)
+	text_label.add_theme_font_size_override("font_size", 14)
+	
+	# Outline preto para garantir contraste e legibilidade
+	text_label.add_theme_constant_override("outline_size", 6)
 	text_label.add_theme_color_override("font_outline_color", Color.BLACK)
-	text_label.position = Vector2(-20, 5)
+	
+	# Posicionamento logo abaixo do boneco
+	text_label.position = Vector2(-20, 0)
 	add_child(text_label)
 
-# Opcional: Feedback visual ao selecionar
+# Feedback visual ao selecionar (Melhorado para ser mais evidente sem a base)
 func set_highlight(active: bool) -> void:
+	var tween = create_tween()
+	tween.set_trans(Tween.TRANS_SINE)
+	tween.set_ease(Tween.EASE_OUT)
+	
 	if active:
-		modulate = Color(1.5, 1.5, 1.5, 1.0) # Brilho
-		scale = Vector2(1.2, 1.2)
+		# Aumenta o brilho e pulsa levemente
+		tween.tween_property(self, "scale", Vector2(1.3, 1.3), 0.1)
+		modulate = Color(1.5, 1.5, 1.5, 1.0) 
 	else:
+		# Volta ao normal
+		tween.tween_property(self, "scale", Vector2(1.0, 1.0), 0.1)
 		modulate = Color.WHITE
-		scale = Vector2(1.0, 1.0)
