@@ -1,0 +1,35 @@
+; Gerado automaticamente pelo Godot.
+; Edite com cuidado!
+
+config_version=5
+
+[application]
+
+config/name="V&V 2026 - InDev"
+; Define qual cena o Godot abre ao rodar o executável
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.3", "Forward Plus")
+
+[autoload]
+
+; Aqui registramos os scripts que precisam rodar globalmente.
+; O NetworkManager é vital para gerenciar a conexão entre instâncias.
+NetworkManager="*res://src/multiplayer/NetworkManager.gd"
+GameEvents="*res://src/core/autoloads/Signals.gd"
+
+[display]
+
+; Configurações de janela para facilitar os testes de multiplayer (abre em janela menor)
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+
+[dotnet]
+
+project/assembly_name="InDev"
+
+[rendering]
+
+; Forward Plus é o melhor para desktop. 
+; Se for para mobile/web, mude para "gl_compatibility"
+renderer/rendering_method="forward_plus"
