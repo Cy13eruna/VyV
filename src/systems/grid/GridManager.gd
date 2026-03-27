@@ -20,7 +20,6 @@ var painter: Node2D = null
 var selector: GridSelector = GridSelector.new()
 
 func _ready() -> void:
-	# Inicializa o pintor
 	painter = GridPainterScript.new()
 	add_child(painter)
 	position = Vector2.ZERO
@@ -30,8 +29,14 @@ func _ready() -> void:
 func handle_click(click_pos: Vector2, active_units: Array, current_player_id: int) -> void:
 	var local_click = to_local(click_pos)
 
-	# 1. Prioridade: Tentar mover (Se houver unidade ativa no selector)
+	# 1. Prioridade: Tentar mover
 	if selector.unit:
+		# Verificamos se a unidade selecionada TEM AP disponível antes de tentar o cálculo
+		if selector.unit.has_method("has_ap") and not selector.unit.has_ap():
+			print("GridManager: Unidade exausta. Movimento cancelado.")
+			_clear_selection()
+			return
+
 		var target = Interaction.get_target_move(local_click, selector.reachable_nodes)
 		if target != Vector2.ZERO:
 			_perform_move(target)
@@ -44,6 +49,10 @@ func handle_click(click_pos: Vector2, active_units: Array, current_player_id: in
 # --- OPERAÇÕES DE ESTADO ---
 
 func _perform_move(target: Vector2) -> void:
+	# Antes de mover, consumimos o AP da unidade
+	if selector.unit.has_method("use_ap"):
+		selector.unit.use_ap()
+	
 	# O Mover cuida da animação e atualização de grid_pos
 	Mover.move_unit(selector.unit, target, self)
 	_clear_selection()
@@ -53,14 +62,15 @@ func _update_selection(unit: Node2D, player_id: int) -> void:
 	
 	# Regra de Negócio: Só seleciona se pertencer ao jogador do turno
 	if unit and int(unit.owner_id) == player_id:
-		# O Selector gerencia o estado e o highlight visual da unidade
+		# OPCIONAL: Se você não quiser nem permitir selecionar quem não tem AP:
+		# if not unit.has_ap(): return 
+
 		var neighbors = data.get_neighbors(unit.grid_pos)
 		selector.select(unit, neighbors)
 		
 		# O Painter gerencia os indicadores de movimento no chão
 		painter.update_reachable(selector.reachable_nodes)
 	else:
-		# Clique no vazio ou unidade inimiga desmarca tudo
 		print("GridManager: Seleção limpa ou unidade inválida.")
 
 func _clear_selection() -> void:
@@ -76,7 +86,6 @@ func _deselect_all() -> void:
 
 func setup_map(p_radius: int) -> void:
 	self.map_radius = p_radius
-	# Delega a geração matemática para o GridData
 	data.generate_hex_grid(map_radius, tile_size)
 	
 	if painter:
@@ -87,7 +96,6 @@ func setup_map(p_radius: int) -> void:
 
 func world_to_grid(p_world_pos: Vector2) -> Vector2:
 	var local_p = to_local(p_world_pos)
-	# Busca o nó mais próximo no banco de dados
 	return data.get_closest_node(local_p, tile_size * 4.0)
 
 func grid_to_world(p_grid_pos: Vector2) -> Vector2:

@@ -1,7 +1,6 @@
 # res://src/systems/turn/TurnManager.gd
 extends Node
 
-# Sinal robusto que carrega todo o estado necessário para o início de um turno
 signal turn_started(player_data: Dictionary)
 
 const COLOR_OPTIONS = {
@@ -16,12 +15,9 @@ const COLOR_OPTIONS = {
 var total_players: int = 0
 var current_player_index: int = 0
 var turn_number: int = 1
-
-# Armazena os nomes das cores (chaves do COLOR_OPTIONS) para cada ID de jogador
 var player_colors: Array = []
 
 func setup(p_player_count: int) -> void:
-	# Garante que não excedemos o limite de cores definidas
 	total_players = clamp(p_player_count, 1, COLOR_OPTIONS.size())
 	current_player_index = 0
 	turn_number = 1
@@ -33,7 +29,7 @@ func setup(p_player_count: int) -> void:
 
 func _assign_random_colors() -> void:
 	var keys = COLOR_OPTIONS.keys()
-	keys.shuffle() # Embaralha para que P1 nem sempre seja Green
+	keys.shuffle()
 	
 	player_colors.clear()
 	for i in range(total_players):
@@ -49,15 +45,19 @@ func next_turn() -> void:
 	_announce_turn()
 
 func _announce_turn() -> void:
+	# --- NOVO: Reset de AP via VagabondManager ---
+	# Buscamos o gerente de unidades para resetar os pontos de ação do jogador da vez
+	var vagabond_manager = get_tree().root.find_child("VagabondManager", true, false)
+	if vagabond_manager and vagabond_manager.has_method("reset_aps_for_player"):
+		vagabond_manager.reset_aps_for_player(current_player_index)
+
 	var color_name = player_colors[current_player_index]
-	
-	# Criamos o "Data Transfer Object" (DTO) para o sinal
 	var player_data = {
-		"id": current_player_index,        # ID lógico (0, 1, 2...)
-		"display_id": current_player_index + 1, # ID para humanos (1, 2, 3...)
-		"name": color_name,                # Nome da cor/facção
-		"color": COLOR_OPTIONS[color_name], # Objeto Color real
-		"round": turn_number               # Rodada atual
+		"id": current_player_index,
+		"display_id": current_player_index + 1,
+		"name": color_name,
+		"color": COLOR_OPTIONS[color_name],
+		"round": turn_number
 	}
 	
 	print("TurnManager: Vez do Jogador ", player_data.name, " (P", player_data.display_id, ")")
