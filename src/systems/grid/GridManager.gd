@@ -1,181 +1,94 @@
 # res://src/systems/grid/GridManager.gd
 extends Node2D
 
-const HexMath = preload("res://src/core/math/HexMath.gd")
+# Módulos estáticos (Lógica pura)
+const Interaction = preload("res://src/systems/grid/GridInteractions.gd")
+const Mover = preload("res://src/systems/grid/UnitMover.gd")
+
+# Componentes de Dados, Visual e Estado
 const GridDataScript = preload("res://src/systems/grid/GridData.gd")
 const GridPainterScript = preload("res://src/systems/grid/GridPainter.gd")
+const GridSelector = preload("res://src/systems/grid/GridSelector.gd")
 
+# Propriedades de configuração
 var map_radius: int = 5 
 var tile_size: float = 64.0
 
-var data = null
-var painter = null
-
-# Variáveis de Estado de Jogo
-var selected_vagabond = null
-var current_reachable: Array = []
+# Instâncias de componentes
+var data: GridDataScript = GridDataScript.new()
+var painter: Node2D = null
+var selector: GridSelector = GridSelector.new()
 
 func _ready() -> void:
-	data = GridDataScript.new()
+	# Inicializa o pintor
 	painter = GridPainterScript.new()
 	add_child(painter)
 	position = Vector2.ZERO
 
-# --- SISTEMA DE CLIQUE E MOVIMENTAÇÃO ---
+# --- FLUXO DE CONTROLE (ORQUESTRAÇÃO) ---
 
-func handle_click(click_pos: Vector2, vagabond_manager: Node2D) -> void:
-	var turn_manager = get_tree().current_scene.get_node_or_null("TurnManager")
-	if not turn_manager:
-		turn_manager = get_node_or_null("../../TurnManager")
-	
-	if not turn_manager: return
-
+func handle_click(click_pos: Vector2, active_units: Array, current_player_id: int) -> void:
 	var local_click = to_local(click_pos)
-	print("\n[GridManager] Clique processado em Global: ", click_pos)
 
-	# --- 1. PRIORIDADE MÁXIMA: MOVIMENTAÇÃO ---
-	# Se já temos alguém selecionado, checamos primeiro se o clique foi em um destino.
-	if selected_vagabond:
-		var target_node = Vector2.ZERO
-		var min_dist = 60.0 # Tolerância para os nós de destino
-		
-		for node_pos in current_reachable:
-			var d = node_pos.distance_to(local_click)
-			if d < min_dist:
-				min_dist = d
-				target_node = node_pos
-		
-		if target_node != Vector2.ZERO:
-			print("Ação: Movendo P", selected_vagabond.owner_id, " para ", target_node)
-			_move_selected_to(target_node)
-			return # Sai da função, movimento realizado com sucesso!
-
-	# --- 2. SEGUNDA PRIORIDADE: SELEÇÃO DE UNIDADE ---
-	var found_v = null
-	if vagabond_manager:
-		for v in vagabond_manager.active_vagabonds:
-			if not is_instance_valid(v): continue
-			
-			# Reduzimos o raio de clique da unidade (de 75 para 45) 
-			# para não sobrepor os nós de movimento ao redor dela.
-			var dist = v.global_position.distance_to(click_pos)
-			if dist < 45.0: 
-				found_v = v
-				break
-	
-	if found_v:
-		var turn_idx = turn_manager.current_player_index
-		if int(found_v.owner_id) == int(turn_idx):
-			# Se clicamos no que já está selecionado, não fazemos nada (evita flicker)
-			if selected_vagabond == found_v:
-				print("Aviso: P", found_v.owner_id, " já está selecionado.")
-				return
-				
-			print("Sucesso: Selecionado P", found_v.owner_id)
-			_select_vagabond(found_v)
-			return 
-		else:
-			print("Aviso: Unidade de outro jogador (P", found_v.owner_id, ")")
-			_deselect_all()
+	# 1. Prioridade: Tentar mover (Se houver unidade ativa no selector)
+	if selector.unit:
+		var target = Interaction.get_target_move(local_click, selector.reachable_nodes)
+		if target != Vector2.ZERO:
+			_perform_move(target)
 			return
 
-	# --- 3. CLIQUE NO VAZIO ---
-	print("Resultado: Clique fora de alcance. Desmarcando.")
-	_deselect_all()
+	# 2. Segunda Prioridade: Tentar selecionar unidade
+	var clicked_unit = Interaction.get_unit_at_pos(click_pos, active_units)
+	_update_selection(clicked_unit, current_player_id)
 
-func _select_vagabond(vagabond) -> void:
-	_deselect_all()
-	selected_vagabond = vagabond
+# --- OPERAÇÕES DE ESTADO ---
+
+func _perform_move(target: Vector2) -> void:
+	# O Mover cuida da animação e atualização de grid_pos
+	Mover.move_unit(selector.unit, target, self)
+	_clear_selection()
+
+func _update_selection(unit: Node2D, player_id: int) -> void:
+	_clear_selection()
 	
-	if vagabond.has_method("set_highlight"):
-		vagabond.set_highlight(true)
+	# Regra de Negócio: Só seleciona se pertencer ao jogador do turno
+	if unit and int(unit.owner_id) == player_id:
+		# O Selector gerencia o estado e o highlight visual da unidade
+		var neighbors = data.get_neighbors(unit.grid_pos)
+		selector.select(unit, neighbors)
 		
-	if data.has_method("get_neighbors"):
-		current_reachable = data.get_neighbors(vagabond.grid_pos)
-		print("[GridManager] Nós alcançáveis: ", current_reachable.size())
-	
+		# O Painter gerencia os indicadores de movimento no chão
+		painter.update_reachable(selector.reachable_nodes)
+	else:
+		# Clique no vazio ou unidade inimiga desmarca tudo
+		print("GridManager: Seleção limpa ou unidade inválida.")
+
+func _clear_selection() -> void:
+	selector.clear()
 	if painter:
-		painter.update_reachable(current_reachable)
-
-func _move_selected_to(target_grid_pos: Vector2) -> void:
-	if not selected_vagabond: return
-	
-	var unit = selected_vagabond
-	unit.grid_pos = target_grid_pos
-	
-	var target_global = to_global(target_grid_pos)
-	var target_local = unit.get_parent().to_local(target_global)
-	
-	if unit.has_method("set_highlight"):
-		unit.set_highlight(false)
-		
-	var tween = create_tween()
-	tween.set_trans(Tween.TRANS_QUART)
-	tween.set_ease(Tween.EASE_OUT)
-	tween.tween_property(unit, "position", target_local, 0.3)
-	
-	# Limpa estado para o próximo movimento ou seleção
-	selected_vagabond = null
-	current_reachable = []
-	if painter: painter.update_reachable([])
-
-func _deselect_all() -> void:
-	if is_instance_valid(selected_vagabond) and selected_vagabond.has_method("set_highlight"):
-		selected_vagabond.set_highlight(false)
-		
-	selected_vagabond = null
-	current_reachable = []
-	if painter: 
 		painter.update_reachable([])
 
-# --- MÉTODOS DE UTILITÁRIO MANTIDOS ---
-func setup_map(new_radius: int) -> void:
-	self.map_radius = new_radius
-	generate_hexagonal_map()
+# Alias para compatibilidade com chamadas externas (como main.gd)
+func _deselect_all() -> void:
+	_clear_selection()
+
+# --- SETUP E UTILITÁRIOS ---
+
+func setup_map(p_radius: int) -> void:
+	self.map_radius = p_radius
+	# Delega a geração matemática para o GridData
+	data.generate_hex_grid(map_radius, tile_size)
+	
 	if painter:
 		painter.setup(data, tile_size)
 		painter.queue_redraw()
+	
+	print("[GridManager] Malha hex gerada. Nós: ", data.nodes.size())
 
 func world_to_grid(p_world_pos: Vector2) -> Vector2:
 	var local_p = to_local(p_world_pos)
-	if data == null or data.nodes == null or data.nodes.is_empty():
-		return Vector2.ZERO
-	var closest = data.get_closest_node(local_p, tile_size * 4.0)
-	return closest if closest != null else Vector2.ZERO
+	# Busca o nó mais próximo no banco de dados
+	return data.get_closest_node(local_p, tile_size * 4.0)
 
 func grid_to_world(p_grid_pos: Vector2) -> Vector2:
 	return to_global(p_grid_pos)
-
-func generate_hexagonal_map() -> void:
-	data.clear()
-	var r_pixel = (map_radius * tile_size * 0.5)
-	var search_range = map_radius * 2
-	for y in range(-search_range, search_range + 1):
-		for x in range(-search_range * 2, search_range * 2 + 1):
-			var coords = Vector2i(x, y)
-			var points = HexMath.get_triangle_points(coords, tile_size)
-			for p in points:
-				if is_point_in_hexagon(p, r_pixel):
-					data.add_node(p)
-	
-	for y in range(-search_range, search_range + 1):
-		for x in range(-search_range * 2, search_range * 2 + 1):
-			var coords = Vector2i(x, y)
-			var points = HexMath.get_triangle_points(coords, tile_size)
-			_try_connect(points[0], points[1])
-			_try_connect(points[1], points[2])
-			_try_connect(points[2], points[0])
-	print("[GridManager] Mapa gerado com ", data.nodes.size(), " nós.")
-
-func is_point_in_hexagon(p: Vector2, radius: float) -> bool:
-	var h_limit = radius * 0.866025
-	var d_v = abs(p.y)
-	var d_d1 = abs(p.x * 0.866025 + p.y * 0.5)
-	var d_d2 = abs(p.x * 0.866025 - p.y * 0.5)
-	return d_v <= h_limit + 1.0 and d_d1 <= h_limit + 1.0 and d_d2 <= h_limit + 1.0
-
-func _try_connect(p1: Vector2, p2: Vector2) -> void:
-	var a = p1.snapped(Vector2(0.1, 0.1))
-	var b = p2.snapped(Vector2(0.1, 0.1))
-	if data.nodes.has(a) and data.nodes.has(b):
-		data.add_edge(a, b)

@@ -12,31 +12,32 @@ var vagabond_manager: Node2D
 var turn_manager: Node
 var camera_controller: Camera2D
 
+# Referência ao HUD persistente
+var game_hud: Control = null
+
 func _ready() -> void:
 	_create_hierarchy()
 	_setup_managers()
 	
+	get_viewport().gui_focus_changed.connect(_on_focus_changed)
+	
 	var menu_path = "res://src/ui/MatchMakingMenu.gd"
-	# Mudamos para o menu inicial
 	var menu = ui_manager.change_screen(menu_path, {})
 	
 	if menu and menu.has_signal("match_requested"):
 		menu.match_requested.connect(_on_match_requested)
 
 func _create_hierarchy() -> void:
-	# World centraliza as coordenadas. 
 	world = Node2D.new()
 	world.name = "World"
 	add_child(world)
 	
 	ui = CanvasLayer.new()
 	ui.name = "UI"
-	# IMPORTANTE: Garantimos que a UI não bloqueie o mouse no mundo por padrão
 	ui.layer = 1
 	add_child(ui)
 
 func _setup_managers() -> void:
-	# --- UI Manager ---
 	var ui_script = load("res://src/ui/UIManager.gd")
 	if ui_script:
 		ui_manager = Node.new()
@@ -45,7 +46,6 @@ func _setup_managers() -> void:
 		add_child(ui_manager)
 		ui_manager.setup(ui)
 	
-	# --- Turn Manager ---
 	var turn_script = load("res://src/systems/turn/TurnManager.gd")
 	if turn_script:
 		turn_manager = Node.new()
@@ -54,23 +54,19 @@ func _setup_managers() -> void:
 		add_child(turn_manager)
 		turn_manager.turn_started.connect(_on_turn_started)
 	
-	# --- Grid Manager ---
 	var grid_script = load("res://src/systems/grid/GridManager.gd")
 	if grid_script:
 		grid_manager = grid_script.new()
 		grid_manager.name = "GridManager"
 		world.add_child(grid_manager)
 	
-	# --- Vagabond Manager ---
 	var vagabond_mgr_script = load("res://src/systems/entities/VagabondManager.gd")
 	if vagabond_mgr_script:
 		vagabond_manager = Node2D.new()
 		vagabond_manager.set_script(vagabond_mgr_script)
 		vagabond_manager.name = "VagabondManager"
 		world.add_child(vagabond_manager)
-		vagabond_manager.position = Vector2.ZERO 
 	
-	# --- RTS Camera ---
 	var cam_script = load("res://src/systems/camera/CameraController.gd")
 	if cam_script:
 		camera_controller = Camera2D.new()
@@ -80,46 +76,54 @@ func _setup_managers() -> void:
 		camera_controller.make_current()
 
 func _on_match_requested(player_count: int) -> void:
-	# Ajuste de raio para garantir que o mapa seja grande o suficiente
 	var options_map = {2: 8, 3: 10, 4: 12, 6: 14}
 	var radius = options_map.get(player_count, 10)
 	
-	print("Main: Iniciando partida para ", player_count, " jogadores.")
+	if grid_manager: grid_manager.setup_map(radius)
+	if turn_manager: turn_manager.setup(player_count)
 	
-	if grid_manager: 
-		grid_manager.setup_map(radius)
-	
-	if turn_manager: 
-		turn_manager.setup(player_count)
-	
-	# Aguarda o Grid preencher o dicionário de nodes no GridData
 	await get_tree().process_frame
 	
 	if vagabond_manager: 
 		vagabond_manager.spawn_players(player_count, turn_manager, radius)
+	
+	# --- SOLUÇÃO: Instanciar o HUD de forma persistente ---
+	# Criamos o HUD manualmente e adicionamos à UI fora do UIManager
+	var hud_script = load("res://src/ui/GameHUD.gd")
+	if hud_script:
+		game_hud = hud_script.new()
+		ui.add_child(game_hud)
+		if game_hud.has_signal("end_turn_requested"):
+			game_hud.end_turn_requested.connect(_on_end_turn_requested)
 
 func _on_turn_started(player_data: Dictionary) -> void:
 	if grid_manager: 
-		grid_manager._deselect_all()
-	# Atualiza a UI para o turno atual
+		grid_manager._clear_selection()
+		
+	# Agora o UIManager fica livre para gerenciar apenas o anúncio de turno
+	# Sem remover o game_hud que adicionamos via add_child() direto
 	ui_manager.change_screen("res://src/ui/PlayerTurnScreen.gd", player_data)
 
+func _on_end_turn_requested() -> void:
+	if turn_manager:
+		print("Main: Fim de turno solicitado pela UI.")
+		turn_manager.next_turn()
+
 func _unhandled_input(event: InputEvent) -> void:
-	# Detecta clique do mouse
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT:
-			
-			# OBTENÇÃO DA POSIÇÃO GLOBAL REAL:
-			# get_global_mouse_position() leva em conta a Camera2D ativa automaticamente
 			var global_click = world.get_global_mouse_position()
 			
-			# Verificamos se o clique não foi consumido por algum botão da UI
-			# (Se você clicar num botão de 'Passar Turno', o jogo não deve tentar mover o boneco)
-			if grid_manager and vagabond_manager:
-				grid_manager.handle_click(global_click, vagabond_manager)
-				
-	# Atalho para passar o turno (Debug)
-	if event is InputEventKey and event.pressed:
-		if event.keycode == KEY_SPACE:
-			if turn_manager: 
-				turn_manager.next_turn()
+			if grid_manager and vagabond_manager and turn_manager:
+				grid_manager.handle_click(
+					global_click, 
+					vagabond_manager.active_vagabonds, 
+					turn_manager.current_player_index
+				)
+	
+	if event.is_action_pressed("ui_accept"):
+		get_viewport().set_input_as_handled()
+
+func _on_focus_changed(control: Control) -> void:
+	if control:
+		control.release_focus()
