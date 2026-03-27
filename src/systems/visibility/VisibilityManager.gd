@@ -4,56 +4,87 @@ extends RefCounted
 # Estrutura: { player_id: { "revealed_edges": {} } }
 var player_memories: Dictionary = {}
 
-## Inicializa a memória para um novo jogador se não existir
 func _ensure_player_data(player_id: int) -> void:
 	if not player_memories.has(player_id):
-		player_memories[player_id] = {
-			"revealed_edges": {}
-		}
+		player_memories[player_id] = { "revealed_edges": {} }
 
-## Processa a neblina específica para o jogador atual
-func update_fog(active_units: Array, grid_data: Object, painter: Node2D, current_player_id: int) -> void:
-	if not grid_data or not painter: return
+## Processa a neblina garantindo o acesso correto ao Resource GridData
+func update_fog(active_units: Array, grid_mgr: Node2D, painter: Node2D, current_player_id: int, terrain_mgr = null) -> void:
+	if not grid_mgr or not grid_mgr.data or not painter: return
 	
+	var grid_resource = grid_mgr.data
+	if not "nodes" in grid_resource:
+		push_error("VisibilityManager: Resource de grid não possui dicionário 'nodes'")
+		return
+	
+	var nodes_dict = grid_resource.nodes
 	_ensure_player_data(current_player_id)
 	var memory = player_memories[current_player_id]
 	var lit_nodes: Array = []
 	
-	# 1. Apenas unidades do jogador atual geram luz (Visibilidade em Tempo Real)
+	# 1. Visibilidade em tempo real e Revelação por Proximidade
 	for unit in active_units:
 		if not is_instance_valid(unit) or unit.owner_id != current_player_id: 
 			continue
 		
-		if not unit.grid_pos in lit_nodes:
-			lit_nodes.append(unit.grid_pos)
+		var origin = unit.grid_pos
+		if not origin in lit_nodes: 
+			lit_nodes.append(origin)
 		
-		var neighbors = grid_data.get_neighbors(unit.grid_pos)
-		for n in neighbors:
-			if not n in lit_nodes:
-				lit_nodes.append(n)
+		if nodes_dict.has(origin):
+			var neighbors = nodes_dict[origin].neighbors
+			for n in neighbors:
+				# --- REGRA: Revelação Adjacente ---
+				# Revela as 6 arestas tocando o Vagabond na memória, independente de bloqueio
+				if terrain_mgr:
+					var adj_edge_id = _get_edge_id(origin, n)
+					if not memory.revealed_edges.has(adj_edge_id):
+						memory.revealed_edges[adj_edge_id] = true
+				
+				# --- Lógica de Iluminação ---
+				var blocked = false
+				if terrain_mgr and terrain_mgr.has_method("blocks_vision"):
+					blocked = terrain_mgr.blocks_vision(origin, n)
+				
+				# Se não houver bloqueio, o nó vizinho fica "aceso" (lit)
+				if not blocked:
+					if not n in lit_nodes: 
+						lit_nodes.append(n)
 	
-	# 2. Processar arestas reveladas (Memória Permanente por Jogador)
-	for edge_key in grid_data.edges.keys():
-		if memory.revealed_edges.has(edge_key): continue
-		
-		var points = _parse_edge_key(edge_key)
-		if points.size() < 2: continue
+	# 2. Processamento de arestas distantes (Memória Permanente)
+	if terrain_mgr and terrain_mgr.get("edges"):
+		for edge_key in terrain_mgr.edges.keys():
+			if memory.revealed_edges.has(edge_key): continue
 			
-		# Regra: Revela se ambos os pontos estão na luz do jogador ATUAL
-		if points[0] in lit_nodes and points[1] in lit_nodes:
-			memory.revealed_edges[edge_key] = true
+			var points = _parse_edge_key(edge_key)
+			if points.size() < 2: continue
+			
+			# Revela arestas distantes se o jogador puder ver os dois nós que ela conecta
+			if points[0] in lit_nodes and points[1] in lit_nodes:
+				memory.revealed_edges[edge_key] = true
 	
-	# 3. Injetar no Painter apenas o que este jogador conhece
+	# 3. Sincronização com o Pintor
 	painter.lit_nodes = lit_nodes
 	painter.revealed_edges = memory.revealed_edges.keys()
 	
 	if painter.has_method("refresh_fog_layers"):
 		painter.refresh_fog_layers()
 
-func _parse_edge_key(key: String) -> Array[Vector2]:
-	var parts = key.replace("(", "").replace(")", "").split("_")
+# Utilitário para gerar a chave da aresta no mesmo formato do Terrain.gd
+func _get_edge_id(a: Vector2, b: Vector2) -> String:
+	if a.x < b.x or (a.x == b.x and a.y < b.y):
+		return str(a) + "_" + str(b)
+	return str(b) + "_" + str(a)
+
+func _parse_edge_key(key: String) -> Array:
+	var separator = "_" if "_" in key else "|"
+	var parts = key.replace("(", "").replace(")", "").split(separator)
 	if parts.size() == 2:
 		var p1_raw = parts[0].split(",")
 		var p2_raw = parts[1].split(",")
-		return [Vector2(float(p1_raw[0]), float(p1_raw[1])), Vector2(float(p2_raw[0]), float(p2_raw[1]))]
+		if p1_raw.size() >= 2 and p2_raw.size() >= 2:
+			return [
+				Vector2(float(p1_raw[0]), float(p1_raw[1])), 
+				Vector2(float(p2_raw[0]), float(p2_raw[1]))
+			]
 	return []

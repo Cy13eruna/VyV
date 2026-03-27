@@ -8,6 +8,7 @@ var nodes_layer: Node2D
 
 var tile_size: float = 64.0
 var grid_data = null
+var terrain_ref: RefCounted # Injetado pelo Main.gd (res://src/systems/Terrain.gd)
 
 # --- ESTADO DE VISIBILIDADE (Injetado pelo VisibilityManager) ---
 var lit_nodes: Array = []        # Nós adjacentes a unidades (acesos)
@@ -55,7 +56,6 @@ func setup(p_data, p_size: float) -> void:
 
 # --- INTERFACE DE ATUALIZAÇÃO ---
 
-## Chamado pelo VisibilityManager após processar a lógica
 func refresh_fog_layers() -> void:
 	edges_layer.queue_redraw()
 	nodes_layer.queue_redraw()
@@ -73,12 +73,17 @@ func _refresh_all() -> void:
 # --- FUNÇÕES DE DESENHO ---
 
 func _draw_edges() -> void:
-	if not grid_data: return
-	# Desenha apenas as arestas que estão na lista de reveladas
+	if not grid_data or not terrain_ref: return
+	
+	# Desenha apenas as arestas que estão na lista de reveladas pela visibilidade
 	for edge_key in revealed_edges:
 		var points = _parse_edge_key(edge_key)
 		if points.size() == 2:
-			edges_layer.draw_line(points[0], points[1], Color.BLACK, LINE_WIDTH, true)
+			# Obtém a cor baseada no terreno definido no Terrain.gd
+			var edge_color = terrain_ref.get_edge_color(points[0], points[1])
+			
+			# Desenha a linha da aresta com a cor do terreno
+			edges_layer.draw_line(points[0], points[1], edge_color, LINE_WIDTH, true)
 
 func _draw_nodes() -> void:
 	if not grid_data: return
@@ -86,12 +91,12 @@ func _draw_nodes() -> void:
 	for node_pos in grid_data.nodes.keys():
 		var is_lit = node_pos in lit_nodes
 		
-		# Se não estiver aceso (lit), desenhamos o nó preto (névoa)
-		# Se estiver aceso, desenhamos branco.
+		# Fog of War: Preto se não estiver "aceso", Branco se estiver
 		var color = COLOR_ON if is_lit else COLOR_OFF
 		nodes_layer.draw_circle(node_pos, NODE_RADIUS, color)
 		
 		if is_lit:
+			# Borda de definição para nós visíveis
 			nodes_layer.draw_arc(node_pos, NODE_RADIUS, 0, TAU, 32, Color.BLACK, 2.5, true)
 
 func _draw_indicators() -> void:
@@ -102,7 +107,6 @@ func _draw_indicators() -> void:
 	var target_radius = tile_size * 0.35
 	
 	for pos in reachable:
-		# Efeito esfumaçado (Glow)
 		var steps = 8
 		for i in range(steps, 0, -1):
 			var r = (target_radius / steps) * i
@@ -111,14 +115,14 @@ func _draw_indicators() -> void:
 			color.a = alpha
 			indicators_layer.draw_circle(pos, r, color)
 		
-		# Aro fino de definição
 		var border_color = base_color
 		border_color.a = 0.5
 		indicators_layer.draw_arc(pos, target_radius, 0, TAU, 32, border_color, 2.0, true)
 
 # --- UTILITÁRIOS ---
 
-func _parse_edge_key(key: String) -> Array[Vector2]:
+func _parse_edge_key(key: String) -> Array:
+	# O formato esperado da key é "Vector2_Vector2" conforme gerado no Terrain.gd
 	var parts = key.replace("(", "").replace(")", "").split("_")
 	if parts.size() == 2:
 		var p1_raw = parts[0].split(",")

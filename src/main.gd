@@ -11,6 +11,7 @@ var ui_manager: Node
 var grid_manager: Node2D
 var vagabond_manager: Node2D
 var turn_manager: Node
+var terrain_manager: RefCounted 
 var visibility_manager: RefCounted 
 var camera_controller: Camera2D
 
@@ -71,6 +72,14 @@ func _setup_managers() -> void:
 		grid_manager.name = "GridManager"
 		world.add_child(grid_manager)
 	
+	# --- SETUP TERRENO (Com verificação de segurança) ---
+	var terrain_path = "res://src/systems/terrain/Terrain.gd"
+	if FileAccess.file_exists(terrain_path):
+		var terrain_script = load(terrain_path)
+		terrain_manager = terrain_script.new()
+	else:
+		push_warning("Terrain.gd não encontrado em: " + terrain_path)
+	
 	var vagabond_mgr_script = load("res://src/systems/entities/VagabondManager.gd")
 	if vagabond_mgr_script:
 		vagabond_manager = Node2D.new()
@@ -94,7 +103,15 @@ func _on_match_requested(player_count: int) -> void:
 	var options_map = {2: 8, 3: 10, 4: 12, 6: 14}
 	var radius = options_map.get(player_count, 10)
 	
-	if grid_manager: grid_manager.setup_map(radius)
+	if grid_manager: 
+		grid_manager.setup_map(radius)
+		
+		# Setup do Terreno
+		if terrain_manager and grid_manager.data:
+			terrain_manager.generate_random_terrain(grid_manager.data)
+			if grid_manager.painter:
+				grid_manager.painter.terrain_ref = terrain_manager
+	
 	if turn_manager: turn_manager.setup(player_count)
 	
 	await get_tree().process_frame
@@ -119,11 +136,8 @@ func _on_turn_started(player_data: Dictionary) -> void:
 	if vagabond_manager:
 		vagabond_manager.restore_all_units_ap()
 		
-	# Pequeno aguardo para garantir que o motor processou as posições do novo turno
 	await get_tree().process_frame
-	
 	_update_fog(true)
-		
 	ui_manager.change_screen("res://src/ui/PlayerTurnScreen.gd", player_data)
 
 func _on_end_turn_requested() -> void:
@@ -141,7 +155,6 @@ func _unhandled_input(event: InputEvent) -> void:
 					vagabond_manager.active_vagabonds, 
 					turn_manager.current_player_index
 				)
-				# Durante movimento, a neblina atualiza suavemente
 				_update_fog.call_deferred(false)
 
 # --- LÓGICA DE VISIBILIDADE CENTRALIZADA ---
@@ -150,29 +163,26 @@ func _update_fog(force_instant: bool = false) -> void:
 	if visibility_manager and grid_manager and vagabond_manager and turn_manager:
 		var current_player = turn_manager.current_player_index
 		
-		# 1. Atualiza o terreno (GridPainter)
+		# CORREÇÃO: Passamos grid_manager (Object) em vez de grid_manager.data (Dictionary)
 		visibility_manager.update_fog(
 			vagabond_manager.active_vagabonds, 
-			grid_manager.data, 
+			grid_manager, 
 			grid_manager.painter,
-			current_player
+			current_player,
+			terrain_manager 
 		)
 		
-		# 2. Sincroniza unidades
 		var current_lit_nodes = grid_manager.painter.lit_nodes
 		
 		for v in vagabond_manager.active_vagabonds:
 			if not is_instance_valid(v): continue
 			
 			if v.owner_id == current_player:
-				# FORÇA visibilidade total para o dono do turno
 				v.visible = true
 				v.modulate.a = 1.0
-				# Reset de escala/visual caso tenha vindo de um estado exausto
 				if force_instant and v.has_method("_animate_ap_change"):
 					v._animate_ap_change()
 			else:
-				# Inimigos: usam lógica de Fog suave (gameplay) ou instantânea (troca de turno)
 				v.update_fow_visibility(current_lit_nodes, force_instant)
 
 func _on_focus_changed(control: Control) -> void:
