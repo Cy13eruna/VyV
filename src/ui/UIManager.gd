@@ -1,10 +1,13 @@
 # res://src/ui/UIManager.gd
 extends Node
 
-var ui_container: CanvasLayer
+# Mudamos para Node para aceitar tanto CanvasLayer quanto Control (UIScreenContainer)
+var ui_container: Node 
 
-func setup(p_container: CanvasLayer) -> void:
+func setup(p_container: Node) -> void:
 	ui_container = p_container
+	if ui_container:
+		print("UIManager: Setup concluído no container: ", ui_container.name)
 
 ## Altera a tela atual e RETORNA a instância criada para o Main poder usar
 func change_screen(script_path: String, extra_data: Variant = null) -> Control:
@@ -12,7 +15,7 @@ func change_screen(script_path: String, extra_data: Variant = null) -> Control:
 		push_error("UIManager: ui_container não definido!")
 		return null
 	
-	# 1. Limpa a UI anterior (removendo imediatamente da árvore para evitar conflitos)
+	# 1. Limpa a UI anterior dentro do container específico
 	for child in ui_container.get_children():
 		ui_container.remove_child(child)
 		child.queue_free()
@@ -23,18 +26,17 @@ func change_screen(script_path: String, extra_data: Variant = null) -> Control:
 		var new_screen = res.new() 
 		
 		if new_screen is Control:
-			# Garante que a tela de fundo não bloqueie a câmera RTS, 
-			# mas os botões dentro dela funcionarão.
+			# Configurações padrão de tela cheia
 			new_screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
 			new_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			
-			# Adiciona à árvore ANTES do setup (importante para alguns nós de UI)
+			# Adiciona ao container (que agora é o UIScreenContainer no Main)
 			ui_container.add_child(new_screen)
 			
 			if new_screen.has_method("setup"):
 				new_screen.setup(extra_data)
 			
-			return new_screen # <--- CRUCIAL: Retorna o objeto para o Main.gd
+			return new_screen
 		else:
 			push_error("UIManager: O script não herda de Control: " + script_path)
 			new_screen.free()

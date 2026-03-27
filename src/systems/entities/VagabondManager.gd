@@ -5,6 +5,8 @@ var vagabond_script: GDScript
 var active_vagabonds: Array = []
 
 func _ready() -> void:
+	# Importante: randomize() deve ser chamado no main.gd ou aqui 
+	# para garantir que os resultados mudem a cada execução.
 	global_position = Vector2.ZERO
 	
 	var paths = ["res://src/systems/entities/Vagabond.gd", "res://src/entities/Vagabond.gd"]
@@ -15,7 +17,7 @@ func _ready() -> void:
 			break
 
 func spawn_players(player_count: int, turn_manager: Node, map_radius: int) -> void:
-	print("VagabondManager: Iniciando spawn...")
+	print("VagabondManager: Iniciando spawn aleatório...")
 	
 	# 1. Limpeza
 	for v in active_vagabonds:
@@ -27,26 +29,35 @@ func spawn_players(player_count: int, turn_manager: Node, map_radius: int) -> vo
 		push_error("VagabondManager: GridManager ou Data não encontrados!")
 		return
 
-	# 2. Obter nós válidos para spawn (Bordas)
 	var all_nodes = grid_manager.data.nodes.keys()
 	if all_nodes.is_empty():
-		push_error("VagabondManager: O Grid não possui nós gerados!")
 		return
 
-	# Ordenamos os nós pela distância do centro (length) para priorizar as bordas
+	# Ordenamos os nós pela distância do centro para priorizar as bordas
 	all_nodes.sort_custom(func(a, b): return a.length() > b.length())
 
+	# --- LÓGICA DE ALEATORIEDADE ---
+	
+	# 1. Ponto de partida aleatório (0 a 360 graus em radianos)
+	var random_start_offset = randf() * TAU
+	
+	# 2. Sentido aleatório (1 = Horário, -1 = Anti-horário)
+	var direction = 1 if randf() > 0.5 else -1
+	
+	# 3. Distribuição angular base
+	var angle_step = (TAU / player_count) * direction
+
 	for i in range(player_count):
-		# 3. Cálculo de direção para o jogador
-		var angle = i * (TAU / player_count)
-		var target_dir = Vector2(cos(angle), sin(angle))
+		# O ângulo final combina o ponto de partida sorteado com o passo da vez
+		var current_angle = random_start_offset + (i * angle_step)
+		var target_dir = Vector2(cos(current_angle), sin(current_angle))
 		
-		# Buscamos o nó real mais próximo desta direção (Dot Product)
+		# Buscamos o nó na borda mais próximo desta direção sorteada
 		var best_node = all_nodes[0]
 		var best_dot = -1.0
 		
-		# Verificamos os primeiros 40 nós (os mais distantes do centro)
-		var search_pool = all_nodes.slice(0, min(40, all_nodes.size()))
+		# Verificamos os nós mais distantes (bordas)
+		var search_pool = all_nodes.slice(0, min(60, all_nodes.size()))
 		for node in search_pool:
 			var dot = target_dir.dot(node.normalized())
 			if dot > best_dot:
@@ -71,7 +82,7 @@ func spawn_players(player_count: int, turn_manager: Node, map_radius: int) -> vo
 			vagabond.global_position = final_global_pos
 			
 			active_vagabonds.append(vagabond)
-			print("VagabondManager: P", i, " fixado em local: ", best_node, " | global: ", final_global_pos)
+			print("VagabondManager: P", i, " spawnado em ângulo ", rad_to_deg(current_angle), "°")
 
 func get_vagabond_at(pos: Vector2, radius: float = 60.0) -> Node2D:
 	for v in active_vagabonds:
