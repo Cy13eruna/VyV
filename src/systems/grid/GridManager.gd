@@ -31,7 +31,7 @@ func handle_click(click_pos: Vector2, active_units: Array, current_player_id: in
 
 	# 1. Prioridade: Tentar mover
 	if selector.unit:
-		# Verificamos se a unidade selecionada TEM AP disponível antes de tentar o cálculo
+		# Verificamos se a unidade selecionada TEM AP disponível
 		if selector.unit.has_method("has_ap") and not selector.unit.has_ap():
 			print("GridManager: Unidade exausta. Movimento cancelado.")
 			_clear_selection()
@@ -62,21 +62,28 @@ func _update_selection(unit: Node2D, player_id: int) -> void:
 	
 	# Regra de Negócio: Só seleciona se pertencer ao jogador do turno
 	if unit and int(unit.owner_id) == player_id:
-		# OPCIONAL: Se você não quiser nem permitir selecionar quem não tem AP:
-		# if not unit.has_ap(): return 
+		# Opcional: Impedir seleção de quem já agiu
+		if unit.has_method("has_ap") and not unit.has_ap():
+			print("GridManager: Unidade sem AP disponível.")
+			return
 
 		var neighbors = data.get_neighbors(unit.grid_pos)
 		selector.select(unit, neighbors)
 		
-		# O Painter gerencia os indicadores de movimento no chão
-		painter.update_reachable(selector.reachable_nodes)
+		# --- ATUALIZAÇÃO: Passando a cor da unidade para o degradê do Painter ---
+		var color_to_use = Color.BLACK
+		if "vagabond_color" in unit:
+			color_to_use = unit.vagabond_color
+		
+		painter.update_reachable(selector.reachable_nodes, color_to_use)
 	else:
 		print("GridManager: Seleção limpa ou unidade inválida.")
 
 func _clear_selection() -> void:
 	selector.clear()
 	if painter:
-		painter.update_reachable([])
+		# Limpa os indicadores passando uma cor neutra
+		painter.update_reachable([], Color.BLACK)
 
 # Alias para compatibilidade com chamadas externas (como main.gd)
 func _deselect_all() -> void:

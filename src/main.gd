@@ -4,7 +4,7 @@ extends Node
 # Containers básicos
 var world: Node2D
 var ui: CanvasLayer
-var ui_screen_container: Control # Novo: Container específico para o UIManager
+var ui_screen_container: Control 
 
 # Gerentes
 var ui_manager: Node
@@ -17,7 +17,11 @@ var camera_controller: Camera2D
 var game_hud: Control = null
 
 func _ready() -> void:
-	randomize() # Garante a aleatoriedade do spawn
+	randomize()
+	
+	# --- NOVO: Define a cor de fundo do motor como Branco ---
+	RenderingServer.set_default_clear_color(Color.WHITE)
+	
 	_create_hierarchy()
 	_setup_managers()
 	
@@ -39,7 +43,6 @@ func _create_hierarchy() -> void:
 	ui.layer = 1
 	add_child(ui)
 	
-	# Criamos um container que ocupará a tela toda para as telas do UIManager
 	ui_screen_container = Control.new()
 	ui_screen_container.name = "UIScreenContainer"
 	ui_screen_container.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -53,7 +56,6 @@ func _setup_managers() -> void:
 		ui_manager.set_script(ui_script)
 		ui_manager.name = "UIManager"
 		add_child(ui_manager)
-		# IMPORTANTE: Agora o UIManager gerencia apenas o container de telas, não a UI toda
 		ui_manager.setup(ui_screen_container)
 	
 	var turn_script = load("res://src/systems/turn/TurnManager.gd")
@@ -97,8 +99,6 @@ func _on_match_requested(player_count: int) -> void:
 	if vagabond_manager: 
 		vagabond_manager.spawn_players(player_count, turn_manager, radius)
 	
-	# Instanciamos o HUD como filho direto de 'ui'. 
-	# Como o UIManager agora limpa apenas o 'ui_screen_container', o HUD fica a salvo.
 	if not game_hud:
 		var hud_script = load("res://src/ui/GameHUD.gd")
 		if hud_script:
@@ -109,9 +109,8 @@ func _on_match_requested(player_count: int) -> void:
 
 func _on_turn_started(player_data: Dictionary) -> void:
 	if grid_manager: 
-		grid_manager._clear_selection()
+		grid_manager._deselect_all()
 		
-	# Isso agora troca apenas o conteúdo do UIScreenContainer
 	ui_manager.change_screen("res://src/ui/PlayerTurnScreen.gd", player_data)
 
 func _on_end_turn_requested() -> void:

@@ -1,46 +1,102 @@
 # res://src/systems/grid/GridPainter.gd
 extends Node2D
 
+# Referências para as camadas (Layers)
+var edges_layer: Node2D
+var indicators_layer: Node2D
+var nodes_layer: Node2D
+
 var tile_size: float = 64.0
 var grid_data = null
 
-# Mudamos de hover_node para uma lista de nós alcançáveis
-var reachable_nodes: Array = [] 
+# Configurações Visuais
+const LINE_WIDTH = 8.0
+const NODE_RADIUS = 13.0
+const GRID_COLOR = Color.BLACK
+
+func _ready() -> void:
+	_create_layers()
+
+func _create_layers() -> void:
+	# 1. Camada de Arestas
+	edges_layer = Node2D.new()
+	edges_layer.name = "EdgesLayer"
+	add_child(edges_layer)
+	edges_layer.draw.connect(_draw_edges)
+	
+	# 2. Camada de Domínios
+	var domains_layer = Node2D.new()
+	domains_layer.name = "DomainsLayer"
+	add_child(domains_layer)
+	
+	# 3. Camada de Indicadores de Movimento
+	indicators_layer = Node2D.new()
+	indicators_layer.name = "IndicatorsLayer"
+	add_child(indicators_layer)
+	indicators_layer.draw.connect(_draw_indicators)
+	
+	# 4. Camada de Nódulos
+	nodes_layer = Node2D.new()
+	nodes_layer.name = "NodesLayer"
+	add_child(nodes_layer)
+	nodes_layer.draw.connect(_draw_nodes)
 
 func setup(p_data, p_size: float) -> void:
 	grid_data = p_data
 	tile_size = p_size
-	queue_redraw()
+	_refresh_all()
 
-## Chamado pelo GridManager para destacar onde o Vagabond pode ir
-func update_reachable(new_nodes: Array) -> void:
-	reachable_nodes = new_nodes
-	queue_redraw()
+func update_reachable(new_nodes: Array, player_color: Color = Color.BLACK) -> void:
+	indicators_layer.set_meta("reachable", new_nodes)
+	indicators_layer.set_meta("color", player_color)
+	indicators_layer.queue_redraw()
 
-func _draw() -> void:
-	if not grid_data:
-		return
+func _refresh_all() -> void:
+	edges_layer.queue_redraw()
+	indicators_layer.queue_redraw()
+	nodes_layer.queue_redraw()
 
-	# 1. DESENHAR ARESTAS (Edges)
+# --- FUNÇÕES DE DESENHO POR CAMADA ---
+
+func _draw_edges() -> void:
+	if not grid_data: return
 	for edge_key in grid_data.edges.keys():
 		var points = _parse_edge_key(edge_key)
 		if points.size() == 2:
-			# Linhas pretas padrão do grid
-			draw_line(points[0], points[1], Color(0, 0, 0, 0.4), 1.5)
+			edges_layer.draw_line(points[0], points[1], GRID_COLOR, LINE_WIDTH, true)
 
-	# 2. DESENHAR NÓDULOS (Nodes)
-	for node_pos in grid_data.nodes.keys():
-		draw_circle(node_pos, 3.0, Color.BLACK)
+func _draw_indicators() -> void:
+	if not indicators_layer.has_meta("reachable"): return
 	
-	# 3. DESTAQUE DE MOVIMENTAÇÃO (Reachable)
-	# Desativamos o Hover e agora desenhamos os destinos possíveis
-	for reach_pos in reachable_nodes:
-		# Um brilho suave branco no fundo
-		draw_circle(reach_pos, 8.0, Color(1, 1, 1, 0.4)) 
-		# Um aro nítido indicando interatividade
-		draw_arc(reach_pos, 12.0, 0, TAU, 16, Color.WHITE, 2.0)
+	var reachable = indicators_layer.get_meta("reachable")
+	var base_color = indicators_layer.get_meta("color")
+	
+	# Reduzimos o raio: tile_size * 0.35 para não sobrepor demais os nós
+	var target_radius = tile_size * 0.35
+	
+	for pos in reachable:
+		# Criamos o efeito "esfumaçado" desenhando anéis concêntricos com alfa decrescente
+		# Isso simula um degradê radial real sem precisar de texturas
+		var steps = 8
+		for i in range(steps, 0, -1):
+			var r = (target_radius / steps) * i
+			var alpha = lerp(0.0, 0.4, float(i) / steps)
+			var color = base_color
+			color.a = alpha
+			indicators_layer.draw_circle(pos, r, color)
+		
+		# Aro externo sutil e fino para dar um "limite" ao esfumaçado
+		var border_color = base_color
+		border_color.a = 0.5
+		indicators_layer.draw_arc(pos, target_radius, 0, TAU, 32, border_color, 2.0, true)
 
-# Função auxiliar para extrair os Vector2 da string da chave da aresta
+func _draw_nodes() -> void:
+	if not grid_data: return
+	for node_pos in grid_data.nodes.keys():
+		nodes_layer.draw_circle(node_pos, NODE_RADIUS, GRID_COLOR)
+
+# --- UTILITÁRIOS ---
+
 func _parse_edge_key(key: String) -> Array[Vector2]:
 	var parts = key.replace("(", "").replace(")", "").split("_")
 	if parts.size() == 2:

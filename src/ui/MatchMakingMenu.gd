@@ -11,18 +11,32 @@ const OPTIONS = {
 }
 
 func setup(_p_data: Dictionary) -> void:
-	self.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Importante: O menu precisa bloquear o mouse para o fundo não ser "transparente" ao clique
+	self.mouse_filter = Control.MOUSE_FILTER_STOP
 	_build_interface()
 
 func _build_interface() -> void:
+	# 1. Adiciona o Fundo Preto Sólido
+	var bg = ColorRect.new()
+	bg.name = "BackgroundBlack"
+	bg.color = Color.BLACK
+	# Faz o retângulo ocupar a tela inteira
+	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+
+	# 2. Container dos Botões
 	var vbox = VBoxContainer.new()
+	vbox.name = "ButtonContainer"
 	vbox.mouse_filter = Control.MOUSE_FILTER_STOP
+	# Centraliza o container na tela
 	vbox.set_anchors_and_offsets_preset(Control.PRESET_CENTER) 
+	# Garante que os botões fiquem centralizados em relação ao container
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	add_child(vbox)
 	
 	for key in OPTIONS.keys():
 		var btn = Button.new()
-		btn.text = str(key) # por favor, não adicionar "Jogadores" aqui
+		btn.text = str(key) # Apenas o número, como solicitado
 		btn.custom_minimum_size = Vector2(150, 45)
 		btn.pressed.connect(_on_option_selected.bind(key))
 		vbox.add_child(btn)
@@ -35,7 +49,7 @@ func _on_option_selected(player_count: int) -> void:
 	if is_inside_tree():
 		var v_port = get_viewport()
 		if v_port:
-			var focus_owner = v_port.gui_get_focus_owner()
+			var focus_owner = v_port.get_focused_control() # Versão Godot 4+
 			if focus_owner:
 				focus_owner.release_focus()
 	
