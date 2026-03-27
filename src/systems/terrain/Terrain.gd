@@ -5,8 +5,8 @@ enum Type { PLAINS, HILLS, WOODS, WATERS }
 
 const DATA = {
 	Type.PLAINS: {"color": Color.GREEN, "move": true, "vis": true},
-	Type.HILLS:  {"color": Color(0.8, 0.7, 0.4), "move": false, "vis": false},
-	Type.WOODS:  {"color": Color(0.0, 0.4, 0.0), "move": true, "vis": false},
+	Type.HILLS:  {"color": Color(0.5, 0.5, 0.5), "move": false, "vis": false},
+	Type.WOODS:  {"color": Color(0.0, 0.5, 0.0), "move": true, "vis": false},
 	Type.WATERS: {"color": Color.CYAN, "move": false, "vis": true}
 }
 
