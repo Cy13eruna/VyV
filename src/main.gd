@@ -1,3 +1,4 @@
+# res://src/Main.gd
 extends Node
 
 # Containers básicos
@@ -13,7 +14,7 @@ var turn_manager: Node
 var terrain_manager: RefCounted 
 var visibility_manager: RefCounted 
 var match_manager: RefCounted
-var input_handler: RefCounted # <--- Novo gerente de entrada
+var input_handler: RefCounted
 var camera_controller: Camera2D
 
 # UI Específica
@@ -21,6 +22,7 @@ var game_hud: Control = null
 
 func _ready() -> void:
 	randomize()
+	# Fundo cinza escuro costuma ajudar a ver o Fog of War melhor que branco puro
 	RenderingServer.set_default_clear_color(Color.WHITE)
 	
 	_create_hierarchy()
@@ -96,19 +98,31 @@ func _show_initial_menu() -> void:
 
 func _on_match_requested(player_count: int) -> void:
 	match_manager.setup_game(player_count)
+	_setup_hud()
 
 func _setup_hud() -> void:
 	if not game_hud:
-		game_hud = load("res://src/ui/GameHUD.gd").new()
-		ui.add_child(game_hud)
-		game_hud.end_turn_requested.connect(_on_end_turn_requested)
+		var hud_scene = load("res://src/ui/GameHUD.gd")
+		if hud_scene:
+			game_hud = hud_scene.new()
+			ui.add_child(game_hud)
+			if game_hud.has_signal("end_turn_requested"):
+				game_hud.end_turn_requested.connect(_on_end_turn_requested)
 
 func _on_turn_started(player_data: Dictionary) -> void:
+	# 1. Limpa qualquer seleção residual visual e lógica
 	grid_manager._deselect_all()
+	
+	# 2. Restaura AP das unidades
 	vagabond_manager.restore_all_units_ap()
 	
+	# 3. Aguarda o frame para garantir que os estados visuais (Tweens) se preparem
 	await get_tree().process_frame
+	
+	# 4. Atualiza visibilidade (Fog of War) instantaneamente no início do turno
 	_update_game_visibility(true)
+	
+	# 5. Mostra UI de turno
 	ui_manager.change_screen("res://src/ui/PlayerTurnScreen.gd", player_data)
 
 func _on_end_turn_requested() -> void:
@@ -116,12 +130,13 @@ func _on_end_turn_requested() -> void:
 
 # --- INPUT E VISIBILIDADE ---
 
-func _unhandled_input(event: InputEvent) -> void:
-	# O Main agora apenas repassa o evento para o especialista
-	input_handler.handle_input(event)
+## Mudamos de _unhandled_input para _input para garantir prioridade sobre Nodes de cena
+func _input(event: InputEvent) -> void:
+	if input_handler:
+		input_handler.handle_input(event)
 
 func _update_game_visibility(force_instant: bool = false) -> void:
-	if visibility_manager:
+	if visibility_manager and turn_manager:
 		visibility_manager.update_visibility(
 			vagabond_manager.active_vagabonds,
 			grid_manager,
@@ -131,4 +146,6 @@ func _update_game_visibility(force_instant: bool = false) -> void:
 		)
 
 func _on_focus_changed(control: Control) -> void:
-	if control: control.release_focus()
+	# Impede que elementos de texto ou labels roubem o foco do input de grid
+	if control: 
+		control.release_focus()

@@ -1,4 +1,4 @@
-# res://src/entities/Vagabond.gd
+# res://src/systems/entities/Vagabond.gd
 extends Node2D
 
 # Propriedades lógicas
@@ -17,12 +17,13 @@ func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_i
 	self.global_position = p_global_pos
 	z_index = 10 
 	_create_visuals()
-	_animate_ap_change()
+	_update_visual_state(true)
 
 func _create_visuals() -> void:
 	for child in get_children():
 		child.queue_free()
 
+	# Usamos modulate nos labels para aplicar a cor do jogador
 	var emoji_label = Label.new()
 	emoji_label.name = "Emoji"
 	emoji_label.text = "🚶"
@@ -48,31 +49,30 @@ func _create_visuals() -> void:
 
 func update_fow_visibility(lit_nodes: Array, instant: bool = false) -> void:
 	var turn_mgr = get_tree().root.get_node_or_null("Main/TurnManager")
-	if turn_mgr and owner_id == turn_mgr.current_player_index:
+	var is_owner = turn_mgr and owner_id == turn_mgr.current_player_index
+	var is_lit = grid_pos in lit_nodes
+	
+	if is_owner:
 		visible = true
-		modulate.a = 1.0
+		_update_visual_state(instant)
 		return
 
-	var is_lit = grid_pos in lit_nodes
-	var target_alpha = 1.0 if is_lit else 0.0
+	var target_alpha = _get_target_alpha() if is_lit else 0.0
 	
 	if instant:
 		visible = is_lit
 		modulate.a = target_alpha
 		return
 
-	if is_equal_approx(modulate.a, target_alpha):
-		return
+	if is_equal_approx(modulate.a, target_alpha): return
 
 	var tween = create_tween().set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
 	if is_lit:
 		visible = true
-		tween.tween_property(self, "modulate:a", 1.0, 0.25)
+		tween.tween_property(self, "modulate:a", target_alpha, 0.25)
 	else:
 		tween.tween_property(self, "modulate:a", 0.0, 0.25)
-		await tween.finished
-		if is_instance_valid(self) and not grid_pos in lit_nodes:
-			visible = false
+		tween.finished.connect(func(): if is_instance_valid(self) and not grid_pos in lit_nodes: visible = false)
 
 # --- SISTEMA DE AP ---
 
@@ -82,43 +82,54 @@ func has_ap() -> bool:
 func use_ap() -> bool:
 	if has_ap():
 		ap -= 1
-		_animate_ap_change()
+		# Força o reset visual para garantir que saia do estado de highlight
+		_update_visual_state()
 		return true
 	return false
 
 func restore_ap() -> void:
 	ap = max_ap
-	_animate_ap_change()
+	_update_visual_state()
 
-func _animate_ap_change() -> void:
-	var target_scale: Vector2 = Vector2(1.0, 1.0) if ap > 0 else Vector2(0.85, 0.85)
-	var target_color: Color = Color.WHITE if ap > 0 else Color(0.3, 0.3, 0.3, 0.7)
-	target_color.a = modulate.a 
-
-	if scale.is_equal_approx(target_scale) and modulate.is_equal_approx(target_color):
+func _update_visual_state(instant: bool = false) -> void:
+	var target_scale = Vector2.ONE
+	var target_alpha = _get_target_alpha()
+	# Garantimos que a cor base do Node2D seja sempre branca (neutra)
+	# para que apenas a transparência e a escala mudem.
+	var target_color = Color(1, 1, 1, target_alpha)
+	
+	if instant:
+		scale = target_scale
+		modulate = target_color
 		return
 
-	# Limpa tweens antigos para este objeto antes de criar um novo
-	var tween := create_tween().set_parallel(true)
-	tween.set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-	tween.tween_property(self, "scale", target_scale, 0.3)
-	tween.tween_property(self, "modulate", target_color, 0.3)
+	# Interrompe qualquer tween anterior para evitar conflitos de highlight/movimento
+	var tween = create_tween().set_parallel(true)
+	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "scale", target_scale, 0.2)
+	# Animamos o modulate inteiro para garantir que o brilho (RGB) volte ao normal (1,1,1)
+	tween.tween_property(self, "modulate", target_color, 0.2)
+
+func _get_target_alpha() -> float:
+	return 1.0 if ap > 0 else 0.5
+
+# --- SELEÇÃO ---
 
 func set_highlight(active: bool) -> void:
-	if not visible or modulate.a < 0.1: return
-	
-	if active:
-		var intensity = 1.5 if ap > 0 else 1.1
-		var target_scale = Vector2(1.2, 1.2) if ap > 0 else Vector2(0.9, 0.9)
-		var flash_color = Color(intensity, intensity, intensity, modulate.a)
+	# Trava de AP: se não tem AP, ignoramos e forçamos o estado exaurido
+	if not has_ap():
+		_update_visual_state()
+		return
 		
-		# Verificação de redundância para evitar tween vazio no highlight
-		if scale.is_equal_approx(target_scale) and modulate.is_equal_approx(flash_color):
-			return
-
-		var tween = create_tween().set_parallel(true)
-		tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		tween.tween_property(self, "scale", target_scale, 0.1)
-		tween.tween_property(self, "modulate", flash_color, 0.1)
-	else:
-		_animate_ap_change()
+	if not visible or modulate.a < 0.1: 
+		return
+	
+	var target_scale = Vector2(1.1, 1.1) if active else Vector2.ONE
+	# IMPORTANTE: Mantemos a cor branca pura (RGB 1,1,1) para não clarear nada
+	var target_alpha = _get_target_alpha()
+	var target_color = Color(1, 1, 1, target_alpha)
+	
+	var tween = create_tween().set_parallel(true)
+	tween.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(self, "scale", target_scale, 0.1)
+	tween.tween_property(self, "modulate", target_color, 0.1)

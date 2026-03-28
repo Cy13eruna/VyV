@@ -57,7 +57,7 @@ func update_visibility(
 				if points[0] in lit_nodes and points[1] in lit_nodes:
 					memory.revealed_edges[edge_key] = true
 	
-	# --- 3. ATUALIZAÇÃO VISUAL DOS VAGABONDS (ABSORVIDO DO MAIN) ---
+	# --- 3. ATUALIZAÇÃO VISUAL DOS VAGABONDS ---
 	_process_unit_hiding(active_units, lit_nodes, current_player_id, force_instant)
 	
 	# --- 4. SINCRONIZAÇÃO COM O PAINTER ---
@@ -74,10 +74,15 @@ func _process_unit_hiding(units: Array, lit_nodes: Array, current_id: int, insta
 	for v in units:
 		if not is_instance_valid(v): continue
 		
-		# Se é do próprio jogador, sempre visível e opaco
+		# Se é do próprio jogador, sempre visível
 		if v.owner_id == current_id:
 			v.visible = true
-			v.modulate.a = 1.0
+			
+			# CORREÇÃO: Em vez de forçar modulate.a = 1.0, pedimos para a unidade
+			# atualizar seu estado visual. O Vagabond.gd usará 0.5 se o AP for 0.
+			if v.has_method("_update_visual_state"):
+				v._update_visual_state(instant)
+			
 			# Garante que a UI de AP apareça corretamente
 			if instant and v.has_method("_animate_ap_change"):
 				v._animate_ap_change()

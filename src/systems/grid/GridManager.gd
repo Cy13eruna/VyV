@@ -1,23 +1,24 @@
 # res://src/systems/grid/GridManager.gd
 extends Node2D
 
-# Módulos estáticos (Lógica pura)
+# Módulos estáticos
 const Interaction = preload("res://src/systems/grid/GridInteractions.gd")
 const Mover = preload("res://src/systems/movement/UnitMover.gd")
-# Carregamos como script para evitar erro de parse em chamadas estáticas
 const PathfinderScript = preload("res://src/systems/movement/Pathfinder.gd") 
 
 # Componentes
 const GridDataScript = preload("res://src/systems/grid/GridData.gd")
 const GridPainterScript = preload("res://src/systems/grid/GridPainter.gd")
-const GridSelector = preload("res://src/systems/grid/GridSelector.gd")
 
 var map_radius: int = 5 
 var tile_size: float = 64.0
 
 var data: GridDataScript = GridDataScript.new()
 var painter: Node2D = null
-var selector: GridSelector = GridSelector.new()
+
+# Estado de Seleção Local (Substituindo o GridSelector)
+var selected_unit: Node2D = null
+var reachable_nodes: Array = []
 
 func _ready() -> void:
 	painter = GridPainterScript.new()
@@ -25,14 +26,12 @@ func _ready() -> void:
 
 # --- FLUXO DE CONTROLE ---
 
-## handle_click atualizado para aceitar a lista validada do Main.gd
 func handle_click(click_pos: Vector2, active_units: Array, current_player_id: int, reachable_override: Array = []) -> void:
 	var local_click = to_local(click_pos)
 
-	# 1. Tentar mover: Se o Main passou um override, usamos ele. 
-	# Caso contrário, usamos o que está no selector.
-	if selector.unit:
-		var valid_targets = reachable_override if reachable_override.size() > 0 else selector.reachable_nodes
+	# 1. Tentar mover: Se houver unidade selecionada
+	if selected_unit:
+		var valid_targets = reachable_override if reachable_override.size() > 0 else reachable_nodes
 		var target = Interaction.get_target_move(local_click, valid_targets)
 		
 		if target != Vector2.ZERO:
@@ -46,36 +45,51 @@ func handle_click(click_pos: Vector2, active_units: Array, current_player_id: in
 # --- OPERAÇÕES DE ESTADO ---
 
 func _perform_move(target: Vector2) -> void:
-	if selector.unit.has_method("use_ap"):
-		selector.unit.use_ap()
+	if selected_unit.has_method("use_ap"):
+		selected_unit.use_ap()
 	
-	Mover.move_unit(selector.unit, target, self)
+	Mover.move_unit(selected_unit, target, self)
 	_clear_selection()
 
 func _update_selection(unit: Node2D, player_id: int) -> void:
+	# Limpa seleção anterior (incluindo o highlight visual da unidade antiga)
 	_clear_selection()
 	
-	if unit and int(unit.owner_id) == player_id:
+	# Valida unidade: existe, é do jogador e TEM AP
+	if unit and int(unit.get("owner_id")) == player_id:
 		if unit.has_method("has_ap") and not unit.has_ap():
-			return
+			return # Unidade exaurida não é selecionada nem ganha destaque
+
+		# Se chegou aqui, a unidade é válida para seleção
+		selected_unit = unit
+		
+		# Ativa o destaque visual na unidade
+		if selected_unit.has_method("set_highlight"):
+			selected_unit.set_highlight(true)
 
 		var terrain_mgr = painter.terrain_ref if painter else null
+		var current_ap = selected_unit.ap if "ap" in selected_unit else 1
 		
-		# Chamada via referência de script para evitar o erro "Static function not found"
-		var valid_nodes = PathfinderScript.get_reachable_cells(
-			unit.grid_pos, 
-			unit.ap if unit.has_method("get_ap") else 1, 
+		reachable_nodes = PathfinderScript.get_reachable_cells(
+			selected_unit.grid_pos, 
+			current_ap, 
 			data, 
 			terrain_mgr
 		)
 		
-		selector.select(unit, valid_nodes)
-		
-		var color_to_use = unit.get("vagabond_color") if "vagabond_color" in unit else Color.BLACK
-		painter.update_reachable(selector.reachable_nodes, color_to_use)
+		# Atualiza os indicadores de movimento no chão
+		var color_to_use = selected_unit.get("vagabond_color") if "vagabond_color" in selected_unit else Color.BLACK
+		if painter:
+			painter.update_reachable(reachable_nodes, color_to_use)
 
 func _clear_selection() -> void:
-	selector.clear()
+	# Desativa o destaque visual da unidade atual antes de limpar a referência
+	if selected_unit and selected_unit.has_method("set_highlight"):
+		selected_unit.set_highlight(false)
+	
+	selected_unit = null
+	reachable_nodes = []
+	
 	if painter:
 		painter.update_reachable([], Color.BLACK)
 
