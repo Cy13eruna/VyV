@@ -16,7 +16,7 @@ var tile_size: float = 64.0
 var data: GridDataScript = GridDataScript.new()
 var painter: Node2D = null
 
-# Estado de Seleção Local (Substituindo o GridSelector)
+# Estado de Seleção Local
 var selected_unit: Node2D = null
 var reachable_nodes: Array = []
 
@@ -34,13 +34,15 @@ func handle_click(click_pos: Vector2, active_units: Array, current_player_id: in
 		var valid_targets = reachable_override if reachable_override.size() > 0 else reachable_nodes
 		var target = Interaction.get_target_move(local_click, valid_targets)
 		
-		if target != Vector2.ZERO:
+		# --- CORREÇÃO: Com o novo GridInteractions, validamos contra INF ---
+		# Isso permite que Vector2(0,0) seja um destino válido.
+		if target.x != INF:
 			_perform_move(target)
 			return
 
 	# 2. Tentar selecionar
 	var clicked_unit = Interaction.get_unit_at_pos(click_pos, active_units)
-	_update_selection(clicked_unit, current_player_id)
+	_update_selection(clicked_unit, current_player_id, active_units)
 
 # --- OPERAÇÕES DE ESTADO ---
 
@@ -51,34 +53,39 @@ func _perform_move(target: Vector2) -> void:
 	Mover.move_unit(selected_unit, target, self)
 	_clear_selection()
 
-func _update_selection(unit: Node2D, player_id: int) -> void:
-	# Limpa seleção anterior (incluindo o highlight visual da unidade antiga)
+func _update_selection(unit: Node2D, player_id: int, all_units: Array = []) -> void:
+	# Limpa seleção anterior
 	_clear_selection()
 	
 	# Valida unidade: existe, é do jogador e TEM AP
 	if unit and int(unit.get("owner_id")) == player_id:
 		if unit.has_method("has_ap") and not unit.has_ap():
-			return # Unidade exaurida não é selecionada nem ganha destaque
+			return 
 
-		# Se chegou aqui, a unidade é válida para seleção
 		selected_unit = unit
 		
-		# Ativa o destaque visual na unidade
 		if selected_unit.has_method("set_highlight"):
 			selected_unit.set_highlight(true)
 
 		var terrain_mgr = painter.terrain_ref if painter else null
 		var current_ap = selected_unit.ap if "ap" in selected_unit else 1
 		
-		# Obtém células do Pathfinder
+		# --- REGRA DE OCUPAÇÃO: Coleta posições de TODOS os outros Vagabonds ---
+		var occupied_positions = []
+		for v in all_units:
+			if is_instance_valid(v) and v != selected_unit:
+				occupied_positions.append(v.grid_pos)
+		
+		# Obtém células do Pathfinder passando a lista de ocupação
 		var raw_nodes = PathfinderScript.get_reachable_cells(
 			selected_unit.grid_pos, 
 			current_ap, 
 			data, 
-			terrain_mgr
+			terrain_mgr,
+			occupied_positions
 		)
 		
-		# --- CORREÇÃO: Remove o nó onde a unidade já está ---
+		# Remove o nó onde a unidade já está
 		raw_nodes.erase(selected_unit.grid_pos)
 		reachable_nodes = raw_nodes
 		
@@ -88,7 +95,6 @@ func _update_selection(unit: Node2D, player_id: int) -> void:
 			painter.update_reachable(reachable_nodes, color_to_use)
 
 func _clear_selection() -> void:
-	# Desativa o destaque visual da unidade atual antes de limpar a referência
 	if selected_unit and selected_unit.has_method("set_highlight"):
 		selected_unit.set_highlight(false)
 	
