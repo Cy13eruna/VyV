@@ -70,12 +70,17 @@ func _update_selection(unit: Node2D, player_id: int) -> void:
 		var terrain_mgr = painter.terrain_ref if painter else null
 		var current_ap = selected_unit.ap if "ap" in selected_unit else 1
 		
-		reachable_nodes = PathfinderScript.get_reachable_cells(
+		# Obtém células do Pathfinder
+		var raw_nodes = PathfinderScript.get_reachable_cells(
 			selected_unit.grid_pos, 
 			current_ap, 
 			data, 
 			terrain_mgr
 		)
+		
+		# --- CORREÇÃO: Remove o nó onde a unidade já está ---
+		raw_nodes.erase(selected_unit.grid_pos)
+		reachable_nodes = raw_nodes
 		
 		# Atualiza os indicadores de movimento no chão
 		var color_to_use = selected_unit.get("vagabond_color") if "vagabond_color" in selected_unit else Color.BLACK
