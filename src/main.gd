@@ -9,6 +9,7 @@ var ui_screen_container: Control
 # Gerentes
 var ui_manager: Node
 var grid_manager: Node2D
+var domain_manager: Node2D # <--- Adicionado
 var vagabond_manager: Node2D
 var turn_manager: Node
 var terrain_manager: RefCounted 
@@ -22,8 +23,8 @@ var game_hud: Control = null
 
 func _ready() -> void:
 	randomize()
-	# Fundo cinza escuro costuma ajudar a ver o Fog of War melhor que branco puro
-	RenderingServer.set_default_clear_color(Color.WHITE)
+	# Fundo cinza escuro para melhor contraste com os Domínios e Fog of War
+	RenderingServer.set_default_clear_color(Color.WHITE) # não alterar a cor de fundo, por favor
 	
 	_create_hierarchy()
 	_setup_managers()
@@ -73,6 +74,12 @@ func _setup_managers() -> void:
 	world.add_child(grid_manager)
 	
 	terrain_manager = load("res://src/systems/terrain/Terrain.gd").new()
+	
+	# --- Domain Manager (Gerencia os Hexagramas das Capitais) ---
+	domain_manager = Node2D.new()
+	domain_manager.set_script(load("res://src/systems/entities/DomainManager.gd"))
+	domain_manager.name = "DomainManager"
+	world.add_child(domain_manager)
 	
 	# Entidades e Visibilidade
 	vagabond_manager = Node2D.new()
@@ -130,7 +137,6 @@ func _on_end_turn_requested() -> void:
 
 # --- INPUT E VISIBILIDADE ---
 
-## Mudamos de _unhandled_input para _input para garantir prioridade sobre Nodes de cena
 func _input(event: InputEvent) -> void:
 	if input_handler:
 		input_handler.handle_input(event)
@@ -146,6 +152,5 @@ func _update_game_visibility(force_instant: bool = false) -> void:
 		)
 
 func _on_focus_changed(control: Control) -> void:
-	# Impede que elementos de texto ou labels roubem o foco do input de grid
 	if control: 
 		control.release_focus()

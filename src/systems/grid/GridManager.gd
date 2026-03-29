@@ -22,7 +22,15 @@ var reachable_nodes: Array = []
 
 func _ready() -> void:
 	painter = GridPainterScript.new()
+	# O Painter gerencia internamente a ordem das camadas (Edges < Domains < Nodes)
 	add_child(painter)
+
+# --- NOVA INTEGRAÇÃO DE DOMÍNIOS ---
+
+## Recebe os dados das capitais e repassa para o pintor
+func update_domain_visuals(domain_data: Array) -> void:
+	if painter and painter.has_method("update_domains"):
+		painter.update_domains(domain_data)
 
 # --- FLUXO DE CONTROLE ---
 
@@ -34,8 +42,7 @@ func handle_click(click_pos: Vector2, active_units: Array, current_player_id: in
 		var valid_targets = reachable_override if reachable_override.size() > 0 else reachable_nodes
 		var target = Interaction.get_target_move(local_click, valid_targets)
 		
-		# --- CORREÇÃO: Com o novo GridInteractions, validamos contra INF ---
-		# Isso permite que Vector2(0,0) seja um destino válido.
+		# Validação contra INF para permitir Vector2(0,0) como destino
 		if target.x != INF:
 			_perform_move(target)
 			return
@@ -54,10 +61,8 @@ func _perform_move(target: Vector2) -> void:
 	_clear_selection()
 
 func _update_selection(unit: Node2D, player_id: int, all_units: Array = []) -> void:
-	# Limpa seleção anterior
 	_clear_selection()
 	
-	# Valida unidade: existe, é do jogador e TEM AP
 	if unit and int(unit.get("owner_id")) == player_id:
 		if unit.has_method("has_ap") and not unit.has_ap():
 			return 
@@ -70,13 +75,12 @@ func _update_selection(unit: Node2D, player_id: int, all_units: Array = []) -> v
 		var terrain_mgr = painter.terrain_ref if painter else null
 		var current_ap = selected_unit.ap if "ap" in selected_unit else 1
 		
-		# --- REGRA DE OCUPAÇÃO: Coleta posições de TODOS os outros Vagabonds ---
+		# Coleta ocupação
 		var occupied_positions = []
 		for v in all_units:
 			if is_instance_valid(v) and v != selected_unit:
 				occupied_positions.append(v.grid_pos)
 		
-		# Obtém células do Pathfinder passando a lista de ocupação
 		var raw_nodes = PathfinderScript.get_reachable_cells(
 			selected_unit.grid_pos, 
 			current_ap, 
@@ -85,11 +89,9 @@ func _update_selection(unit: Node2D, player_id: int, all_units: Array = []) -> v
 			occupied_positions
 		)
 		
-		# Remove o nó onde a unidade já está
 		raw_nodes.erase(selected_unit.grid_pos)
 		reachable_nodes = raw_nodes
 		
-		# Atualiza os indicadores de movimento no chão
 		var color_to_use = selected_unit.get("vagabond_color") if "vagabond_color" in selected_unit else Color.BLACK
 		if painter:
 			painter.update_reachable(reachable_nodes, color_to_use)

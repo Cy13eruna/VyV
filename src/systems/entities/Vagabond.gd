@@ -39,7 +39,7 @@ func _create_visuals() -> void:
 	text_label.text = "VAGABOND"
 	text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	text_label.add_theme_color_override("font_color", vagabond_color)
-	text_label.add_theme_font_size_override("font_size", 14)
+	text_label.add_theme_font_size_override("font_size", 8)
 	text_label.add_theme_constant_override("outline_size", 6)
 	text_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	text_label.position = Vector2(-20, 0)
