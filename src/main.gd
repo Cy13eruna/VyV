@@ -9,7 +9,7 @@ var ui_screen_container: Control
 # Gerentes
 var ui_manager: Node
 var grid_manager: Node2D
-var domain_manager: Node2D # <--- Adicionado
+var domain_manager: Node2D 
 var vagabond_manager: Node2D
 var turn_manager: Node
 var terrain_manager: RefCounted 
@@ -23,8 +23,8 @@ var game_hud: Control = null
 
 func _ready() -> void:
 	randomize()
-	# Fundo cinza escuro para melhor contraste com os Domínios e Fog of War
-	RenderingServer.set_default_clear_color(Color.WHITE) # não alterar a cor de fundo, por favor
+	# Fundo mantido como solicitado
+	RenderingServer.set_default_clear_color(Color.WHITE) 
 	
 	_create_hierarchy()
 	_setup_managers()
@@ -75,7 +75,7 @@ func _setup_managers() -> void:
 	
 	terrain_manager = load("res://src/systems/terrain/Terrain.gd").new()
 	
-	# --- Domain Manager (Gerencia os Hexagramas das Capitais) ---
+	# Domain Manager
 	domain_manager = Node2D.new()
 	domain_manager.set_script(load("res://src/systems/entities/DomainManager.gd"))
 	domain_manager.name = "DomainManager"
@@ -117,19 +117,13 @@ func _setup_hud() -> void:
 				game_hud.end_turn_requested.connect(_on_end_turn_requested)
 
 func _on_turn_started(player_data: Dictionary) -> void:
-	# 1. Limpa qualquer seleção residual visual e lógica
 	grid_manager._deselect_all()
-	
-	# 2. Restaura AP das unidades
 	vagabond_manager.restore_all_units_ap()
 	
-	# 3. Aguarda o frame para garantir que os estados visuais (Tweens) se preparem
 	await get_tree().process_frame
 	
-	# 4. Atualiza visibilidade (Fog of War) instantaneamente no início do turno
 	_update_game_visibility(true)
 	
-	# 5. Mostra UI de turno
 	ui_manager.change_screen("res://src/ui/PlayerTurnScreen.gd", player_data)
 
 func _on_end_turn_requested() -> void:
@@ -143,12 +137,21 @@ func _input(event: InputEvent) -> void:
 
 func _update_game_visibility(force_instant: bool = false) -> void:
 	if visibility_manager and turn_manager:
+		var domains = []
+		
+		# Verificação segura da lista de domínios
+		if is_instance_valid(domain_manager):
+			var d_list = domain_manager.get("active_domains")
+			if d_list is Array:
+				domains = d_list
+			
 		visibility_manager.update_visibility(
 			vagabond_manager.active_vagabonds,
 			grid_manager,
 			turn_manager.current_player_index,
 			terrain_manager,
-			force_instant
+			domains,         # 5º argumento: Array esperado
+			force_instant    # 6º argumento: Booleano de força
 		)
 
 func _on_focus_changed(control: Control) -> void:
