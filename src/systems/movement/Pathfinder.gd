@@ -1,13 +1,12 @@
 # res://src/systems/movement/Pathfinder.gd
 extends RefCounted
 
-## Calcula os nós alcançáveis, respeitando custo de AP, bloqueios de terreno e ocupação de unidades.
 static func get_reachable_cells(
 	start_pos: Vector2, 
 	max_ap: int, 
 	grid_resource: Object, 
 	terrain_mgr: Object, 
-	occupied_nodes: Array = [] # Novo parâmetro: lista de Vector2 com posições de outros Vagabonds
+	occupied_nodes: Array = []
 ) -> Array:
 	
 	var reachable: Array = []
@@ -17,44 +16,46 @@ static func get_reachable_cells(
 		
 	var nodes_dict = grid_resource.nodes
 	
+	# REGRA DE OURO: Snapping na posição inicial
+	var clean_start = start_pos.snapped(Vector2(0.1, 0.1))
+	
 	# visited armazena { posicao: custo_acumulado }
-	var visited: Dictionary = {start_pos: 0}
-	var stack: Array = [{"pos": start_pos, "cost": 0}]
+	var visited: Dictionary = {clean_start: 0}
+	var stack: Array = [{"pos": clean_start, "cost": 0}]
+	
+	# Snapping na lista de ocupação para comparação segura
+	var clean_occupied = []
+	for pos in occupied_nodes:
+		clean_occupied.append(pos.snapped(Vector2(0.1, 0.1)))
 	
 	while stack.size() > 0:
 		var current = stack.pop_front()
+		var curr_pos = current.pos.snapped(Vector2(0.1, 0.1))
 		
-		# REGRA DE OCUPAÇÃO: 
-		# Só adicionamos aos alcançáveis (destinos válidos) se o nó NÃO estiver ocupado.
-		# A origem (start_pos) é ignorada aqui pois já a removemos no GridManager.
-		if not current.pos in reachable:
-			if not current.pos in occupied_nodes:
-				reachable.append(current.pos)
+		if not curr_pos in reachable:
+			if not curr_pos in clean_occupied:
+				reachable.append(curr_pos)
 		
-		# Se já atingiu o limite de movimento, não expande para os vizinhos
 		if current.cost >= max_ap:
 			continue
 			
-		if not nodes_dict.has(current.pos):
+		if not nodes_dict.has(curr_pos):
 			continue
 			
-		var neighbors = nodes_dict[current.pos].neighbors
+		var neighbors = nodes_dict[curr_pos].neighbors
 		
 		for n_pos in neighbors:
-			# 1. Checagem de Terreno (Montanhas/Rios)
+			var sn_n = n_pos.snapped(Vector2(0.1, 0.1))
+			
 			var terrain_blocked = false
 			if terrain_mgr and terrain_mgr.has_method("blocks_movement"):
-				terrain_blocked = terrain_mgr.blocks_movement(current.pos, n_pos)
-			
-			# 2. Checagem de Unidade (Opcional: Bloqueio de PASSAGEM)
-			# Se você quiser que unidades INIMIGAS bloqueiem o caminho, adicione aqui.
-			# Por enquanto, unidades apenas bloqueiam o DESTINO (checado acima).
+				terrain_blocked = terrain_mgr.blocks_movement(curr_pos, sn_n)
 			
 			if not terrain_blocked:
 				var new_cost = current.cost + 1
 				
-				if not visited.has(n_pos) or visited[n_pos] > new_cost:
-					visited[n_pos] = new_cost
-					stack.append({"pos": n_pos, "cost": new_cost})
+				if not visited.has(sn_n) or visited[sn_n] > new_cost:
+					visited[sn_n] = new_cost
+					stack.append({"pos": sn_n, "cost": new_cost})
 	
 	return reachable

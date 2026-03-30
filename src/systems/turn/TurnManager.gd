@@ -1,6 +1,7 @@
 # res://src/systems/turn/TurnManager.gd
 extends Node
 
+# Sinal local (opcional, para uso interno)
 signal turn_started(player_data: Dictionary)
 
 const COLOR_OPTIONS = {
@@ -21,55 +22,61 @@ func setup(p_player_count: int) -> void:
 	total_players = clamp(p_player_count, 1, COLOR_OPTIONS.size())
 	current_player_index = 0
 	turn_number = 1
-	
 	_assign_random_colors()
 	
-	print("TurnManager: Iniciado com ", total_players, " jogadores.")
-	_announce_turn()
+	# Delay para garantir que o HUD e outros Managers já se conectaram aos sinais
+	call_deferred("_announce_turn")
 
 func _assign_random_colors() -> void:
 	var keys = COLOR_OPTIONS.keys()
-	keys.shuffle()
-	
-	player_colors.clear()
-	for i in range(total_players):
-		player_colors.append(keys[i])
+	# Descomentado para garantir que os jogadores tenham cores diferentes visualmente
+	keys.shuffle() 
+	player_colors = keys.slice(0, total_players)
 
 func next_turn() -> void:
+	# Antes de mudar, podemos emitir um sinal de "turn_ending" se necessário
 	current_player_index = (current_player_index + 1) % total_players
 	
 	if current_player_index == 0:
 		turn_number += 1
 		print("\n--- RODADA ", turn_number, " ---")
 	
-	_announce_turn()
+	# Usamos deferred para dar tempo da UI anterior limpar buffers se necessário
+	_announce_turn.call_deferred()
 
 func _announce_turn() -> void:
-	# --- NOVO: Reset de AP via VagabondManager ---
-	# Buscamos o gerente de unidades para resetar os pontos de ação do jogador da vez
-	var vagabond_manager = get_tree().root.find_child("VagabondManager", true, false)
-	if vagabond_manager and vagabond_manager.has_method("reset_aps_for_player"):
-		vagabond_manager.reset_aps_for_player(current_player_index)
+	# Proteção contra array vazio
+	if player_colors.is_empty():
+		_assign_random_colors()
 
 	var color_name = player_colors[current_player_index]
+	var p_color = COLOR_OPTIONS[color_name]
+	
 	var player_data = {
 		"id": current_player_index,
 		"display_id": current_player_index + 1,
 		"name": color_name,
-		"color": COLOR_OPTIONS[color_name],
+		"color": p_color,
 		"round": turn_number
 	}
 	
-	print("TurnManager: Vez do Jogador ", player_data.name, " (P", player_data.display_id, ")")
+	print("[TurnManager] Vez de: ", player_data.name, " (ID: ", player_data.id, ")")
+	
+	# 1. Emite sinal local
 	turn_started.emit(player_data)
+	
+	# 2. EMISSÃO PARA O EVENTBUS
+	# O Main.gd ouvirá isso e chamará o move_to_front() no HUD
+	if is_instance_valid(Signals):
+		Signals.turn_started.emit(player_data.id, player_data.color)
 
-# --- GETTERS AUXILIARES ---
+# --- GETTERS ---
 
-func get_current_player_color() -> Color:
-	var color_name = player_colors[current_player_index]
-	return COLOR_OPTIONS[color_name]
+func get_current_id() -> int:
+	return current_player_index
 
 func get_player_color_by_id(id: int) -> Color:
 	if id >= 0 and id < player_colors.size():
-		return COLOR_OPTIONS[player_colors[id]]
+		var color_name = player_colors[id]
+		return COLOR_OPTIONS[color_name]
 	return Color.WHITE

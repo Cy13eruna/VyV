@@ -1,7 +1,8 @@
 # res://src/systems/visibility/VisibilityManager.gd
 extends RefCounted
 
-# Memória persistente: { player_id: { "revealed_edges": {}, "discovered_domains": [] } }
+# Memória persistente do que cada jogador já explorou (Névoa de Guerra)
+# { player_id: { "revealed_edges": { "id": [v1, v2] }, "discovered_domains": [] } }
 var player_memories: Dictionary = {}
 
 func update_visibility(
@@ -13,124 +14,154 @@ func update_visibility(
 	force_instant: bool = false
 ) -> void:
 	
-	if not grid_mgr or not grid_mgr.painter: return
+	if not grid_mgr or not grid_mgr.data: return
 	
-	var painter = grid_mgr.painter
 	var nodes_dict = grid_mgr.data.nodes
-	
 	_ensure_player_data(current_player_id)
 	var memory = player_memories[current_player_id]
-	
 	var lit_map: Dictionary = {}
 
-	# --- 1. LUZ DOS DOMÍNIOS (CAPITAIS ALIADAS) ---
+	# --- 1. GERAR MAPA DE LUZ (NÓS ACESOS) ---
+	
+	# Visão por Domínios do Jogador Atual
 	for domain in all_domains:
-		var is_mine = (domain.has("owner_id") and domain.owner_id == current_player_id)
-		if is_mine:
-			var center = domain.pos
-			lit_map[center] = true
-			if nodes_dict.has(center):
-				for n in nodes_dict[center].neighbors:
-					lit_map[n] = true
-					memory.revealed_edges[_get_edge_id(center, n)] = true
+		if domain.get("owner_id") == current_player_id:
+			var d_pos = domain.pos.snapped(Vector2(0.1, 0.1))
+			lit_map[d_pos] = true
+			if nodes_dict.has(d_pos):
+				for n in nodes_dict[d_pos].neighbors:
+					lit_map[n.snapped(Vector2(0.1, 0.1))] = true
 
-	# --- 2. LUZ DAS UNIDADES (DINÂMICA) ---
+	# Visão por Unidades Aliadas
 	for unit in active_units:
-		if not is_instance_valid(unit) or unit.owner_id != current_player_id: 
+		if not is_instance_valid(unit) or unit.get("owner_id") != current_player_id: 
 			continue
+			
+		var u_pos_raw = unit.get("grid_pos")
+		if u_pos_raw == null: continue
 		
-		var origin = unit.grid_pos
-		lit_map[origin] = true
+		var u_pos = u_pos_raw.snapped(Vector2(0.1, 0.1))
+		lit_map[u_pos] = true
 		
-		if nodes_dict.has(origin):
-			for n in nodes_dict[origin].neighbors:
-				memory.revealed_edges[_get_edge_id(origin, n)] = true
+		if nodes_dict.has(u_pos):
+			for n in nodes_dict[u_pos].neighbors:
+				var sn_n = n.snapped(Vector2(0.1, 0.1))
 				
 				var blocked = false
 				if terrain_mgr and terrain_mgr.has_method("blocks_vision"):
-					blocked = terrain_mgr.blocks_vision(origin, n)
+					blocked = terrain_mgr.blocks_vision(u_pos, sn_n)
 				
 				if not blocked:
-					lit_map[n] = true
+					lit_map[sn_n] = true
 
-	var lit_nodes = lit_map.keys()
+	# --- 2. REVELAR ARESTAS ---
 
-	# --- 3. REGRA DO LOSANGO (ENTRE NÓS ILUMINADOS) ---
-	if terrain_mgr and terrain_mgr.get("edges"):
-		for edge_key in terrain_mgr.edges.keys():
-			if memory.revealed_edges.has(edge_key): continue
-			var points = _parse_edge_key(edge_key)
-			if points.size() >= 2:
-				if lit_map.has(points[0]) and lit_map.has(points[1]):
-					memory.revealed_edges[edge_key] = true
+	# REGRA A: Regra do Diamante (Ambos os nós iluminados)
+	for p1 in lit_map.keys():
+		if not nodes_dict.has(p1): continue
+		for neighbor in nodes_dict[p1].neighbors:
+			var p2 = neighbor.snapped(Vector2(0.1, 0.1))
+			if lit_map.has(p2):
+				var edge_id = _get_edge_id(p1, p2)
+				if not memory.revealed_edges.has(edge_id):
+					memory.revealed_edges[edge_id] = [p1, p2]
 
-	# --- 4. FILTRAGEM DE DOMÍNIOS VISÍVEIS (ROBUSTA) ---
+	# REGRA B: Adjacência de Unidade (Revela as 6 arestas ao redor da unidade)
+	for unit in active_units:
+		if not is_instance_valid(unit) or unit.get("owner_id") != current_player_id:
+			continue
+		
+		var u_pos_raw = unit.get("grid_pos")
+		if u_pos_raw == null: continue
+		var u_pos = u_pos_raw.snapped(Vector2(0.1, 0.1))
+		
+		if nodes_dict.has(u_pos):
+			for neighbor in nodes_dict[u_pos].neighbors:
+				var p2 = neighbor.snapped(Vector2(0.1, 0.1))
+				var edge_id = _get_edge_id(u_pos, p2)
+				if not memory.revealed_edges.has(edge_id):
+					memory.revealed_edges[edge_id] = [u_pos, p2]
+
+	# --- 3. EMISSÃO DE SINAIS (SUBSTITUI O PAINTER DIRETO) ---
+	
+	# Notifica o mundo sobre a nova visibilidade
+	Signals.visibility_changed.emit(
+		current_player_id, 
+		lit_map.keys(), 
+		memory.revealed_edges.values()
+	)
+	
+	# Processamento de Domínios Visíveis
 	var visible_domains: Array = []
 	for domain in all_domains:
-		var is_mine = (domain.has("owner_id") and domain.owner_id == current_player_id)
+		var d_pos = domain.pos.snapped(Vector2(0.1, 0.1))
+		var is_lit = lit_map.has(d_pos)
 		
-		# Checagem de luz com tolerância para Vector2
-		var is_lit = false
-		for l_pos in lit_nodes:
-			if l_pos.distance_to(domain.pos) < 1.0: # Tolerância de 1 pixel
-				is_lit = true
-				break
-		
-		if is_mine or is_lit or _is_discovered(memory, domain.pos):
+		if is_lit or domain.get("owner_id") == current_player_id or _is_discovered(memory, d_pos):
 			visible_domains.append(domain)
-			if is_lit and not is_mine:
-				_record_discovery(memory, domain.pos)
+			if is_lit: 
+				_record_discovery(memory, d_pos)
 
-	# --- 5. SINCRONIZAÇÃO ---
-	painter.lit_nodes = lit_nodes
-	painter.revealed_edges = memory.revealed_edges.keys()
+	Signals.domains_visibility_updated.emit(visible_domains)
 	
-	if painter.has_method("update_domains"):
-		painter.update_domains(visible_domains)
-	
-	_process_unit_hiding(active_units, lit_nodes, current_player_id, force_instant)
-	
-	if painter.has_method("refresh_fog_layers"):
-		painter.refresh_fog_layers()
+	# Mantém a regra de esconder unidades na névoa
+	_process_unit_hiding(active_units, lit_map, current_player_id, force_instant)
 
-# --- MÉTODOS PRIVADOS ---
+# --- REGRAS DE OCULTAÇÃO E INTERAÇÃO ---
 
-func _is_discovered(memory: Dictionary, pos: Vector2) -> bool:
-	for d_pos in memory.discovered_domains:
-		if d_pos.distance_to(pos) < 1.0: return true
-	return false
+func _process_unit_hiding(units: Array, lit_map: Dictionary, current_id: int, instant: bool) -> void:
+	for v in units:
+		if not is_instance_valid(v): continue
+		
+		var v_pos_raw = v.get("grid_pos")
+		if v_pos_raw == null: continue
+		
+		var v_pos = v_pos_raw.snapped(Vector2(0.1, 0.1))
+		var is_mine = v.get("owner_id") == current_id
+		var should_be_visible = is_mine or lit_map.has(v_pos)
+		
+		v.visible = should_be_visible
+		_toggle_unit_interaction(v, should_be_visible)
 
-func _record_discovery(memory: Dictionary, pos: Vector2) -> void:
-	if not _is_discovered(memory, pos):
-		memory.discovered_domains.append(pos)
+		if v.has_method("update_fow_visibility"):
+			v.update_fow_visibility(lit_map.keys(), instant)
+
+func _toggle_unit_interaction(unit: Node2D, enabled: bool) -> void:
+	unit.set_process(enabled)
+	unit.set_process_input(enabled)
+	for child in unit.get_children():
+		if child is CollisionShape2D or child is CollisionPolygon2D:
+			child.set_deferred("disabled", !enabled)
+		elif child is Area2D:
+			child.set_deferred("monitorable", enabled)
+			child.set_deferred("monitoring", enabled)
+
+# --- UTILITÁRIOS ---
+
+func _get_edge_id(a: Vector2, b: Vector2) -> String:
+	var p1 = Vector2(snapped(a.x, 0.1), snapped(a.y, 0.1))
+	var p2 = Vector2(snapped(b.x, 0.1), snapped(b.y, 0.1))
+	var first = p1
+	var second = p2
+	if p1.x > p2.x or (p1.x == p2.x and p1.y > p2.y):
+		first = p2
+		second = p1
+	return "%.1f,%.1f_%.1f,%.1f" % [first.x, first.y, second.x, second.y]
 
 func _ensure_player_data(player_id: int) -> void:
 	if not player_memories.has(player_id):
 		player_memories[player_id] = { 
-			"revealed_edges": {},
+			"revealed_edges": {}, 
 			"discovered_domains": [] 
 		}
 
-func _process_unit_hiding(units: Array, lit_nodes: Array, current_id: int, instant: bool) -> void:
-	for v in units:
-		if not is_instance_valid(v): continue
-		if v.owner_id == current_id:
-			v.visible = true
-			if v.has_method("_update_visual_state"): v._update_visual_state(instant)
-		else:
-			if v.has_method("update_fow_visibility"):
-				v.update_fow_visibility(lit_nodes, instant)
+func _is_discovered(memory: Dictionary, pos: Vector2) -> bool:
+	var p = pos.snapped(Vector2(0.1, 0.1))
+	for d_pos in memory.discovered_domains:
+		if d_pos.distance_to(p) < 0.1: return true
+	return false
 
-func _get_edge_id(a: Vector2, b: Vector2) -> String:
-	if a.x < b.x or (a.x == b.x and a.y < b.y):
-		return str(a) + "_" + str(b)
-	return str(b) + "_" + str(a)
-
-func _parse_edge_key(key: String) -> Array:
-	var separator = "_" if "_" in key else "|"
-	var parts = key.replace("(", "").replace(")", "").split(separator)
-	if parts.size() == 2:
-		var p1_raw = parts[0].split(","); var p2_raw = parts[1].split(",")
-		if p1_raw.size() >= 2 and p2_raw.size() >= 2:
-			return [Vector2(float(p1_raw[0]), float(p1_raw[1])), Vector2(float(p2_raw[0]), float(p2_raw[1]))]
-	return []
+func _record_discovery(memory: Dictionary, pos: Vector2) -> void:
+	var p = pos.snapped(Vector2(0.1, 0.1))
+	if not _is_discovered(memory, p): 
+		memory.discovered_domains.append(p)

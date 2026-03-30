@@ -14,8 +14,11 @@ config/features=PackedStringArray("4.3", "Forward Plus")
 
 ; Aqui registramos os scripts que precisam rodar globalmente.
 ; O NetworkManager é vital para gerenciar a conexão entre instâncias.
+[autoload]
+
+; Aqui registramos os scripts que precisam rodar globalmente.
 NetworkManager="*res://src/multiplayer/NetworkManager.gd"
-GameEvents="*res://src/core/autoloads/Signals.gd"
+Signals="*res://src/core/autoloads/Signals.gd"
 
 [display]
 

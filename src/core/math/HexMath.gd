@@ -6,55 +6,71 @@ const SQRT3: float = 1.73205080757
 
 # --- COORDENADAS E DISTÂNCIA ---
 
-## Converte Axial (Vector2i) para Cúbico (Vector3i) para cálculos de distância
 static func axial_to_cube(hex: Vector2i) -> Vector3i:
-	var q = hex.x
-	var r = hex.y
-	var s = -q - r
-	return Vector3i(q, r, s)
+	return Vector3i(hex.x, hex.y, -hex.x - hex.y)
 
-## Calcula a distância hexagonal real entre dois pontos (essencial para o formato do mapa)
 static func get_hex_dist(a: Vector2i, b: Vector2i = Vector2i.ZERO) -> int:
 	var ac = axial_to_cube(a)
 	var bc = axial_to_cube(b)
 	return int((abs(ac.x - bc.x) + abs(ac.y - bc.y) + abs(ac.z - bc.z)) / 2)
 
-static func round_hex(q: float, r: float) -> Vector2i:
-	return Vector2i(int(round(q)), int(round(r)))
-
-# --- POSICIONAMENTO ---
+# --- POSICIONAMENTO E TRIÂNGULOS ---
 
 static func axial_to_pixel(coords: Vector2i, side_length: float) -> Vector2:
 	var h = (SQRT3 / 2.0) * side_length
-	# X anda em passos de metade do lado
-	var x = coords.x * (side_length / 2.0)
-	# Y fixo por linha hexagonal
-	var y = coords.y * h
-	return Vector2(x, y)
-
-# --- GEOMETRIA DE TRIÂNGULOS ---
+	return Vector2(coords.x * (side_length / 2.0), coords.y * h)
 
 static func get_triangle_points(coords: Vector2i, side_length: float) -> PackedVector2Array:
 	var pos = axial_to_pixel(coords, side_length)
 	var h = (SQRT3 / 2.0) * side_length
-	var points = PackedVector2Array()
-	
+	var pts = PackedVector2Array()
 	var is_up: bool = (coords.x + coords.y) % 2 == 0
-	
 	if is_up:
-		points.append(pos)
-		points.append(pos + Vector2(side_length / 2.0, h))
-		points.append(pos + Vector2(-side_length / 2.0, h))
+		pts.append(pos)
+		pts.append(pos + Vector2(side_length / 2.0, h))
+		pts.append(pos + Vector2(-side_length / 2.0, h))
 	else:
-		points.append(pos + Vector2(0, h))
-		points.append(pos + Vector2(side_length / 2.0, 0))
-		points.append(pos + Vector2(-side_length / 2.0, 0))
-		
-	return points
+		pts.append(pos + Vector2(0, h))
+		pts.append(pos + Vector2(side_length / 2.0, 0))
+		pts.append(pos + Vector2(-side_length / 2.0, 0))
+	return pts
 
-static func get_neighbors(id: Vector2i) -> Array[Vector2i]:
-	var is_up: bool = (id.x + id.y) % 2 == 0
-	if is_up:
-		return [id + Vector2i(-1, 0), id + Vector2i(1, 0), id + Vector2i(0, 1)]
-	else:
-		return [id + Vector2i(-1, 0), id + Vector2i(1, 0), id + Vector2i(0, -1)]
+# --- GEOMETRIA UNIFICADA (ATUALIZADA) ---
+
+## Gera dois triângulos que formam um Hexagrama (Estrela de 6 pontas)
+## p_rotation: Rotação adicional em radianos (ex: deg_to_rad(30))
+static func get_hexagram_triangles(pos: Vector2, radius: float, p_rotation: float = 0.0) -> Array[PackedVector2Array]:
+	var t1 = PackedVector2Array()
+	var t2 = PackedVector2Array()
+	
+	# Offset base de -90 graus para ponta virada para cima
+	var base_rot = deg_to_rad(-90) + p_rotation
+	
+	for i in range(3):
+		# Triângulo 1 (0, 120, 240 graus)
+		var angle1 = base_rot + deg_to_rad(i * 120)
+		t1.append(pos + Vector2(cos(angle1), sin(angle1)) * radius)
+		
+		# Triângulo 2 (Invertido: 60, 180, 300 graus em relação ao primeiro)
+		var angle2 = base_rot + deg_to_rad(i * 120 + 60)
+		t2.append(pos + Vector2(cos(angle2), sin(angle2)) * radius)
+		
+	return [t1, t2]
+
+static func get_capital_star_points(pos: Vector2, size: float) -> PackedVector2Array:
+	var outer_r = size * 0.92 
+	var inner_r = size * 0.55
+	var pts = PackedVector2Array()
+	for i in range(12):
+		var angle = deg_to_rad(i * 30 - 30) 
+		var r = outer_r if i % 2 != 0 else inner_r
+		pts.append(pos + Vector2(cos(angle), sin(angle)) * r)
+	pts.append(pts[0])
+	return pts
+
+static func get_edge_polygon(p1: Vector2, p2: Vector2, tile_size: float) -> PackedVector2Array:
+	var d_width = tile_size / 1.73205081
+	var mid = (p1 + p2) / 2.0
+	var dir = (p2 - p1).normalized()
+	var perp = Vector2(-dir.y, dir.x) * (d_width / 2.0)
+	return PackedVector2Array([p1, mid + perp, p2, mid - perp])

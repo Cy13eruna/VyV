@@ -1,57 +1,69 @@
 # res://src/systems/entities/DomainManager.gd
 extends Node2D
 
-# Renomeado para coincidir com a busca do Main.gd: domain_manager.get("active_domains")
+# Script carregado dinamicamente para evitar Parse Errors de dependência circular
+var domain_script: GDScript = null
+
+# Dados brutos para lógica (VisibilityManager / Save System)
 var active_domains: Array = []
-var _painter_ref: Node2D = null
+# Nós instanciados na árvore (Visual / MapEntity)
+var domain_instances: Array = []
 
 func _ready() -> void:
 	add_to_group("domain_manager")
+	# Carregamos o script via deferred para garantir que MapEntity já esteja registrada
+	_load_resources.call_deferred()
 
-# Função para definir o painter explicitamente
-func set_painter(painter: Node2D) -> void:
-	_painter_ref = painter
-	if _painter_ref:
-		_painter_ref.update_domains(active_domains)
+func _load_resources() -> void:
+	domain_script = load("res://src/systems/entities/Domain.gd")
 
-func _get_painter() -> Node2D:
-	if _painter_ref and is_instance_valid(_painter_ref):
-		return _painter_ref
-	
-	# Fallback: Busca pelo grupo ou pelo Main se necessário
-	var grid_mgr = get_tree().get_first_node_in_group("grid_manager")
-	if grid_mgr and "painter" in grid_mgr:
-		_painter_ref = grid_mgr.painter
-		return _painter_ref
-	return null
-
+## Limpa todos os domínios do mapa
 func clear_domains() -> void:
 	active_domains.clear()
-	var p = _get_painter()
-	if p: p.update_domains([])
+	for inst in domain_instances:
+		if is_instance_valid(inst):
+			inst.queue_free()
+	domain_instances.clear()
 
-func create_domain(world_pos: Vector2, color: Color, owner_id: int = -1) -> void:
-	# Evita duplicatas por posição
+## Cria um novo domínio, tanto logicamente quanto visualmente
+func create_domain(world_pos: Vector2, color: Color, owner_id: int = -1, tile_size: float = 64.0) -> void:
+	# 1. Evita duplicatas por proximidade (precisão decimal)
 	for d in active_domains:
-		if d.pos.distance_to(world_pos) < 1.0: return
-		
-	# CRÍTICO: O dicionário deve conter "owner_id" para o VisibilityManager 
-	# saber se deve ou não iluminar os 7 nódulos permanentemente.
+		if d.pos.distance_to(world_pos) < 1.0: 
+			return
+			
+	# 2. Adiciona à lista de dados brutos
 	active_domains.append({
 		"pos": world_pos,
 		"color": color,
 		"owner_id": owner_id
 	})
 	
-	var p = _get_painter()
-	if p: 
-		p.update_domains(active_domains)
+	# 3. Instancia o objeto Domain (MapEntity)
+	if not domain_script:
+		domain_script = load("res://src/systems/entities/Domain.gd")
 
+	var new_domain = Node2D.new()
+	new_domain.set_script(domain_script)
+	
+	# Adiciona à árvore de cena antes do setup para o _ready disparar corretamente
+	add_child(new_domain)
+	
+	# Configura a entidade usando o padrão MapEntity
+	if new_domain.has_method("setup_domain"):
+		# world_pos e grid_pos são o mesmo para domínios estáticos
+		new_domain.setup_domain(world_pos, world_pos, color, owner_id, tile_size)
+	
+	domain_instances.append(new_domain)
+
+## Lógica de spawn inicial baseada no número de jogadores
 func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr: Node):
 	clear_domains()
 	
-	if grid_mgr and grid_mgr.painter:
-		_painter_ref = grid_mgr.painter
+	if not grid_mgr or not grid_mgr.data: return
+	
+	# Captura o tile_size dinamicamente
+	var t_size = grid_mgr.get("tile_size") if "tile_size" in grid_mgr else 64.0
 
 	var nodes = grid_mgr.data.nodes.keys()
 	nodes.shuffle()
@@ -60,30 +72,32 @@ func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr:
 	for pos in nodes:
 		if spawned >= player_count: break
 		
-		# Critério: Apenas locais com 6 vizinhos (espaço aberto)
+		# Critério: Espaço aberto (6 vizinhos)
 		if grid_mgr.data.nodes[pos].neighbors.size() == 6:
 			if _is_space_free(pos):
-				_create_capital(spawned, pos, grid_mgr, v_mgr, turn_mgr)
+				_create_capital(spawned, pos, grid_mgr, v_mgr, turn_mgr, t_size)
 				spawned += 1
-	
-	# Sincronização final
-	var p = _get_painter()
-	if p:
-		p.update_domains(active_domains)
 
+## Verifica se há espaço suficiente entre capitais
 func _is_space_free(grid_pos: Vector2) -> bool:
 	for domain in active_domains:
-		if domain.pos.distance_to(grid_pos) < 200.0: return false
+		if domain.pos.distance_to(grid_pos) < 200.0: 
+			return false
 	return true
 
-func _create_capital(id: int, grid_pos: Vector2, grid: Node2D, v_mgr: Node2D, turn: Node):
-	# Obtém cor baseada no ID do jogador
-	var color_name = turn.player_colors[id]
-	var p_color = turn.COLOR_OPTIONS[color_name]
+## Helper para criar o domínio e a unidade inicial do jogador
+func _create_capital(id: int, grid_pos: Vector2, grid: Node2D, v_mgr: Node2D, turn: Node, t_size: float):
+	var color_options = turn.get("COLOR_OPTIONS")
+	var player_colors = turn.get("player_colors")
 	
-	# Passamos o ID do dono para o dicionário de dados
-	create_domain(grid_pos, p_color, id)
+	if not color_options or not player_colors: return
 	
-	# Spawna a unidade inicial na mesma posição
+	var color_name = player_colors[id]
+	var p_color = color_options[color_name]
+	
+	# Cria a entidade visual do Domínio
+	create_domain(grid_pos, p_color, id, t_size)
+	
+	# Spawna o Vagabond (Unidade) na mesma posição
 	if v_mgr and v_mgr.has_method("spawn_vagabond"):
 		v_mgr.spawn_vagabond(grid_pos, id, p_color)

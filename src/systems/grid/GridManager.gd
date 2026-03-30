@@ -6,6 +6,10 @@ const Interaction = preload("res://src/systems/grid/GridInteractions.gd")
 const Mover = preload("res://src/systems/movement/UnitMover.gd")
 const PathfinderScript = preload("res://src/systems/movement/Pathfinder.gd") 
 
+# --- SOLUÇÃO PARA O ERRO DE PARSE ---
+# Carregamos o script explicitamente para garantir que o tipo seja reconhecido
+const VagabondScript = preload("res://src/systems/entities/Vagabond.gd")
+
 # Componentes
 const GridDataScript = preload("res://src/systems/grid/GridData.gd")
 const GridPainterScript = preload("res://src/systems/grid/GridPainter.gd")
@@ -16,110 +20,108 @@ var tile_size: float = 64.0
 var data: GridDataScript = GridDataScript.new()
 var painter: Node2D = null
 
-# Estado de Seleção Local
-var selected_unit: Node2D = null
-var reachable_nodes: Array = []
+# Memória de nós tipada
+var reachable_nodes: Array[Vector2] = []
 
 func _ready() -> void:
-	painter = GridPainterScript.new()
-	# O Painter gerencia internamente a ordem das camadas (Edges < Domains < Nodes)
-	add_child(painter)
-
-# --- NOVA INTEGRAÇÃO DE DOMÍNIOS ---
-
-## Recebe os dados das capitais e repassa para o pintor
-func update_domain_visuals(domain_data: Array) -> void:
-	if painter and painter.has_method("update_domains"):
-		painter.update_domains(domain_data)
-
-# --- FLUXO DE CONTROLE ---
-
-func handle_click(click_pos: Vector2, active_units: Array, current_player_id: int, reachable_override: Array = []) -> void:
-	var local_click = to_local(click_pos)
-
-	# 1. Tentar mover: Se houver unidade selecionada
-	if selected_unit:
-		var valid_targets = reachable_override if reachable_override.size() > 0 else reachable_nodes
-		var target = Interaction.get_target_move(local_click, valid_targets)
-		
-		# Validação contra INF para permitir Vector2(0,0) como destino
-		if target.x != INF:
-			_perform_move(target)
-			return
-
-	# 2. Tentar selecionar
-	var clicked_unit = Interaction.get_unit_at_pos(click_pos, active_units)
-	_update_selection(clicked_unit, current_player_id, active_units)
-
-# --- OPERAÇÕES DE ESTADO ---
-
-func _perform_move(target: Vector2) -> void:
-	if selected_unit.has_method("use_ap"):
-		selected_unit.use_ap()
+	add_to_group("grid_manager")
 	
-	Mover.move_unit(selected_unit, target, self)
-	_clear_selection()
-
-func _update_selection(unit: Node2D, player_id: int, all_units: Array = []) -> void:
-	_clear_selection()
+	painter = get_node_or_null("GridPainter")
+	if not painter:
+		painter = GridPainterScript.new()
+		painter.name = "GridPainter"
+		add_child(painter)
 	
-	if unit and int(unit.get("owner_id")) == player_id:
-		if unit.has_method("has_ap") and not unit.has_ap():
-			return 
+	if is_instance_valid(Signals):
+		Signals.unit_selected.connect(_on_unit_selected)
+		Signals.unit_deselected.connect(clear_highlights)
+		Signals.turn_started.connect(func(_id, _col): clear_highlights())
 
-		selected_unit = unit
-		
-		if selected_unit.has_method("set_highlight"):
-			selected_unit.set_highlight(true)
+# --- REAÇÃO A EVENTOS ---
 
-		var terrain_mgr = painter.terrain_ref if painter else null
-		var current_ap = selected_unit.ap if "ap" in selected_unit else 1
-		
-		# Coleta ocupação
-		var occupied_positions = []
-		for v in all_units:
-			if is_instance_valid(v) and v != selected_unit:
-				occupied_positions.append(v.grid_pos)
-		
-		var raw_nodes = PathfinderScript.get_reachable_cells(
-			selected_unit.grid_pos, 
-			current_ap, 
-			data, 
-			terrain_mgr,
-			occupied_positions
-		)
-		
-		raw_nodes.erase(selected_unit.grid_pos)
-		reachable_nodes = raw_nodes
-		
-		var color_to_use = selected_unit.get("vagabond_color") if "vagabond_color" in selected_unit else Color.BLACK
-		if painter:
-			painter.update_reachable(reachable_nodes, color_to_use)
-
-func _clear_selection() -> void:
-	if selected_unit and selected_unit.has_method("set_highlight"):
-		selected_unit.set_highlight(false)
+func _on_unit_selected(unit: Node2D) -> void:
+	# Usamos o script carregado para o cast, evitando o erro de escopo global
+	var vagabond = unit as VagabondScript
+	if not vagabond: return
 	
-	selected_unit = null
-	reachable_nodes = []
+	var vagabond_mgr = get_tree().get_first_node_in_group("vagabond_manager")
+	var all_units = vagabond_mgr.active_vagabonds if vagabond_mgr else []
+	
+	show_reachable_for.call_deferred(vagabond, all_units)
+
+# --- SERVIÇOS DE GEOMETRIA ---
+
+func world_to_grid(p_world_pos: Vector2) -> Vector2:
+	var local_pos = to_local(p_world_pos)
+	var closest = data.get_closest_node(local_pos, tile_size * 2.0)
+	return closest.snapped(Vector2(0.1, 0.1))
+
+# --- GESTÃO DE ALCANCE E VISUAIS ---
+
+func is_node_reachable(p_grid_pos: Vector2) -> bool:
+	var target = p_grid_pos.snapped(Vector2(0.1, 0.1))
+	return target in reachable_nodes
+
+## Usamos Node2D na assinatura para evitar erro de parse no cabeçalho da função,
+## mas tratamos como Vagabond internamente.
+func show_reachable_for(unit: Node2D, all_units: Array) -> void:
+	clear_highlights()
+	
+	var v = unit as VagabondScript
+	if not is_instance_valid(v) or v.ap <= 0: 
+		return
+
+	var u_pos = v.grid_pos
+	var terrain_mgr = painter.get("terrain_ref") if painter else null
+	
+	var occupied: Array[Vector2] = []
+	for u in all_units:
+		if is_instance_valid(u) and u != v:
+			occupied.append(u.grid_pos)
+	
+	var raw_nodes = PathfinderScript.get_reachable_cells(
+		u_pos, 
+		v.ap, 
+		data, 
+		terrain_mgr,
+		occupied
+	)
+	
+	for node in raw_nodes:
+		var sn_node = node.snapped(Vector2(0.1, 0.1))
+		if sn_node.distance_to(u_pos) > 0.1:
+			reachable_nodes.append(sn_node)
 	
 	if painter:
-		painter.update_reachable([], Color.BLACK)
+		painter.update_reachable(reachable_nodes, v.entity_color)
 
-func _deselect_all() -> void:
-	_clear_selection()
+func clear_highlights() -> void:
+	reachable_nodes.clear()
+	if painter:
+		painter.update_reachable([], Color.WHITE)
 
-# --- SETUP E UTILITÁRIOS ---
+# --- EXECUÇÃO DE MOVIMENTO ---
+
+func request_move(unit: Node2D, target_grid_pos: Vector2) -> void:
+	var v = unit as VagabondScript
+	if not is_instance_valid(v): return
+	
+	var target = target_grid_pos.snapped(Vector2(0.1, 0.1))
+	var old_pos = v.grid_pos
+	
+	v.use_ap()
+	Mover.move_unit(v, target, self)
+	
+	if is_instance_valid(Signals):
+		Signals.unit_moved.emit(v, old_pos, target)
+	
+	clear_highlights()
+
+# --- CONFIGURAÇÃO ---
 
 func setup_map(p_radius: int) -> void:
-	self.map_radius = p_radius
+	map_radius = p_radius
 	data.generate_hex_grid(map_radius, tile_size)
 	if painter:
 		painter.setup(data, tile_size)
-	print("[GridManager] Malha hex gerada. Nós: ", data.nodes.size())
-
-func world_to_grid(p_world_pos: Vector2) -> Vector2:
-	return data.get_closest_node(to_local(p_world_pos), tile_size * 4.0)
-
-func grid_to_world(p_grid_pos: Vector2) -> Vector2:
-	return to_global(p_grid_pos)
+	print("[GridManager] Hex Grid Gerado: ", map_radius)

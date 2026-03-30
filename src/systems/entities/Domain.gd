@@ -1,49 +1,62 @@
 # res://src/systems/entities/Domain.gd
-extends Node2D
+# PLANO B: Usar o caminho direto do arquivo para garantir que a base seja encontrada
+extends "res://src/systems/entities/MapEntity.gd"
 
-var color: Color
+# --- PROPRIEDADES ESPECÍFICAS ---
 var outer_r: float
 var inner_r: float
 var font: Font
+var tile_size: float = 64.0
 
 func _ready() -> void:
-	# Carrega a fonte padrão do sistema para garantir que o texto apareça
 	font = ThemeDB.fallback_font
+	self.z_index = 5
+	
+	# Conexão segura ao Autoload de Sinais
+	if Signals.has_signal("domains_visibility_updated"):
+		if not Signals.domains_visibility_updated.is_connected(_on_visibility_updated):
+			Signals.domains_visibility_updated.connect(_on_visibility_updated)
 
-func setup(p_pos: Vector2, p_color: Color, p_tile_size: float):
-	self.global_position = p_pos
-	self.color = p_color
-	self.z_index = 0 
-	
-	# Mantendo a calibração de precisão anterior
-	self.outer_r = p_tile_size * 0.92
-	self.inner_r = p_tile_size * 0.55
-	
+## Override do setup para incluir o tile_size
+func setup_domain(p_world_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int, p_tile_size: float) -> void:
+	self.tile_size = p_tile_size
+	# super.setup chama o método em MapEntity.gd
+	super.setup(p_world_pos, p_grid_pos, p_color, p_owner_id)
+
+## Implementação do método virtual definido em MapEntity
+func _apply_visuals() -> void:
+	self.outer_r = tile_size * 0.92
+	self.inner_r = tile_size * 0.55
 	queue_redraw()
 
-func _draw():
-	# 1. Desenho da Estrela (Geometria do Domínio)
+## Atualiza visibilidade com base no Fog of War/Memória
+func _on_visibility_updated(visible_domains: Array) -> void:
+	var is_visible_to_player = false
+	
+	for d_data in visible_domains:
+		if d_data.has("pos") and d_data.pos.distance_to(self.global_position) < 5.0:
+			is_visible_to_player = true
+			break
+	
+	self.visible = is_visible_to_player
+
+func _draw() -> void:
+	if not font: return
+	
+	# 1. Desenho da Estrela (usando entity_color da classe pai)
 	var pts = PackedVector2Array()
-	for i in range(12):
-		# Alinhamento Flat-top (-30 graus)
+	for i in range(13):
 		var angle = deg_to_rad(i * 30 - 30)
 		var r = outer_r if i % 2 != 0 else inner_r
 		pts.append(Vector2(cos(angle), sin(angle)) * r)
 	
-	pts.append(pts[0])
-	draw_polyline(pts, color, 4.0, true)
+	draw_polyline(pts, entity_color, 4.0, true)
 	
-	# 3. Desenho dos dizeres "DOMAIN"
+	# 2. Desenho do Texto "DOMAIN"
 	var text = "DOMAIN"
 	var font_size = 14
-	# Calcula a largura do texto para centralizar perfeitamente
 	var text_size = font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
+	var text_pos = Vector2(-text_size.x / 2, outer_r)
 	
-	# Posicionamento: Logo abaixo do raio externo (outer_r)
-	# O offset Y (outer_r + 10) garante que não sobreponha a ponta da estrela
-	var text_pos = Vector2(-text_size.x / 2, outer_r + 10)
-	
-	# Desenha uma sombra leve para leitura sobre qualquer terreno
 	draw_string(font, text_pos + Vector2(1, 1), text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, Color.BLACK)
-	# Desenha o texto principal
-	draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, color)
+	draw_string(font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, entity_color)
