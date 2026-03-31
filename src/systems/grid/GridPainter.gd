@@ -3,27 +3,21 @@ extends Node2D
 
 const HexMath = preload("res://src/core/math/HexMath.gd")
 
-# Camadas
 var edges_layer: Node2D
 var indicators_layer: Node2D
 var nodes_layer: Node2D
 
-# Configurações
 var tile_size: float = 64.0
 var grid_data = null
 var terrain_ref: Object 
 
-# Estado de Desenho
 var reachable_nodes: Array = []
 var reachable_color: Color = Color.WHITE 
 
-# Constantes de Rotação e Estética
-const ROTATION_30_DEG = 0.523599 # 30 graus em radianos
+const ROTATION_30_DEG = 0.523599 
 const NODE_RADIUS = 14.0
 const COLOR_OFF = Color.BLACK
 const COLOR_ON = Color.WHITE
-
-@onready var _font: Font = ThemeDB.fallback_font
 
 func _ready() -> void:
 	_setup_layers()
@@ -44,18 +38,15 @@ func _setup_layers() -> void:
 	add_child(nodes_layer)
 	nodes_layer.draw.connect(_draw_nodes)
 
-# Setters com Redraw Automático
 var lit_nodes: Array = []:
 	set(v):
 		lit_nodes = v
-		if is_instance_valid(nodes_layer):
-			nodes_layer.queue_redraw()
+		if is_instance_valid(nodes_layer): nodes_layer.queue_redraw()
 
 var revealed_edges: Array = []:
 	set(v):
 		revealed_edges = v
-		if is_instance_valid(edges_layer):
-			edges_layer.queue_redraw()
+		if is_instance_valid(edges_layer): edges_layer.queue_redraw()
 
 func _connect_signals() -> void:
 	Signals.visibility_changed.connect(_on_visibility_changed)
@@ -65,35 +56,25 @@ func setup(p_data, p_size: float) -> void:
 	tile_size = p_size
 	_refresh_all()
 
-# --- HANDLERS DE SINAIS ---
-
 func _on_visibility_changed(_player_id: int, p_lit_nodes: Array, p_revealed_edges: Array) -> void:
 	lit_nodes = p_lit_nodes
 	revealed_edges = p_revealed_edges
 
-# --- INTERFACE DE ATUALIZAÇÃO ---
-
 func update_reachable(new_nodes: Array, player_color: Color = Color.WHITE) -> void:
 	reachable_nodes = new_nodes
 	reachable_color = player_color 
-	if is_instance_valid(indicators_layer): 
-		indicators_layer.queue_redraw()
+	if is_instance_valid(indicators_layer): indicators_layer.queue_redraw()
 
 func _refresh_all() -> void:
 	if is_instance_valid(edges_layer): edges_layer.queue_redraw()
 	if is_instance_valid(indicators_layer): indicators_layer.queue_redraw()
 	if is_instance_valid(nodes_layer): nodes_layer.queue_redraw()
 
-# --- FUNÇÕES DE DESENHO ATUALIZADAS ---
-
 func _draw_indicators() -> void:
 	var color = reachable_color
 	color.a = 0.6 
-	
 	for pos in reachable_nodes:
-		# Adicionado ROTATION_30_DEG para alinhar com os nódulos
 		var tris = HexMath.get_hexagram_triangles(pos, tile_size * 0.45, ROTATION_30_DEG)
-		
 		indicators_layer.draw_colored_polygon(tris[0], color)
 		indicators_layer.draw_colored_polygon(tris[1], color)
 
@@ -109,21 +90,13 @@ func _draw_edges() -> void:
 
 func _draw_nodes() -> void:
 	if not grid_data: return
-	
 	var lit_set = {}
 	for lp in lit_nodes:
-		if lp is Vector2:
-			var s_key = "%.1f,%.1f" % [lp.x, lp.y]
-			lit_set[s_key] = true
+		lit_set["%.1f,%.1f" % [lp.x, lp.y]] = true
 
 	for node_pos in grid_data.nodes.keys():
-		var check_key = "%.1f,%.1f" % [node_pos.x, node_pos.y]
-		var is_lit = lit_set.has(check_key)
-		
+		var is_lit = lit_set.has("%.1f,%.1f" % [node_pos.x, node_pos.y])
 		var color = COLOR_ON if is_lit else COLOR_OFF
-		
-		# Aplicando a rotação de 30 graus solicitada
 		var tris = HexMath.get_hexagram_triangles(node_pos, NODE_RADIUS, ROTATION_30_DEG)
-		
 		nodes_layer.draw_colored_polygon(tris[0], color)
 		nodes_layer.draw_colored_polygon(tris[1], color)
