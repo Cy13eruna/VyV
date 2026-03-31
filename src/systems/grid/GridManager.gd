@@ -6,8 +6,6 @@ const Interaction = preload("res://src/systems/grid/GridInteractions.gd")
 const Mover = preload("res://src/systems/movement/UnitMover.gd")
 const PathfinderScript = preload("res://src/systems/movement/Pathfinder.gd") 
 
-# --- SOLUÇÃO PARA O ERRO DE PARSE ---
-# Carregamos o script explicitamente para garantir que o tipo seja reconhecido
 const VagabondScript = preload("res://src/systems/entities/Vagabond.gd")
 
 # Componentes
@@ -33,6 +31,7 @@ func _ready() -> void:
 		add_child(painter)
 	
 	if is_instance_valid(Signals):
+		# Esta era a linha causando o erro: a função _on_unit_selected precisa existir abaixo
 		Signals.unit_selected.connect(_on_unit_selected)
 		Signals.unit_deselected.connect(clear_highlights)
 		Signals.turn_started.connect(func(_id, _col): clear_highlights())
@@ -40,7 +39,6 @@ func _ready() -> void:
 # --- REAÇÃO A EVENTOS ---
 
 func _on_unit_selected(unit: Node2D) -> void:
-	# Usamos o script carregado para o cast, evitando o erro de escopo global
 	var vagabond = unit as VagabondScript
 	if not vagabond: return
 	
@@ -56,14 +54,15 @@ func world_to_grid(p_world_pos: Vector2) -> Vector2:
 	var closest = data.get_closest_node(local_pos, tile_size * 2.0)
 	return closest.snapped(Vector2(0.1, 0.1))
 
-# --- GESTÃO DE ALCANCE E VISUAIS ---
+# --- GESTÃO DE ALCANCE ---
 
 func is_node_reachable(p_grid_pos: Vector2) -> bool:
 	var target = p_grid_pos.snapped(Vector2(0.1, 0.1))
-	return target in reachable_nodes
+	for node in reachable_nodes:
+		if node.distance_to(target) < 0.05:
+			return true
+	return false
 
-## Usamos Node2D na assinatura para evitar erro de parse no cabeçalho da função,
-## mas tratamos como Vagabond internamente.
 func show_reachable_for(unit: Node2D, all_units: Array) -> void:
 	clear_highlights()
 	
@@ -71,20 +70,23 @@ func show_reachable_for(unit: Node2D, all_units: Array) -> void:
 	if not is_instance_valid(v) or v.ap <= 0: 
 		return
 
-	var u_pos = v.grid_pos
+	var u_pos = v.grid_pos.snapped(Vector2(0.1, 0.1))
 	var terrain_mgr = painter.get("terrain_ref") if painter else null
+	
+	var allied_domains = _get_allied_domain_positions(v.owner_id)
 	
 	var occupied: Array[Vector2] = []
 	for u in all_units:
 		if is_instance_valid(u) and u != v:
-			occupied.append(u.grid_pos)
+			occupied.append(u.grid_pos.snapped(Vector2(0.1, 0.1)))
 	
 	var raw_nodes = PathfinderScript.get_reachable_cells(
 		u_pos, 
 		v.ap, 
 		data, 
 		terrain_mgr,
-		occupied
+		occupied,
+		allied_domains
 	)
 	
 	for node in raw_nodes:
@@ -107,9 +109,19 @@ func request_move(unit: Node2D, target_grid_pos: Vector2) -> void:
 	if not is_instance_valid(v): return
 	
 	var target = target_grid_pos.snapped(Vector2(0.1, 0.1))
-	var old_pos = v.grid_pos
+	var old_pos = v.grid_pos.snapped(Vector2(0.1, 0.1))
 	
-	v.use_ap()
+	var allied_list = _get_allied_domain_positions(v.owner_id)
+	var is_free_move = false
+	
+	for allied_pos in allied_list:
+		if target.distance_to(allied_pos) < 0.05:
+			is_free_move = true
+			break
+	
+	if not is_free_move:
+		v.use_ap()
+	
 	Mover.move_unit(v, target, self)
 	
 	if is_instance_valid(Signals):
@@ -117,11 +129,20 @@ func request_move(unit: Node2D, target_grid_pos: Vector2) -> void:
 	
 	clear_highlights()
 
-# --- CONFIGURAÇÃO ---
+# --- AUXILIARES ---
+
+func _get_allied_domain_positions(p_owner_id: int) -> Array:
+	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
+	if domain_mgr and domain_mgr.has_method("get_domain_positions_for_player"):
+		var raw_pos = domain_mgr.get_domain_positions_for_player(p_owner_id)
+		var clean_pos = []
+		for p in raw_pos:
+			clean_pos.append(p.snapped(Vector2(0.1, 0.1)))
+		return clean_pos
+	return []
 
 func setup_map(p_radius: int) -> void:
 	map_radius = p_radius
 	data.generate_hex_grid(map_radius, tile_size)
 	if painter:
 		painter.setup(data, tile_size)
-	print("[GridManager] Hex Grid Gerado: ", map_radius)

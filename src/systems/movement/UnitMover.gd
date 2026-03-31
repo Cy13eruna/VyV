@@ -2,24 +2,26 @@
 extends RefCounted
 
 static func move_unit(unit: Node2D, target_grid_pos: Vector2, grid_manager: Node2D) -> void:
-	if not is_instance_valid(unit): return
+	if not is_instance_valid(unit) or not is_instance_valid(grid_manager): 
+		return
 	
-	# REGRA DE OURO: Salva a posição no grid com snap de 0.1
-	var clean_pos = target_grid_pos.snapped(Vector2(0.1, 0.1))
-	unit.grid_pos = clean_pos
+	# 1. SINCRONIZAÇÃO LÓGICA IMEDIATA
+	# Arredondamos para 0.1 para garantir que o DomainManager e o Pathfinder 
+	# reconheçam esta posição exatamente no próximo frame.
+	var clean_grid_pos = target_grid_pos.snapped(Vector2(0.1, 0.1))
+	unit.grid_pos = clean_grid_pos
 	
-	# Converte para global e depois para o local do pai (geralmente o YSort/EntityLayer)
-	var target_global = grid_manager.to_global(clean_pos)
+	# 2. CONVERSÃO DE COORDENADAS (Espaço de Tela/Mundo)
+	# O segredo aqui é converter a posição do GRID para a posição LOCAL do pai da unidade.
+	var target_world = grid_manager.to_global(clean_grid_pos)
+	var final_pos = unit.get_parent().to_local(target_world) if unit.get_parent() else target_world
+
+	# 3. MOVIMENTO VISUAL (Tween)
+	# Cancelamos qualquer movimento anterior para evitar "tremedeira"
+	var tween = unit.create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	tween.tween_property(unit, "position", final_pos, 0.25)
 	
-	# Se a unidade tiver um pai, converte para o espaço local dele
-	var target_dest = target_global
-	if unit.get_parent():
-		target_dest = unit.get_parent().to_local(target_global)
-	
-	# Tween suave para a posição visual
-	var tween = unit.create_tween().set_trans(Tween.TRANS_QUART).set_ease(Tween.EASE_OUT)
-	tween.tween_property(unit, "position", target_dest, 0.3)
-	
-	# Opcional: Se a unidade tiver lógica própria de atualização após mover
+	# 4. NOTIFICAÇÃO DE CONCLUSÃO
+	# Importante: se a unidade atualizar sua própria visão/nevoa, deve ser APÓS o snap.
 	if unit.has_method("_on_move_completed"):
 		tween.finished.connect(unit._on_move_completed)

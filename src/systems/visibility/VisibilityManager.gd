@@ -2,7 +2,6 @@
 extends RefCounted
 
 # Memória persistente do que cada jogador já explorou (Névoa de Guerra)
-# { player_id: { "revealed_edges": { "id": [v1, v2] }, "discovered_domains": [] } }
 var player_memories: Dictionary = {}
 
 func update_visibility(
@@ -10,11 +9,19 @@ func update_visibility(
 	grid_mgr: Node2D, 
 	current_player_id: int, 
 	terrain_mgr: Object,
-	all_domains: Array = [], 
+	all_domains: Variant = [], # Alterado para Variant para aceitar Array ou Dictionary
 	force_instant: bool = false
 ) -> void:
 	
 	if not grid_mgr or not grid_mgr.data: return
+	
+	# --- NORMALIZAÇÃO DOS DOMÍNIOS ---
+	# Se vier como Dicionário (novo formato do DomainManager), extraímos os valores
+	var domains_to_process: Array = []
+	if all_domains is Dictionary:
+		domains_to_process = all_domains.values()
+	else:
+		domains_to_process = all_domains
 	
 	var nodes_dict = grid_mgr.data.nodes
 	_ensure_player_data(current_player_id)
@@ -24,7 +31,7 @@ func update_visibility(
 	# --- 1. GERAR MAPA DE LUZ (NÓS ACESOS) ---
 	
 	# Visão por Domínios do Jogador Atual
-	for domain in all_domains:
+	for domain in domains_to_process:
 		if domain.get("owner_id") == current_player_id:
 			var d_pos = domain.pos.snapped(Vector2(0.1, 0.1))
 			lit_map[d_pos] = true
@@ -54,9 +61,8 @@ func update_visibility(
 				if not blocked:
 					lit_map[sn_n] = true
 
-	# --- 2. REVELAR ARESTAS ---
+	# --- 2. REVELAR ARESTAS (REGRA DO DIAMANTE E ADJACÊNCIA) ---
 
-	# REGRA A: Regra do Diamante (Ambos os nós iluminados)
 	for p1 in lit_map.keys():
 		if not nodes_dict.has(p1): continue
 		for neighbor in nodes_dict[p1].neighbors:
@@ -66,34 +72,16 @@ func update_visibility(
 				if not memory.revealed_edges.has(edge_id):
 					memory.revealed_edges[edge_id] = [p1, p2]
 
-	# REGRA B: Adjacência de Unidade (Revela as 6 arestas ao redor da unidade)
-	for unit in active_units:
-		if not is_instance_valid(unit) or unit.get("owner_id") != current_player_id:
-			continue
-		
-		var u_pos_raw = unit.get("grid_pos")
-		if u_pos_raw == null: continue
-		var u_pos = u_pos_raw.snapped(Vector2(0.1, 0.1))
-		
-		if nodes_dict.has(u_pos):
-			for neighbor in nodes_dict[u_pos].neighbors:
-				var p2 = neighbor.snapped(Vector2(0.1, 0.1))
-				var edge_id = _get_edge_id(u_pos, p2)
-				if not memory.revealed_edges.has(edge_id):
-					memory.revealed_edges[edge_id] = [u_pos, p2]
-
-	# --- 3. EMISSÃO DE SINAIS (SUBSTITUI O PAINTER DIRETO) ---
+	# --- 3. EMISSÃO DE SINAIS E PROCESSAMENTO DE DOMÍNIOS ---
 	
-	# Notifica o mundo sobre a nova visibilidade
 	Signals.visibility_changed.emit(
 		current_player_id, 
 		lit_map.keys(), 
 		memory.revealed_edges.values()
 	)
 	
-	# Processamento de Domínios Visíveis
 	var visible_domains: Array = []
-	for domain in all_domains:
+	for domain in domains_to_process:
 		var d_pos = domain.pos.snapped(Vector2(0.1, 0.1))
 		var is_lit = lit_map.has(d_pos)
 		
@@ -104,7 +92,6 @@ func update_visibility(
 
 	Signals.domains_visibility_updated.emit(visible_domains)
 	
-	# Mantém a regra de esconder unidades na névoa
 	_process_unit_hiding(active_units, lit_map, current_player_id, force_instant)
 
 # --- REGRAS DE OCULTAÇÃO E INTERAÇÃO ---
@@ -127,6 +114,7 @@ func _process_unit_hiding(units: Array, lit_map: Dictionary, current_id: int, in
 			v.update_fow_visibility(lit_map.keys(), instant)
 
 func _toggle_unit_interaction(unit: Node2D, enabled: bool) -> void:
+	# Unidades inimigas na névoa não podem ser clicadas ou processadas
 	unit.set_process(enabled)
 	unit.set_process_input(enabled)
 	for child in unit.get_children():
@@ -139,8 +127,8 @@ func _toggle_unit_interaction(unit: Node2D, enabled: bool) -> void:
 # --- UTILITÁRIOS ---
 
 func _get_edge_id(a: Vector2, b: Vector2) -> String:
-	var p1 = Vector2(snapped(a.x, 0.1), snapped(a.y, 0.1))
-	var p2 = Vector2(snapped(b.x, 0.1), snapped(b.y, 0.1))
+	var p1 = a.snapped(Vector2(0.1, 0.1))
+	var p2 = b.snapped(Vector2(0.1, 0.1))
 	var first = p1
 	var second = p2
 	if p1.x > p2.x or (p1.x == p2.x and p1.y > p2.y):
