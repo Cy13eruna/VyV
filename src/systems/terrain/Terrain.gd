@@ -48,7 +48,27 @@ func blocks_vision(a: Vector2, b: Vector2) -> bool:
 	var type = edges.get(id, Type.PLAINS)
 	return not DATA[type].vis
 
-func blocks_movement(a: Vector2, b: Vector2) -> bool:
+## Modificado: Agora aceita a Array original de nós aliados para evitar 100% falhas de precisão float.
+func blocks_movement(a: Vector2, b: Vector2, allied_nodes: Array = []) -> bool:
+	# 1. SE PASSAMOS A LISTA DE ALIADOS, FAZEMOS A CHECAGEM DE IMUNIDADE
+	if not allied_nodes.is_empty():
+		var a_allied = false
+		var b_allied = false
+		
+		# Usar uma tolerância de distância (< 0.1) é a única forma de 
+		# vencer os arredondamentos flutuantes chatos do Godot
+		for pos in allied_nodes:
+			if a.distance_to(pos) < 0.1:
+				a_allied = true
+			if b.distance_to(pos) < 0.1:
+				b_allied = true
+			
+			# Se AMBAS as pontas da aresta estão no domínio, o terreno é ignorado
+			if a_allied and b_allied:
+				return false 
+				
+	# 2. REGRA PADRÃO
+	# Se as duas pontas não forem aliadas, o terreno volta a mandar no jogo.
 	var id = get_edge_id(a, b)
 	var type = edges.get(id, Type.PLAINS)
 	return not DATA[type].move
