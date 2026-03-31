@@ -6,7 +6,7 @@ var _player_color: Color = Color.WHITE
 var _callback: Callable
 
 func setup(data: Dictionary) -> void:
-	# Tenta buscar o nome em diferentes chaves para evitar o "Unknown"
+	# Tenta buscar o nome em diferentes chaves
 	if data.has("name"):
 		_player_name = str(data["name"])
 	elif data.has("color_name"):
@@ -17,21 +17,28 @@ func setup(data: Dictionary) -> void:
 	_player_color = data.get("color", Color.WHITE)
 	_callback = data.get("callback", func(): pass)
 	
-	# Garante que a tela cubra tudo e bloqueie o mundo
+	# 1. PRESET_FULL_RECT garante que o Control ocupe toda a área da janela
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	
+	# 2. MOUSE_FILTER_STOP é CRUCIAL: ele impede que cliques "vazem" para o botão atrás
 	mouse_filter = Control.MOUSE_FILTER_STOP 
+	
+	# 3. Z_INDEX garante que esta tela seja desenhada NA FRENTE do GameHUD
+	# Se o HUD estiver no nível padrão, 10 já é suficiente para cobri-lo.
+	z_index = 10 
 	
 	_build_ui()
 
 func _build_ui() -> void:
-	# Limpa qualquer lixo visual anterior (caso setup seja chamado duas vezes)
 	for child in get_children():
 		child.queue_free()
 
-	# 1. Fundo Preto (Esconde o tabuleiro para o hot-seat)
+	# 4. Fundo Preto Totalmente Opaco
 	var bg = ColorRect.new()
 	bg.color = Color.BLACK
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	# O fundo também deve bloquear o mouse por segurança
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP 
 	add_child(bg)
 	
 	# 2. Container Central
@@ -43,11 +50,8 @@ func _build_ui() -> void:
 	
 	# 3. Label do Jogador
 	var label = Label.new()
-	# Se o nome for apenas a cor, formatamos para ficar elegante
 	label.text = _player_name.to_upper()
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	
-	# Aumentar a fonte via código para dar destaque
 	label.add_theme_font_size_override("font_size", 48)
 	label.add_theme_color_override("font_color", _player_color)
 	vbox.add_child(label)
@@ -57,14 +61,11 @@ func _build_ui() -> void:
 	btn.text = "START TURN"
 	btn.custom_minimum_size = Vector2(250, 70)
 	btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
-	
-	# Estilo básico para o botão não ficar genérico demais
 	btn.add_theme_font_size_override("font_size", 24)
 	
 	btn.pressed.connect(_on_start_pressed)
 	vbox.add_child(btn)
 	
-	# Faz o botão brilhar ou ganhar foco automaticamente para facilitar o teclado/gamepad
 	btn.grab_focus.call_deferred()
 
 func _on_start_pressed() -> void:
@@ -73,5 +74,5 @@ func _on_start_pressed() -> void:
 	if _callback and _callback.is_valid():
 		_callback.call()
 	
-	# Libera o mouse para o mundo novamente
+	# Ao liberar este nó, o HUD que estava atrás volta a ser visível e interativo
 	queue_free()

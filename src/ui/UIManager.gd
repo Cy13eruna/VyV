@@ -1,7 +1,7 @@
 # res://src/ui/UIManager.gd
 extends Node
 
-# Mudamos para Node para aceitar tanto CanvasLayer quanto Control (UIScreenContainer)
+# O container onde as telas (como PlayerTurnScreen) são instanciadas
 var ui_container: Node 
 
 func setup(p_container: Node) -> void:
@@ -9,7 +9,7 @@ func setup(p_container: Node) -> void:
 	if ui_container:
 		print("UIManager: Setup concluído no container: ", ui_container.name)
 
-## Altera a tela atual e RETORNA a instância criada para o Main poder usar
+## Altera a tela atual e RETORNA a instância criada
 func change_screen(script_path: String, extra_data: Variant = null) -> Control:
 	if not ui_container: 
 		push_error("UIManager: ui_container não definido!")
@@ -26,12 +26,21 @@ func change_screen(script_path: String, extra_data: Variant = null) -> Control:
 		var new_screen = res.new() 
 		
 		if new_screen is Control:
-			# Configurações padrão de tela cheia
-			new_screen.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			# --- AJUSTES DE SOBREPOSIÇÃO ---
+			
+			# Mudamos para STOP para que a tela capture o mouse e impeça 
+			# cliques no HUD ou no tabuleiro que estão atrás.
+			new_screen.mouse_filter = Control.MOUSE_FILTER_STOP
+			
+			# Garante que a tela preencha todo o espaço da janela
 			new_screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 			
-			# Adiciona ao container (que agora é o UIScreenContainer no Main)
+			# Adiciona ao container
 			ui_container.add_child(new_screen)
+			
+			# Forçamos um Z-Index para garantir que, no mesmo CanvasLayer, 
+			# esta tela fique visualmente à frente de outros elementos.
+			new_screen.z_index = 10 
 			
 			if new_screen.has_method("setup"):
 				new_screen.setup(extra_data)
