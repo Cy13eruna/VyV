@@ -21,9 +21,8 @@ const NODE_RADIUS = 14.0
 const COLOR_OFF = Color.BLACK
 const COLOR_ON = Color.WHITE
 
-# Configurações do visual de movimento
-const INDICATOR_RADIUS_PCT = 0.5  # Não alterar o valor ao lado
-const GRADIENT_STEPS = 12         # Mais passos para um degradê perfeito
+const INDICATOR_RADIUS_PCT = 0.5
+const GRADIENT_STEPS = 12
 
 func _ready() -> void:
 	_setup_layers()
@@ -32,10 +31,9 @@ func _ready() -> void:
 func _setup_layers() -> void:
 	for child in get_children(): child.queue_free()
 	
-	# 1. SKY LAYER (Estático via CanvasLayer)
-	# O CanvasLayer ignora a transformação da câmera (movimento/zoom)
+	# 1. SKY LAYER (Fundo absoluto)
 	var sky_canvas = CanvasLayer.new()
-	sky_canvas.layer = -100 # Camada de fundo absoluto
+	sky_canvas.layer = -100 
 	add_child(sky_canvas)
 	
 	sky_layer = Node2D.new()
@@ -43,21 +41,21 @@ func _setup_layers() -> void:
 	sky_layer.name = "SkyLayer"
 	sky_canvas.add_child(sky_layer)
 	
-	# 2. EDGES LAYER (Bordas/Caminhos - Segue a câmera)
+	# 2. EDGES LAYER
 	edges_layer = Node2D.new()
 	edges_layer.name = "EdgesLayer"
 	edges_layer.z_index = -5
 	add_child(edges_layer)
 	edges_layer.draw.connect(_draw_edges)
 	
-	# 3. INDICATORS LAYER (Círculos de Movimento - Segue a câmera)
+	# 3. INDICATORS LAYER
 	indicators_layer = Node2D.new()
 	indicators_layer.name = "IndicatorsLayer"
 	indicators_layer.z_index = -2
 	add_child(indicators_layer)
 	indicators_layer.draw.connect(_draw_indicators)
 	
-	# 4. NODES LAYER (Pontos do Grid - Segue a câmera)
+	# 4. NODES LAYER
 	nodes_layer = Node2D.new()
 	nodes_layer.name = "NodesLayer"
 	nodes_layer.z_index = -1
@@ -97,7 +95,23 @@ func _refresh_all() -> void:
 	if is_instance_valid(indicators_layer): indicators_layer.queue_redraw()
 	if is_instance_valid(nodes_layer): nodes_layer.queue_redraw()
 
-## --- DESENHO DOS CÍRCULOS DEGRADÊS ---
+# --- AUXILIAR DE TRADUÇÃO DE ID ---
+
+func _parse_edge_id(id) -> Array:
+	if id is String and "_" in id:
+		var parts = id.split("_")
+		if parts.size() == 2:
+			var p1_s = parts[0].split(",")
+			var p2_s = parts[1].split(",")
+			return [
+				Vector2(float(p1_s[0]), float(p1_s[1])),
+				Vector2(float(p2_s[0]), float(p2_s[1]))
+			]
+	elif id is Array and id.size() >= 2:
+		return [Vector2(id[0]), Vector2(id[1])]
+	return []
+
+# --- DESENHO ---
 
 func _draw_indicators() -> void:
 	var base_radius = tile_size * INDICATOR_RADIUS_PCT
@@ -108,23 +122,27 @@ func _draw_soft_circle(pos: Vector2, max_radius: float, color: Color) -> void:
 	for i in range(GRADIENT_STEPS):
 		var t = float(i) / float(GRADIENT_STEPS)
 		var current_radius = lerp(max_radius, max_radius * 0.1, t)
-		
 		var alpha = lerp(0.0, 0.6, t * t) 
 		var step_color = color
 		step_color.a = alpha
-		
 		indicators_layer.draw_circle(pos, current_radius, step_color)
-
-## --- DESENHO DE TERRENO E NODES ---
 
 func _draw_edges() -> void:
 	if not grid_data or not terrain_ref: return
-	for edge_data in revealed_edges:
-		if edge_data is Array and edge_data.size() == 2:
-			var p1 = edge_data[0]
-			var p2 = edge_data[1]
-			var edge_color = terrain_ref.get_edge_color(p1, p2)
-			var poly = HexMath.get_edge_polygon(p1, p2, tile_size)
+	
+	# PASSO 1: Fundo preto para TODAS as arestas (bloqueia o céu)
+	for edge_key in grid_data.edges.keys():
+		var pts = _parse_edge_id(edge_key)
+		if pts.size() == 2:
+			var poly = HexMath.get_edge_polygon(pts[0], pts[1], tile_size)
+			edges_layer.draw_colored_polygon(poly, Color.BLACK)
+
+	# PASSO 2: Arestas reveladas (Cores do terreno)
+	for edge_id in revealed_edges:
+		var pts = _parse_edge_id(edge_id)
+		if pts.size() == 2:
+			var edge_color = terrain_ref.get_edge_color(pts[0], pts[1])
+			var poly = HexMath.get_edge_polygon(pts[0], pts[1], tile_size)
 			edges_layer.draw_colored_polygon(poly, edge_color)
 
 func _draw_nodes() -> void:

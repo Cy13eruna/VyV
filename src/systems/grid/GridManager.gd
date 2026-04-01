@@ -5,7 +5,6 @@ extends Node2D
 const Interaction = preload("res://src/systems/grid/GridInteractions.gd")
 const Mover = preload("res://src/systems/movement/UnitMover.gd")
 const PathfinderScript = preload("res://src/systems/movement/Pathfinder.gd") 
-
 const VagabondScript = preload("res://src/systems/entities/Vagabond.gd")
 
 # Componentes
@@ -24,17 +23,24 @@ var reachable_nodes: Array[Vector2] = []
 func _ready() -> void:
 	add_to_group("grid_manager")
 	
+	# 1. Garantir que o Painter exista
 	painter = get_node_or_null("GridPainter")
 	if not painter:
 		painter = GridPainterScript.new()
 		painter.name = "GridPainter"
 		add_child(painter)
 	
+	# 2. Conectar Sinais
 	if is_instance_valid(Signals):
-		# Esta era a linha causando o erro: a função _on_unit_selected precisa existir abaixo
-		Signals.unit_selected.connect(_on_unit_selected)
-		Signals.unit_deselected.connect(clear_highlights)
-		Signals.turn_started.connect(func(_id, _col): clear_highlights())
+		if not Signals.unit_selected.is_connected(_on_unit_selected):
+			Signals.unit_selected.connect(_on_unit_selected)
+		if not Signals.unit_deselected.is_connected(clear_highlights):
+			Signals.unit_deselected.connect(clear_highlights)
+		if not Signals.turn_started.is_connected(_on_turn_started):
+			Signals.turn_started.connect(_on_turn_started)
+
+func _on_turn_started(_id: int, _col: Color) -> void:
+	clear_highlights()
 
 # --- REAÇÃO A EVENTOS ---
 
@@ -71,6 +77,8 @@ func show_reachable_for(unit: Node2D, all_units: Array) -> void:
 		return
 
 	var u_pos = v.grid_pos.snapped(Vector2(0.1, 0.1))
+	
+	# Tenta pegar a referência de terreno do painter ou do manager global
 	var terrain_mgr = painter.get("terrain_ref") if painter else null
 	
 	var allied_domains = _get_allied_domain_positions(v.owner_id)
@@ -101,6 +109,26 @@ func clear_highlights() -> void:
 	reachable_nodes.clear()
 	if painter:
 		painter.update_reachable([], Color.WHITE)
+
+# --- INICIALIZAÇÃO CRÍTICA ---
+
+func setup_map(p_radius: int) -> void:
+	map_radius = p_radius
+	
+	# 1. Gera a estrutura geométrica básica
+	data.generate_hex_grid(map_radius, tile_size)
+	
+	# 2. Busca o TerrainManager (Ele deve estar na árvore ou em um grupo)
+	var terrain_mgr = get_tree().get_first_node_in_group("terrain_manager")
+	
+	# 3. MANDA O TERRENO GERAR AS ARESTAS NO DATA (Essencial para não ficar transparente)
+	if terrain_mgr and terrain_mgr.has_method("generate_random_terrain"):
+		terrain_mgr.generate_random_terrain(data)
+	
+	# 4. Só agora faz o setup do Painter (Com os dados de arestas já preenchidos)
+	if painter:
+		painter.set("terrain_ref", terrain_mgr)
+		painter.setup(data, tile_size)
 
 # --- EXECUÇÃO DE MOVIMENTO ---
 
@@ -140,9 +168,3 @@ func _get_allied_domain_positions(p_owner_id: int) -> Array:
 			clean_pos.append(p.snapped(Vector2(0.1, 0.1)))
 		return clean_pos
 	return []
-
-func setup_map(p_radius: int) -> void:
-	map_radius = p_radius
-	data.generate_hex_grid(map_radius, tile_size)
-	if painter:
-		painter.setup(data, tile_size)
