@@ -22,7 +22,6 @@ func get_domain_positions_for_player(player_id: int) -> Array:
 			positions.append(domain.pos)
 	return positions
 
-## Retorna a instância (Node) de um domínio em uma posição específica
 func get_domain_at(world_pos: Vector2) -> Node2D:
 	var clean_pos = world_pos.snapped(Vector2(0.1, 0.1))
 	for inst in domain_instances:
@@ -39,14 +38,11 @@ func clear_domains() -> void:
 			inst.queue_free()
 	domain_instances.clear()
 
-## ATUALIZADO: Agora retorna a instância Node2D criada para que outros managers 
-## possam acessar propriedades como o 'domain_name'.
 func create_domain(world_pos: Vector2, color: Color, owner_id: int = -1, tile_size: float = 64.0) -> Node2D:
 	var clean_pos = world_pos.snapped(Vector2(0.1, 0.1))
 	var pos_key = str(clean_pos)
 	
 	if active_domains.has(pos_key):
-		# Se já existe, tentamos retornar a instância existente
 		return get_domain_at(clean_pos)
 			
 	active_domains[pos_key] = {
@@ -60,8 +56,6 @@ func create_domain(world_pos: Vector2, color: Color, owner_id: int = -1, tile_si
 
 	var new_domain = Node2D.new()
 	new_domain.set_script(domain_script)
-	
-	# Adicionamos à árvore ANTES do setup para garantir que o _ready (e o nome) ocorra
 	add_child(new_domain)
 	
 	if new_domain.has_method("setup_domain"):
@@ -70,9 +64,9 @@ func create_domain(world_pos: Vector2, color: Color, owner_id: int = -1, tile_si
 	new_domain.name = "Domain_" + pos_key.replace(".", "_")
 	domain_instances.append(new_domain)
 	
-	return new_domain # <--- CRITICO: Permite ao VagabondManager ler o nome
+	return new_domain
 
-## --- LÓGICA DE SPAWN ---
+## --- LÓGICA DE SPAWN (PONTA DO MAPA) ---
 
 func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr: Node):
 	clear_domains()
@@ -80,24 +74,49 @@ func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr:
 	
 	var t_size = grid_mgr.get("tile_size") if "tile_size" in grid_mgr else 64.0
 	var nodes = grid_mgr.data.nodes.keys()
-	nodes.shuffle()
 	
-	var spawned = 0
+	# 1. Filtramos apenas quem tem 6 vizinhos (para o domínio caber visualmente)
+	var valid_nodes = []
 	for pos in nodes:
-		if spawned >= player_count: break
-		
 		if grid_mgr.data.nodes[pos].neighbors.size() == 6:
-			if _is_space_free(pos):
-				_create_capital(spawned, pos, grid_mgr, v_mgr, turn_mgr, t_size)
-				spawned += 1
+			valid_nodes.append(pos)
+	
+	if valid_nodes.is_empty(): return
 
-func _is_space_free(grid_pos: Vector2) -> bool:
-	var min_dist = 200.0 
-	for pos_key in active_domains:
-		var d = active_domains[pos_key]
-		if d.pos.distance_to(grid_pos) < min_dist: 
-			return false
-	return true
+	# 2. Definimos as 6 direções cardinais de um hexágono (ângulos de 60°)
+	var directions = [
+		Vector2(1, 0),          # Direita
+		Vector2(0.5, 0.866),    # Sudeste
+		Vector2(-0.5, 0.866),   # Sudoeste
+		Vector2(-1, 0),         # Esquerda
+		Vector2(-0.5, -0.866),  # Noroeste
+		Vector2(0.5, -0.866)    # Nordeste
+	]
+	
+	var edge_positions = []
+	
+	# 3. Para cada direção, encontramos o nó interno mais extremo (Projeção Dot Product)
+	for dir in directions:
+		var best_node = Vector2.ZERO
+		var max_proj = -INF
+		
+		for pos in valid_nodes:
+			var proj = pos.dot(dir) 
+			if proj > max_proj:
+				max_proj = proj
+				best_node = pos
+		
+		if not best_node in edge_positions:
+			edge_positions.append(best_node)
+
+	# 4. Embaralhamos as pontas encontradas para que a ordem dos jogadores seja aleatória
+	edge_positions.shuffle()
+
+	# 5. Criamos os domínios limitando pela contagem de jogadores
+	var spawned = 0
+	for i in range(min(player_count, edge_positions.size())):
+		_create_capital(spawned, edge_positions[i], grid_mgr, v_mgr, turn_mgr, t_size)
+		spawned += 1
 
 func _create_capital(id: int, grid_pos: Vector2, grid: Node2D, v_mgr: Node2D, turn: Node, t_size: float):
 	if not turn: return
@@ -110,15 +129,11 @@ func _create_capital(id: int, grid_pos: Vector2, grid: Node2D, v_mgr: Node2D, tu
 	var color_name = player_colors[id]
 	var p_color = color_options[color_name]
 	
-	# 1. Criamos o domínio e pegamos a instância de volta
 	var domain_inst = create_domain(grid_pos, p_color, id, t_size)
 	
-	# 2. Geramos o nome baseado no domínio criado
 	var v_name = ""
 	if is_instance_valid(domain_inst) and domain_inst.has_method("generate_vagabond_name"):
 		v_name = domain_inst.generate_vagabond_name()
 	
-	# 3. Spawna a unidade com o nome injetado
 	if v_mgr and v_mgr.has_method("_create_vagabond"):
-		# Usamos a função interna do Manager que aceita o parâmetro de nome
 		v_mgr._create_vagabond(grid_pos, p_color, id, grid, v_name)

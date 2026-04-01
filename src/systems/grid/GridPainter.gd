@@ -135,7 +135,7 @@ func _draw_edges() -> void:
 		var pts = _parse_edge_id(edge_key)
 		if pts.size() == 2:
 			var poly = HexMath.get_edge_polygon(pts[0], pts[1], tile_size)
-			edges_layer.draw_colored_polygon(poly, Color.BLACK)
+			edges_layer.draw_colored_polygon(poly, Color.WHITE)
 
 	# PASSO 2: Arestas reveladas (Cores do terreno)
 	for edge_id in revealed_edges:
