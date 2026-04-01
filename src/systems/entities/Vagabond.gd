@@ -20,11 +20,12 @@ signal exhaustion_triggered()
 @export var move_range: int = 4 
 
 var _is_highlighted: bool = false
-var _high_res_font: SystemFont # Cache da fonte para evitar recriação
+var _high_res_font: SystemFont 
 
 # --- CICLO DE VIDA ---
 
 func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int) -> void:
+	# Primeiro chamamos o super para garantir que 'entity_color' seja definida
 	super.setup(p_global_pos, p_grid_pos, p_color, p_owner_id)
 	self.z_index = 10 
 	
@@ -37,15 +38,13 @@ func _apply_visuals() -> void:
 	_create_visuals()
 	_update_visual_state(true)
 
-# Prepara a fonte MSDF em alta definição
 func _setup_font_resource() -> void:
 	if _high_res_font: return
-	
 	_high_res_font = SystemFont.new()
 	_high_res_font.multichannel_signed_distance_field = true
 	_high_res_font.msdf_pixel_range = 16
-	_high_res_font.msdf_size = 128 # Máxima qualidade matemática vetorial
-	_high_res_font.set_antialiasing(1) # 1 = Grayscale
+	_high_res_font.msdf_size = 128 
+	_high_res_font.set_antialiasing(1) 
 	_high_res_font.generate_mipmaps = true
 
 func _create_visuals() -> void:
@@ -58,13 +57,11 @@ func _create_visuals() -> void:
 	view.name = "View"
 	add_child(view)
 
-	# --- O SEGREDO DA NITIDEZ ---
-	# Criamos um nó com escala 0.25x para servir de tela de alta densidade
 	var hires_container = Node2D.new()
 	hires_container.scale = Vector2(0.25, 0.25)
 	view.add_child(hires_container)
 
-	# 1. EMOJI (Multiplicado por 4)
+	# 1. EMOJI
 	var emoji = Label.new()
 	emoji.name = "Emoji"
 	emoji.text = "🚶‍♀️" 
@@ -72,15 +69,16 @@ func _create_visuals() -> void:
 	
 	var emoji_settings = LabelSettings.new()
 	emoji_settings.font = _high_res_font
-	emoji_settings.font_size = 112 # (Original 28 * 4)
-	emoji_settings.font_color = entity_color
+	emoji_settings.font_size = 112 
+	# AQUI: Garantimos que a cor da entidade seja aplicada ao LabelSettings
+	emoji_settings.font_color = entity_color 
 	
 	emoji.label_settings = emoji_settings
 	emoji.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	emoji.position = Vector2(-80, -160) # (Original -20, -40 * 4)
+	emoji.position = Vector2(-80, -160) 
 	hires_container.add_child(emoji)
 	
-	# 2. LABEL DE TEXTO (Multiplicado por 4)
+	# 2. LABEL DE TEXTO
 	var label = Label.new()
 	label.name = "IDLabel"
 	label.text = "VAGABOND"
@@ -88,14 +86,15 @@ func _create_visuals() -> void:
 	
 	var text_settings = LabelSettings.new()
 	text_settings.font = _high_res_font
-	text_settings.font_size = 40 # (Original 10 * 4)
-	text_settings.font_color = entity_color
-	text_settings.outline_size = 16 # (Original 4 * 4)
-	text_settings.outline_color = Color.BLACK
+	text_settings.font_size = 40 
+	# AQUI: Tintura do nome com a cor do jogador
+	text_settings.font_color = entity_color 
+	text_settings.outline_size = 16 
+	text_settings.outline_color = Color.WHITE
 	
 	label.label_settings = text_settings
 	label.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	label.position = Vector2(-100, 0) # (Original -25, 0 * 4)
+	label.position = Vector2(-100, 0) 
 	hires_container.add_child(label)
 
 # --- FEEDBACKS VISUAIS ---
@@ -107,6 +106,15 @@ func _update_visual_state(instant: bool = false) -> void:
 	var target_scale = Vector2(1.25, 1.25) if _is_highlighted else Vector2.ONE
 	var target_alpha = 1.0 if ap > 0 else 0.7
 	
+	# Reforço de cor caso a cor tenha mudado dinamicamente
+	var emoji = view.find_child("Emoji", true)
+	if emoji and emoji.label_settings:
+		emoji.label_settings.font_color = entity_color
+	
+	var label = view.find_child("IDLabel", true)
+	if label and label.label_settings:
+		label.label_settings.font_color = entity_color
+
 	if instant:
 		view.scale = target_scale
 		view.modulate.a = target_alpha
