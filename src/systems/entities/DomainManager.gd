@@ -66,7 +66,7 @@ func create_domain(world_pos: Vector2, color: Color, owner_id: int = -1, tile_si
 	
 	return new_domain
 
-## --- LÓGICA DE SPAWN (PONTA DO MAPA) ---
+## --- LÓGICA DE SPAWN (PADRÕES POR QUANTIDADE DE JOGADORES) ---
 
 func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr: Node):
 	clear_domains()
@@ -84,18 +84,19 @@ func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr:
 	if valid_nodes.is_empty(): return
 
 	# 2. Definimos as 6 direções cardinais de um hexágono (ângulos de 60°)
+	# IMPORTANTE: Elas estão em ordem circular de 0 a 5.
 	var directions = [
-		Vector2(1, 0),          # Direita
-		Vector2(0.5, 0.866),    # Sudeste
-		Vector2(-0.5, 0.866),   # Sudoeste
-		Vector2(-1, 0),         # Esquerda
-		Vector2(-0.5, -0.866),  # Noroeste
-		Vector2(0.5, -0.866)    # Nordeste
+		Vector2(1, 0),          # 0: Direita
+		Vector2(0.5, 0.866),    # 1: Sudeste
+		Vector2(-0.5, 0.866),   # 2: Sudoeste
+		Vector2(-1, 0),         # 3: Esquerda
+		Vector2(-0.5, -0.866),  # 4: Noroeste
+		Vector2(0.5, -0.866)    # 5: Nordeste
 	]
 	
 	var edge_positions = []
 	
-	# 3. Para cada direção, encontramos o nó interno mais extremo (Projeção Dot Product)
+	# 3. Mapeia o nó mais extremo para cada uma das 6 direções
 	for dir in directions:
 		var best_node = Vector2.ZERO
 		var max_proj = -INF
@@ -106,16 +107,62 @@ func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr:
 				max_proj = proj
 				best_node = pos
 		
-		if not best_node in edge_positions:
-			edge_positions.append(best_node)
+		edge_positions.append(best_node)
 
-	# 4. Embaralhamos as pontas encontradas para que a ordem dos jogadores seja aleatória
-	edge_positions.shuffle()
+	# Se por algum motivo o mapa for muito pequeno e não gerou as 6 pontas
+	if edge_positions.size() < 6:
+		edge_positions.shuffle()
+		var spawned = 0
+		for i in range(min(player_count, edge_positions.size())):
+			_create_capital(spawned, edge_positions[i], grid_mgr, v_mgr, turn_mgr, t_size)
+			spawned += 1
+		return
 
-	# 5. Criamos os domínios limitando pela contagem de jogadores
+	# 4. APLICAÇÃO DE REGRAS ESPECÍFICAS DE SPAWN
+	var selected_indices = []
+	
+	match player_count:
+		2:
+			# Sem regras: escolhe 2 pontas completamente aleatórias
+			selected_indices = [0, 1, 2, 3, 4, 5]
+			selected_indices.shuffle()
+			selected_indices = selected_indices.slice(0, 2)
+			
+		3:
+			# Intercalando: P, E, P, E, P, E (P = Player, E = Empty)
+			# Escolhe aleatoriamente começar no índice 0 ou no 1
+			var offset = randi() % 2
+			selected_indices = [offset, offset + 2, offset + 4]
+			
+		4:
+			# Padrão: P, P, E, P, P, E
+			# Existem 3 rotações possíveis para este padrão no hexágono
+			var offset = randi() % 3
+			selected_indices = [
+				offset, 
+				(offset + 1) % 6, 
+				(offset + 3) % 6, 
+				(offset + 4) % 6
+			]
+			
+		6:
+			# Sem regras: usa todas as 6 pontas
+			selected_indices = [0, 1, 2, 3, 4, 5]
+			
+		_:
+			# Fallback genérico para outros números bizarros
+			selected_indices = [0, 1, 2, 3, 4, 5]
+			selected_indices.shuffle()
+			selected_indices = selected_indices.slice(0, player_count)
+
+	# 5. Embaralha os índices escolhidos para os jogadores não caírem 
+	# sempre na mesma cor/ordem de turno de acordo com a posição geográfica
+	selected_indices.shuffle()
+
+	# 6. Criação dos domínios
 	var spawned = 0
-	for i in range(min(player_count, edge_positions.size())):
-		_create_capital(spawned, edge_positions[i], grid_mgr, v_mgr, turn_mgr, t_size)
+	for idx in selected_indices:
+		_create_capital(spawned, edge_positions[idx], grid_mgr, v_mgr, turn_mgr, t_size)
 		spawned += 1
 
 func _create_capital(id: int, grid_pos: Vector2, grid: Node2D, v_mgr: Node2D, turn: Node, t_size: float):
