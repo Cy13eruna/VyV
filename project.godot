@@ -13,10 +13,6 @@ config/features=PackedStringArray("4.3", "Forward Plus")
 [autoload]
 
 ; Aqui registramos os scripts que precisam rodar globalmente.
-; O NetworkManager é vital para gerenciar a conexão entre instâncias.
-[autoload]
-
-; Aqui registramos os scripts que precisam rodar globalmente.
 NetworkManager="*res://src/multiplayer/NetworkManager.gd"
 Signals="*res://src/core/autoloads/Signals.gd"
 
@@ -25,7 +21,12 @@ Signals="*res://src/core/autoloads/Signals.gd"
 ; Configurações de janela para facilitar os testes de multiplayer (abre em janela menor)
 window/size/viewport_width=1280
 window/size/viewport_height=720
+
+; --- CORREÇÃO DO ZOOM ---
+; Mode canvas_items garante que o texto recalcule os vetores MSDF na resolução real da tela
 window/stretch/mode="canvas_items"
+; Expand impede distorções esticadas e garante que o campo de visão aumente/diminua perfeitamente
+window/stretch/aspect="expand"
 
 [dotnet]
 
@@ -33,6 +34,13 @@ project/assembly_name="InDev"
 
 [rendering]
 
-; Forward Plus é o melhor para desktop. 
-; Se for para mobile/web, mude para "gl_compatibility"
 renderer/rendering_method="forward_plus"
+
+; --- CONFIGURAÇÕES ANTI-BORRÃO (Focado na 920M) ---
+; Desativa o FXAA (Anti-aliasing de tela) que borra fontes pequenas
+anti_aliasing/screen_space_aa=0
+
+; Força a escala 3D a ficar em 100% (impede o jogo de renderizar em baixa resolução e esticar)
+scaling_3d/scale=1.0
+; Modo Bilinear (0) ignora o FSR que costuma embaçar textos dinâmicos desenhados via código
+scaling_3d/mode=0

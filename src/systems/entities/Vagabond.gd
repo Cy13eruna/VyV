@@ -15,12 +15,12 @@ signal exhaustion_triggered()
 		action_points_changed.emit(ap, max_ap)
 		if ap == 0: 
 			exhaustion_triggered.emit()
-		# Chamamos sem 'instant' para vermos a transição suave
 		_update_visual_state()
 
 @export var move_range: int = 4 
 
 var _is_highlighted: bool = false
+var _high_res_font: SystemFont # Cache da fonte para evitar recriação
 
 # --- CICLO DE VIDA ---
 
@@ -28,17 +28,27 @@ func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_i
 	super.setup(p_global_pos, p_grid_pos, p_color, p_owner_id)
 	self.z_index = 10 
 	
-	# Criamos os nós primeiro
+	_setup_font_resource()
 	_create_visuals()
-	# Forçamos o estado inicial (transparente se começar com 0 AP)
 	_update_visual_state(true)
 
 func _apply_visuals() -> void:
+	_setup_font_resource()
 	_create_visuals()
 	_update_visual_state(true)
 
+# Prepara a fonte MSDF em alta definição
+func _setup_font_resource() -> void:
+	if _high_res_font: return
+	
+	_high_res_font = SystemFont.new()
+	_high_res_font.multichannel_signed_distance_field = true
+	_high_res_font.msdf_pixel_range = 16
+	_high_res_font.msdf_size = 128 # Máxima qualidade matemática vetorial
+	_high_res_font.set_antialiasing(1) # 1 = Grayscale
+	_high_res_font.generate_mipmaps = true
+
 func _create_visuals() -> void:
-	# Limpeza rigorosa para evitar fantasmas visuais
 	var old_view = get_node_or_null("View")
 	if old_view:
 		old_view.name = "OldView"
@@ -48,64 +58,74 @@ func _create_visuals() -> void:
 	view.name = "View"
 	add_child(view)
 
+	# --- O SEGREDO DA NITIDEZ ---
+	# Criamos um nó com escala 0.25x para servir de tela de alta densidade
+	var hires_container = Node2D.new()
+	hires_container.scale = Vector2(0.25, 0.25)
+	view.add_child(hires_container)
+
+	# 1. EMOJI (Multiplicado por 4)
 	var emoji = Label.new()
 	emoji.name = "Emoji"
 	emoji.text = "🚶‍♀️" 
 	emoji.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	emoji.modulate = entity_color 
-	emoji.add_theme_font_size_override("font_size", 28)
-	emoji.position = Vector2(-20, -40) 
-	view.add_child(emoji)
 	
+	var emoji_settings = LabelSettings.new()
+	emoji_settings.font = _high_res_font
+	emoji_settings.font_size = 112 # (Original 28 * 4)
+	emoji_settings.font_color = entity_color
+	
+	emoji.label_settings = emoji_settings
+	emoji.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	emoji.position = Vector2(-80, -160) # (Original -20, -40 * 4)
+	hires_container.add_child(emoji)
+	
+	# 2. LABEL DE TEXTO (Multiplicado por 4)
 	var label = Label.new()
 	label.name = "IDLabel"
 	label.text = "VAGABOND"
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	label.add_theme_color_override("font_color", entity_color)
-	label.add_theme_font_size_override("font_size", 10)
-	label.add_theme_constant_override("outline_size", 4)
-	label.add_theme_color_override("font_outline_color", Color.BLACK)
-	label.position = Vector2(-25, 0)
-	view.add_child(label)
+	
+	var text_settings = LabelSettings.new()
+	text_settings.font = _high_res_font
+	text_settings.font_size = 40 # (Original 10 * 4)
+	text_settings.font_color = entity_color
+	text_settings.outline_size = 16 # (Original 4 * 4)
+	text_settings.outline_color = Color.BLACK
+	
+	label.label_settings = text_settings
+	label.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	label.position = Vector2(-100, 0) # (Original -25, 0 * 4)
+	hires_container.add_child(label)
 
-# --- FEEDBACKS VISUAIS (O CORAÇÃO DO PROBLEMA) ---
+# --- FEEDBACKS VISUAIS ---
 
 func _update_visual_state(instant: bool = false) -> void:
 	var view = get_node_or_null("View")
 	if not view: return
 
-	# 1. Definimos os alvos de visual
 	var target_scale = Vector2(1.25, 1.25) if _is_highlighted else Vector2.ONE
-	
-	# Se ap == 0, fica transparente (40% opacidade)
 	var target_alpha = 1.0 if ap > 0 else 0.7
 	
-	# 2. Aplicamos
 	if instant:
 		view.scale = target_scale
 		view.modulate.a = target_alpha
 	else:
-		# Se houver um tween rodando nesta propriedade, o novo o substituirá
 		var tween = create_tween().set_parallel(true).set_ease(Tween.EASE_OUT)
-		
-		# Feedback de Seleção
 		tween.tween_property(view, "scale", target_scale, 0.2).set_trans(Tween.TRANS_QUAD)
-		
-		# Feedback de Exaustão (Alpha)
-		# Nota: Modulamos a 'view' inteira para afetar Emoji e Label simultaneamente
 		tween.tween_property(view, "modulate:a", target_alpha, 0.25)
 
 # --- RESTO DA LÓGICA ---
 
 func use_ap() -> bool:
 	if has_ap():
-		ap -= 1 # O setter cuidará do _update_visual_state()
+		ap -= 1 
 		_play_action_animation()
 		return true
 	return false
 
 func restore_ap() -> void:
-	ap = max_ap # O setter cuidará do visual
+	ap = max_ap 
 
 func set_highlight(active: bool) -> void:
 	_is_highlighted = active
@@ -118,7 +138,6 @@ func _play_action_animation() -> void:
 		jump.tween_property(view, "position:y", -15, 0.1)
 		jump.chain().tween_property(view, "position:y", 0, 0.1)
 
-# Sistema de FOW herdado e simplificado
 func update_fow_visibility(lit_nodes: Array, instant: bool = false) -> void:
 	var is_lit = self.grid_pos in lit_nodes
 	var target_alpha = 1.0 if is_lit else 0.0
