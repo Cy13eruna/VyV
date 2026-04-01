@@ -21,6 +21,7 @@ signal exhaustion_triggered()
 
 var _is_highlighted: bool = false
 var _high_res_font: SystemFont 
+var _emoji_font: SystemFont # Fonte dedicada para evitar bugs no flip
 
 # --- CICLO DE VIDA ---
 
@@ -39,12 +40,19 @@ func _apply_visuals() -> void:
 
 func _setup_font_resource() -> void:
 	if _high_res_font: return
+	
+	# Fonte principal para textos (com MSDF ativo para alta resolução)
 	_high_res_font = SystemFont.new()
 	_high_res_font.multichannel_signed_distance_field = true
 	_high_res_font.msdf_pixel_range = 16
 	_high_res_font.msdf_size = 128 
 	_high_res_font.set_antialiasing(1) 
 	_high_res_font.generate_mipmaps = true
+
+	# Fonte para o emoji (SEM MSDF para permitir o flip de eixos sem bugar)
+	_emoji_font = SystemFont.new()
+	_emoji_font.multichannel_signed_distance_field = false
+	_emoji_font.generate_mipmaps = true
 
 func _create_visuals() -> void:
 	var old_view = get_node_or_null("View")
@@ -60,13 +68,18 @@ func _create_visuals() -> void:
 	hires_container.scale = Vector2(0.25, 0.25)
 	view.add_child(hires_container)
 
-	# 1. EMOJI
+	# --- CONTAINER DE FLIP ISOLADO PARA O EMOJI ---
+	var emoji_flip = Node2D.new()
+	emoji_flip.name = "EmojiFlip"
+	hires_container.add_child(emoji_flip)
+
+	# 1. EMOJI (Dentro de emoji_flip e usando a fonte dedicada)
 	var emoji = Label.new()
 	emoji.name = "Emoji"
 	emoji.text = "🚶‍♀️" 
 	
 	var emoji_settings = LabelSettings.new()
-	emoji_settings.font = _high_res_font
+	emoji_settings.font = _emoji_font
 	emoji_settings.font_size = 112 
 	emoji_settings.font_color = entity_color 
 	
@@ -75,18 +88,18 @@ func _create_visuals() -> void:
 	emoji.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	emoji.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	
-	# --- AJUSTE DE ATERRISSAGEM ---
-	var emoji_size = _high_res_font.get_string_size(emoji.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 112)
+	var emoji_size = _emoji_font.get_string_size(emoji.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 112)
 	emoji.custom_minimum_size = emoji_size
 	
 	var vertical_offset = 12.0 
 	
-	# Pés no chão (0,0)
+	# Centralização perfeita do emoji no X = 0 para o flip funcionar redondo
 	emoji.position = Vector2(-emoji_size.x / 2.0, -emoji_size.y + vertical_offset) 
 	
-	hires_container.add_child(emoji)
+	# Adicionado no container de flip
+	emoji_flip.add_child(emoji)
 	
-	# 2. LABEL DE TEXTO (VAGABOND)
+	# 2. LABEL DE TEXTO (Fora do emoji_flip para não espelhar as letras)
 	var label = Label.new()
 	label.name = "IDLabel"
 	label.text = "VAGABOND"
@@ -103,13 +116,20 @@ func _create_visuals() -> void:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
-	# --- ALINHAMENTO DO TEXTO (DESCIDO PARA NÃO CONFLITAR COM DOMAIN) ---
 	var text_size = _high_res_font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 40)
 	label.custom_minimum_size = text_size
-	# Aumentado de 10 para 80 para afastar do texto de Domain que aparece acima do nódulo
 	label.position = Vector2(-text_size.x / 2.0, 40) 
 	
 	hires_container.add_child(label)
+
+# --- MÉTODO DE FLIP ---
+func set_facing_direction(moves_right: bool) -> void:
+	# O terceiro parâmetro 'false' desliga a exigência de 'owner' no Godot 4
+	var flip_node = find_child("EmojiFlip", true, false)
+	if flip_node:
+		# Como o emoji 🚶‍♀️ por padrão olha para a esquerda,
+		# invertemos a escala (X = -1) quando ele for para a direita.
+		flip_node.scale.x = -1.0 if moves_right else 1.0
 
 # --- FEEDBACKS VISUAIS ---
 
@@ -120,11 +140,11 @@ func _update_visual_state(instant: bool = false) -> void:
 	var target_scale = Vector2(1.25, 1.25) if _is_highlighted else Vector2.ONE
 	var target_alpha = 1.0 if ap > 0 else 0.7
 	
-	var emoji = view.find_child("Emoji", true)
+	var emoji = view.find_child("Emoji", true, false)
 	if emoji and emoji.label_settings:
 		emoji.label_settings.font_color = entity_color
 	
-	var label = view.find_child("IDLabel", true)
+	var label = view.find_child("IDLabel", true, false)
 	if label and label.label_settings:
 		label.label_settings.font_color = entity_color
 
