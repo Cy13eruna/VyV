@@ -25,7 +25,6 @@ var _high_res_font: SystemFont
 # --- CICLO DE VIDA ---
 
 func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int) -> void:
-	# Primeiro chamamos o super para garantir que 'entity_color' seja definida
 	super.setup(p_global_pos, p_grid_pos, p_color, p_owner_id)
 	self.z_index = 10 
 	
@@ -65,36 +64,54 @@ func _create_visuals() -> void:
 	var emoji = Label.new()
 	emoji.name = "Emoji"
 	emoji.text = "🚶‍♀️" 
-	emoji.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	
 	var emoji_settings = LabelSettings.new()
 	emoji_settings.font = _high_res_font
 	emoji_settings.font_size = 112 
-	# AQUI: Garantimos que a cor da entidade seja aplicada ao LabelSettings
 	emoji_settings.font_color = entity_color 
 	
 	emoji.label_settings = emoji_settings
+	emoji.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	emoji.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	emoji.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	emoji.position = Vector2(-80, -160) 
+	
+	# --- AJUSTE DE ATERRISSAGEM ---
+	var emoji_size = _high_res_font.get_string_size(emoji.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 112)
+	emoji.custom_minimum_size = emoji_size
+	
+	# vertical_offset compensa o respiro interno da fonte do emoji.
+	# Aumente este valor (ex: 15, 20) para descer mais os pés.
+	var vertical_offset = 12.0 
+	
+	# X: Centralizado
+	# Y: -Altura total + offset para descer e encostar os pés no (0,0)
+	emoji.position = Vector2(-emoji_size.x / 2.0, -emoji_size.y + vertical_offset) 
+	
 	hires_container.add_child(emoji)
 	
-	# 2. LABEL DE TEXTO
+	# 2. LABEL DE TEXTO (VAGABOND)
 	var label = Label.new()
 	label.name = "IDLabel"
 	label.text = "VAGABOND"
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	
 	var text_settings = LabelSettings.new()
 	text_settings.font = _high_res_font
 	text_settings.font_size = 40 
-	# AQUI: Tintura do nome com a cor do jogador
 	text_settings.font_color = entity_color 
 	text_settings.outline_size = 16 
-	text_settings.outline_color = Color.BLACK
+	text_settings.outline_color = Color.BLACK 
 	
 	label.label_settings = text_settings
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	label.position = Vector2(-100, 0) 
+
+	# --- ALINHAMENTO DO TEXTO ---
+	var text_size = _high_res_font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 40)
+	label.custom_minimum_size = text_size
+	# Posicionado logo abaixo do ponto central
+	label.position = Vector2(-text_size.x / 2.0, 10) 
+	
 	hires_container.add_child(label)
 
 # --- FEEDBACKS VISUAIS ---
@@ -106,7 +123,6 @@ func _update_visual_state(instant: bool = false) -> void:
 	var target_scale = Vector2(1.25, 1.25) if _is_highlighted else Vector2.ONE
 	var target_alpha = 1.0 if ap > 0 else 0.7
 	
-	# Reforço de cor caso a cor tenha mudado dinamicamente
 	var emoji = view.find_child("Emoji", true)
 	if emoji and emoji.label_settings:
 		emoji.label_settings.font_color = entity_color
@@ -123,7 +139,7 @@ func _update_visual_state(instant: bool = false) -> void:
 		tween.tween_property(view, "scale", target_scale, 0.2).set_trans(Tween.TRANS_QUAD)
 		tween.tween_property(view, "modulate:a", target_alpha, 0.25)
 
-# --- RESTO DA LÓGICA ---
+# --- LÓGICA DE JOGO ---
 
 func use_ap() -> bool:
 	if has_ap():
