@@ -26,15 +26,22 @@ func _ready() -> void:
 func _setup_layers() -> void:
 	for child in get_children(): child.queue_free()
 	
-	edges_layer = Node2D.new(); edges_layer.name = "EdgesLayer"; edges_layer.z_index = -1
+	# Camadas de fundo (Z-Index negativo para garantir que fiquem abaixo de entidades)
+	edges_layer = Node2D.new()
+	edges_layer.name = "EdgesLayer"
+	edges_layer.z_index = -5
 	add_child(edges_layer)
 	edges_layer.draw.connect(_draw_edges)
 	
-	indicators_layer = Node2D.new(); indicators_layer.name = "IndicatorsLayer"; indicators_layer.z_index = 1
+	indicators_layer = Node2D.new()
+	indicators_layer.name = "IndicatorsLayer"
+	indicators_layer.z_index = -2
 	add_child(indicators_layer)
 	indicators_layer.draw.connect(_draw_indicators)
 	
-	nodes_layer = Node2D.new(); nodes_layer.name = "NodesLayer"; nodes_layer.z_index = 2
+	nodes_layer = Node2D.new()
+	nodes_layer.name = "NodesLayer"
+	nodes_layer.z_index = -1
 	add_child(nodes_layer)
 	nodes_layer.draw.connect(_draw_nodes)
 
@@ -49,7 +56,8 @@ var revealed_edges: Array = []:
 		if is_instance_valid(edges_layer): edges_layer.queue_redraw()
 
 func _connect_signals() -> void:
-	Signals.visibility_changed.connect(_on_visibility_changed)
+	if Signals.has_signal("visibility_changed"):
+		Signals.visibility_changed.connect(_on_visibility_changed)
 
 func setup(p_data, p_size: float) -> void:
 	grid_data = p_data

@@ -79,12 +79,9 @@ func _create_visuals() -> void:
 	var emoji_size = _high_res_font.get_string_size(emoji.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 112)
 	emoji.custom_minimum_size = emoji_size
 	
-	# vertical_offset compensa o respiro interno da fonte do emoji.
-	# Aumente este valor (ex: 15, 20) para descer mais os pés.
 	var vertical_offset = 12.0 
 	
-	# X: Centralizado
-	# Y: -Altura total + offset para descer e encostar os pés no (0,0)
+	# Pés no chão (0,0)
 	emoji.position = Vector2(-emoji_size.x / 2.0, -emoji_size.y + vertical_offset) 
 	
 	hires_container.add_child(emoji)
@@ -106,11 +103,11 @@ func _create_visuals() -> void:
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 
-	# --- ALINHAMENTO DO TEXTO ---
+	# --- ALINHAMENTO DO TEXTO (DESCIDO PARA NÃO CONFLITAR COM DOMAIN) ---
 	var text_size = _high_res_font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 40)
 	label.custom_minimum_size = text_size
-	# Posicionado logo abaixo do ponto central
-	label.position = Vector2(-text_size.x / 2.0, 10) 
+	# Aumentado de 10 para 80 para afastar do texto de Domain que aparece acima do nódulo
+	label.position = Vector2(-text_size.x / 2.0, 40) 
 	
 	hires_container.add_child(label)
 
