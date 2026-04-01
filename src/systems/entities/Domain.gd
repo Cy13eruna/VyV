@@ -57,6 +57,18 @@ func _apply_visuals() -> void:
 	queue_redraw()
 	if label_node: label_node.queue_redraw()
 
+## NOVO: Gera um nome de 3 caracteres que OBRIGATORIAMENTE inicia com a letra deste domínio
+func generate_vagabond_name() -> String:
+	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	# Pegamos o primeiro caractere (seja normal ou acentuado)
+	var initial = domain_name[0] 
+	
+	var rest = ""
+	for i in range(2): # 2 caracteres restantes para completar 3
+		rest += standard_alphabet[randi() % standard_alphabet.length()]
+		
+	return initial + rest
+
 func _on_visibility_updated(visible_domains: Array) -> void:
 	var is_visible_to_player = false
 	for d_data in visible_domains:
@@ -117,27 +129,22 @@ func _generate_unique_initial_name(length: int) -> String:
 	
 	var available_initials = ""
 	
-	# 1. Tenta buscar no alfabeto padrão
 	for char in standard_alphabet:
 		if not char in used_initials:
 			available_initials += char
 			
-	# 2. Se o padrão esgotou, tenta o acentuado
 	if available_initials.length() == 0:
 		for char in accented_alphabet:
 			if not char in used_initials:
 				available_initials += char
 				
-	# 3. Fallback final: se absolutamente tudo esgotar, limpa e reinicia
 	if available_initials.length() == 0:
 		used_initials.clear()
 		available_initials = standard_alphabet
 		
-	# Sorteia a inicial dentro do que sobrou
 	var initial = available_initials[randi() % available_initials.length()]
 	used_initials.append(initial)
 	
-	# O resto do nome continua sendo gerado com o alfabeto padrão para manter legibilidade
 	var rest = ""
 	for i in range(length - 1):
 		rest += standard_alphabet[randi() % standard_alphabet.length()]

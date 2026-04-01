@@ -24,16 +24,21 @@ static var used_initials: Array[String] = []
 
 var _is_highlighted: bool = false
 var _high_res_font: SystemFont 
-var _emoji_font: SystemFont # Fonte dedicada para evitar bugs no flip
+var _emoji_font: SystemFont 
 
-# Nova variável para o nome de 3 caracteres
+# Variável para o nome de 3 caracteres
 var vagabond_name: String = ""
 
 # --- CICLO DE VIDA ---
 
-func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int) -> void:
-	# Geramos o nome antes do setup visual para que a Label já nasça com o texto certo
-	if vagabond_name.is_empty():
+## Setup atualizado para aceitar o nome injetado pelo Domínio de origem
+func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int, p_name: String = "") -> void:
+	# Prioridade 1: Nome vindo do setup (linkado ao domínio)
+	# Prioridade 2: Nome já existente na variável
+	# Prioridade 3: Geração aleatória (fallback)
+	if not p_name.is_empty():
+		vagabond_name = p_name
+	elif vagabond_name.is_empty():
 		vagabond_name = _generate_unique_initial_name(3)
 		
 	super.setup(p_global_pos, p_grid_pos, p_color, p_owner_id)
@@ -102,7 +107,7 @@ func _create_visuals() -> void:
 	emoji.position = Vector2(-emoji_size.x / 2.0, -emoji_size.y + vertical_offset) 
 	emoji_flip.add_child(emoji)
 	
-	# 2. LABEL DE TEXTO (Agora usando vagabond_name)
+	# 2. LABEL DE TEXTO (Usando vagabond_name linkado)
 	var label = Label.new()
 	label.name = "IDLabel"
 	label.text = vagabond_name
@@ -194,7 +199,7 @@ func update_fow_visibility(lit_nodes: Array, instant: bool = false) -> void:
 func has_ap() -> bool:
 	return ap > 0
 
-# --- LÓGICA DE GERAÇÃO ÚNICA COM ACENTUAÇÃO ---
+# --- LÓGICA DE GERAÇÃO ÚNICA (APENAS PARA FALLBACK) ---
 
 func _generate_unique_initial_name(length: int) -> String:
 	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
