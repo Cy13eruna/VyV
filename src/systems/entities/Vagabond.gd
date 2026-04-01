@@ -1,4 +1,3 @@
-# res://src/systems/entities/Vagabond.gd
 extends "res://src/systems/entities/MapEntity.gd"
 
 class_name Vagabond
@@ -22,6 +21,9 @@ static var used_initials: Array[String] = []
 
 @export var move_range: int = 4 
 
+# NOVO: Referência à posição do domínio que criou este Vagabond
+var home_domain_pos: Vector2 = Vector2.ZERO
+
 var _is_highlighted: bool = false
 var _high_res_font: SystemFont 
 var _emoji_font: SystemFont 
@@ -31,11 +33,11 @@ var vagabond_name: String = ""
 
 # --- CICLO DE VIDA ---
 
-## Setup atualizado para aceitar o nome injetado pelo Domínio de origem
+## Setup atualizado para aceitar o nome e a posição do domínio de origem
 func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int, p_name: String = "") -> void:
-	# Prioridade 1: Nome vindo do setup (linkado ao domínio)
-	# Prioridade 2: Nome já existente na variável
-	# Prioridade 3: Geração aleatória (fallback)
+	# Define a casa inicial do Vagabond (usada para cobrar poder)
+	home_domain_pos = p_grid_pos.snapped(Vector2(0.1, 0.1))
+	
 	if not p_name.is_empty():
 		vagabond_name = p_name
 	elif vagabond_name.is_empty():
@@ -48,21 +50,16 @@ func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_i
 	_create_visuals()
 	_update_visual_state(true)
 
-func _apply_visuals() -> void:
-	_setup_font_resource()
-	_create_visuals()
-	_update_visual_state(true)
+# ... (Funções visuais _apply_visuals, _setup_font_resource, _create_visuals permanecem iguais) ...
 
 func _setup_font_resource() -> void:
 	if _high_res_font: return
-	
 	_high_res_font = SystemFont.new()
 	_high_res_font.multichannel_signed_distance_field = true
 	_high_res_font.msdf_pixel_range = 16
 	_high_res_font.msdf_size = 128 
 	_high_res_font.set_antialiasing(1) 
 	_high_res_font.generate_mipmaps = true
-
 	_emoji_font = SystemFont.new()
 	_emoji_font.multichannel_signed_distance_field = false
 	_emoji_font.generate_mipmaps = true
@@ -85,49 +82,38 @@ func _create_visuals() -> void:
 	emoji_flip.name = "EmojiFlip"
 	hires_container.add_child(emoji_flip)
 
-	# 1. EMOJI
 	var emoji = Label.new()
 	emoji.name = "Emoji"
 	emoji.text = "🚶‍♀️" 
-	
 	var emoji_settings = LabelSettings.new()
 	emoji_settings.font = _emoji_font
 	emoji_settings.font_size = 112 
 	emoji_settings.font_color = entity_color 
-	
 	emoji.label_settings = emoji_settings
 	emoji.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	emoji.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	emoji.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	
 	var emoji_size = _emoji_font.get_string_size(emoji.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 112)
 	emoji.custom_minimum_size = emoji_size
-	
-	var vertical_offset = 12.0 
-	emoji.position = Vector2(-emoji_size.x / 2.0, -emoji_size.y + vertical_offset) 
+	emoji.position = Vector2(-emoji_size.x / 2.0, -emoji_size.y + 12.0) 
 	emoji_flip.add_child(emoji)
 	
-	# 2. LABEL DE TEXTO (Usando vagabond_name linkado)
 	var label = Label.new()
 	label.name = "IDLabel"
 	label.text = vagabond_name
-	
 	var text_settings = LabelSettings.new()
 	text_settings.font = _high_res_font
 	text_settings.font_size = 40 
 	text_settings.font_color = entity_color 
 	text_settings.outline_size = 16 
 	text_settings.outline_color = Color.BLACK 
-	
 	label.label_settings = text_settings
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-
 	var text_size = _high_res_font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 40)
 	label.custom_minimum_size = text_size
 	label.position = Vector2(-text_size.x / 2.0, 40) 
-	
 	hires_container.add_child(label)
 
 func set_facing_direction(moves_right: bool) -> void:
@@ -140,18 +126,14 @@ func set_facing_direction(moves_right: bool) -> void:
 func _update_visual_state(instant: bool = false) -> void:
 	var view = get_node_or_null("View")
 	if not view: return
-
 	var target_scale = Vector2(1.25, 1.25) if _is_highlighted else Vector2.ONE
 	var target_alpha = 1.0 if ap > 0 else 0.7
-	
 	var emoji = view.find_child("Emoji", true, false)
 	if emoji and emoji.label_settings:
 		emoji.label_settings.font_color = entity_color
-	
 	var label = view.find_child("IDLabel", true, false)
 	if label and label.label_settings:
 		label.label_settings.font_color = entity_color
-
 	if instant:
 		view.scale = target_scale
 		view.modulate.a = target_alpha
@@ -160,14 +142,31 @@ func _update_visual_state(instant: bool = false) -> void:
 		tween.tween_property(view, "scale", target_scale, 0.2).set_trans(Tween.TRANS_QUAD)
 		tween.tween_property(view, "modulate:a", target_alpha, 0.25)
 
-# --- LÓGICA DE JOGO ---
+# --- LÓGICA DE JOGO ATUALIZADA ---
 
+## NOVO: Agora o uso de AP é condicionado ao Poder do Domínio de origem
 func use_ap() -> bool:
-	if has_ap():
-		ap -= 1 
-		_play_action_animation()
-		return true
-	return false
+	if not has_ap():
+		return false
+		
+	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
+	
+	# Se existir um gestor de domínios, tentamos cobrar o custo (1 AP = 1 Poder)
+	if is_instance_valid(domain_mgr) and domain_mgr.has_method("consume_power_at"):
+		var success = domain_mgr.consume_power_at(home_domain_pos, 1)
+		
+		if success:
+			ap -= 1 
+			_play_action_animation()
+			return true
+		else:
+			print("[Vagabond] Falha ao mover: Domínio de origem em %s não tem Poder!" % str(home_domain_pos))
+			return false
+	
+	# Fallback: Se não houver domain_manager (ex: teste rápido), gasta AP normalmente
+	ap -= 1
+	_play_action_animation()
+	return true
 
 func restore_ap() -> void:
 	ap = max_ap 
@@ -186,7 +185,6 @@ func _play_action_animation() -> void:
 func update_fow_visibility(lit_nodes: Array, instant: bool = false) -> void:
 	var is_lit = self.grid_pos in lit_nodes
 	var target_alpha = 1.0 if is_lit else 0.0
-	
 	if instant:
 		self.modulate.a = target_alpha
 		self.visible = is_lit
@@ -199,34 +197,27 @@ func update_fow_visibility(lit_nodes: Array, instant: bool = false) -> void:
 func has_ap() -> bool:
 	return ap > 0
 
-# --- LÓGICA DE GERAÇÃO ÚNICA (APENAS PARA FALLBACK) ---
+# --- LÓGICA DE GERAÇÃO ÚNICA ---
 
 func _generate_unique_initial_name(length: int) -> String:
 	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	var accented_alphabet = "ÁÀÂÃÉÈÊÍÌÎÓÒÔÕÚÙÛÇÖÜËÏ"
-	
 	var available_initials = ""
-	
 	for char in standard_alphabet:
 		if not char in used_initials:
 			available_initials += char
-			
 	if available_initials.length() == 0:
 		for char in accented_alphabet:
 			if not char in used_initials:
 				available_initials += char
-				
 	if available_initials.length() == 0:
 		used_initials.clear()
 		available_initials = standard_alphabet
-		
 	var initial = available_initials[randi() % available_initials.length()]
 	used_initials.append(initial)
-	
 	var rest = ""
 	for i in range(length - 1):
 		rest += standard_alphabet[randi() % standard_alphabet.length()]
-		
 	return initial + rest
 
 static func reset_vagabond_registry() -> void:

@@ -1,4 +1,3 @@
-# res://src/systems/entities/DomainManager.gd
 extends Node2D
 
 var domain_script: GDScript = null
@@ -9,9 +8,10 @@ func _ready() -> void:
 	add_to_group("domain_manager")
 	_load_resources.call_deferred()
 	
-	# Conecta ao sinal de virada de turno no EventBus
-	# ATUALIZADO: O sinal agora envia (id, color, round_number)
 	if is_instance_valid(Signals) and Signals.has_signal("turn_started"):
+		# Conecta garantindo que não haja duplicatas
+		if Signals.turn_started.is_connected(_on_turn_started):
+			Signals.turn_started.disconnect(_on_turn_started)
 		Signals.turn_started.connect(_on_turn_started)
 
 func _load_resources() -> void:
@@ -22,17 +22,39 @@ func _load_resources() -> void:
 func get_domain_positions_for_player(player_id: int) -> Array:
 	var positions: Array = []
 	for pos_key in active_domains:
-		var domain = active_domains[pos_key]
-		if domain.owner_id == player_id:
-			positions.append(domain.pos)
+		var domain_data = active_domains[pos_key]
+		if domain_data.owner_id == player_id:
+			positions.append(domain_data.pos)
 	return positions
 
 func get_domain_at(world_pos: Vector2) -> Node2D:
 	var clean_pos = world_pos.snapped(Vector2(0.1, 0.1))
 	for inst in domain_instances:
-		if is_instance_valid(inst) and inst.get("grid_pos").distance_to(clean_pos) < 1.0:
-			return inst
+		if is_instance_valid(inst):
+			var inst_pos = inst.get("grid_pos")
+			if inst_pos is Vector2 and inst_pos.distance_to(clean_pos) < 1.0:
+				return inst
 	return null
+
+## --- NOVA API: GESTÃO DE PODER INDIVIDUALIZADA ---
+
+# Retorna o poder de um domínio específico baseado na sua posição
+func get_domain_power_at(world_pos: Vector2) -> int:
+	var domain = get_domain_at(world_pos)
+	if is_instance_valid(domain):
+		return domain.get("power") if domain.get("power") != null else 0
+	return 0
+
+# Consome poder de um domínio específico. Retorna true se teve saldo.
+func consume_power_at(world_pos: Vector2, amount: int) -> bool:
+	var domain = get_domain_at(world_pos)
+	if is_instance_valid(domain):
+		var current_power = domain.get("power") if domain.get("power") != null else 0
+		if current_power >= amount:
+			if domain.has_method("add_power"):
+				domain.add_power(-amount)
+				return true
+	return false
 
 ## --- GESTÃO DE DOMÍNIOS ---
 
@@ -66,12 +88,12 @@ func create_domain(world_pos: Vector2, color: Color, owner_id: int = -1, tile_si
 	if new_domain.has_method("setup_domain"):
 		new_domain.setup_domain(clean_pos, clean_pos, color, owner_id, tile_size)
 	
-	new_domain.name = "Domain_" + pos_key.replace(".", "_")
+	new_domain.name = "Domain_" + pos_key.replace(".", "_").replace(",", "_")
 	domain_instances.append(new_domain)
 	
 	return new_domain
 
-## --- LÓGICA DE SPAWN ---
+## --- LÓGICA DE SPAWN (ESTRATÉGIA DE BORDAS) ---
 
 func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr: Node):
 	clear_domains()
@@ -88,12 +110,8 @@ func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr:
 	if valid_nodes.is_empty(): return
 
 	var directions = [
-		Vector2(1, 0),          # 0: Direita
-		Vector2(0.5, 0.866),    # 1: Sudeste
-		Vector2(-0.5, 0.866),   # 2: Sudoeste
-		Vector2(-1, 0),         # 3: Esquerda
-		Vector2(-0.5, -0.866),  # 4: Noroeste
-		Vector2(0.5, -0.866)    # 5: Nordeste
+		Vector2(1, 0), Vector2(0.5, 0.866), Vector2(-0.5, 0.866),
+		Vector2(-1, 0), Vector2(-0.5, -0.866), Vector2(0.5, -0.866)
 	]
 	
 	var edge_positions = []
@@ -107,34 +125,9 @@ func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr:
 				best_node = pos
 		edge_positions.append(best_node)
 
-	if edge_positions.size() < 6:
-		edge_positions.shuffle()
-		var spawned = 0
-		for i in range(min(player_count, edge_positions.size())):
-			_create_capital(spawned, edge_positions[i], grid_mgr, v_mgr, turn_mgr, t_size)
-			spawned += 1
-		return
-
-	var selected_indices = []
-	match player_count:
-		2:
-			selected_indices = [0, 1, 2, 3, 4, 5]
-			selected_indices.shuffle()
-			selected_indices = selected_indices.slice(0, 2)
-		3:
-			var offset = randi() % 2
-			selected_indices = [offset, offset + 2, offset + 4]
-		4:
-			var offset = randi() % 3
-			selected_indices = [offset, (offset + 1) % 6, (offset + 3) % 6, (offset + 4) % 6]
-		6:
-			selected_indices = [0, 1, 2, 3, 4, 5]
-		_:
-			selected_indices = [0, 1, 2, 3, 4, 5]
-			selected_indices.shuffle()
-			selected_indices = selected_indices.slice(0, player_count)
-
+	var selected_indices = range(6)
 	selected_indices.shuffle()
+	selected_indices = selected_indices.slice(0, player_count)
 
 	var spawned = 0
 	for idx in selected_indices:
@@ -159,16 +152,17 @@ func _create_capital(id: int, grid_pos: Vector2, grid: Node2D, v_mgr: Node2D, tu
 		v_name = domain_inst.generate_vagabond_name()
 	
 	if v_mgr and v_mgr.has_method("_create_vagabond"):
+		# No futuro, passaremos o grid_pos do domínio para o Vagabond como 'home_domain'
 		v_mgr._create_vagabond(grid_pos, p_color, id, grid, v_name)
 
-## ATUALIZADO: Agora recebe o round_number para evitar o bug do 2º jogador
+## ATUALIZADO: Produção de Poder
 func _on_turn_started(player_id: int, _player_color: Color, round_number: int) -> void:
-	# Na primeira rodada, os domínios já nascem com 1 de poder.
-	# Ignoramos a produção para que o 2º jogador (e seguintes) não ganhem poder extra no setup.
+	# Evita bônus duplo no setup inicial
 	if round_number == 1:
 		return
 		
 	for inst in domain_instances:
 		if is_instance_valid(inst) and inst.get("owner_id") == player_id:
 			if inst.has_method("add_power"):
+				# Cada domínio produz seu próprio poder independentemente
 				inst.add_power(1)
