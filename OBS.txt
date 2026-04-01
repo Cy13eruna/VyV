@@ -1,6 +1,9 @@
 to-do:
-- fundo estrelado
-- identificadores radiais
+- poder
+- pa = gasto de poder
+- nível
+- upgrade
+- spawn vagabond
 
 observações:
 - ações gastam poder

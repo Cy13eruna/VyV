@@ -1,4 +1,3 @@
-# res://src/systems/entities/VagabondManager.gd
 extends Node2D
 
 const VAGABOND_SCRIPT_PATH = "res://src/systems/entities/Vagabond.gd"
@@ -37,15 +36,18 @@ func get_occupied_nodes(exclude_unit: Node2D = null) -> Array:
 
 # --- REAÇÃO A EVENTOS ---
 
-func _on_turn_started(player_id: int, _player_color: Color) -> void:
-	if _painter and _painter.has_method("update_reachable"):
+## CORRIGIDO: Indentação e assinatura do sinal (3 argumentos)
+func _on_turn_started(player_id: int, _p_color: Color, _round_num: int) -> void:
+	if is_instance_valid(_painter) and _painter.has_method("update_reachable"):
 		_painter.update_reachable([], Color.WHITE)
+	
 	reset_aps_for_player(player_id)
 
 func reset_aps_for_player(player_id: int) -> void:
 	var count = 0
 	for v in active_vagabonds:
 		if is_instance_valid(v):
+			# Verifica o dono da unidade e restaura pontos de ação (AP)
 			if v.get("owner_id") == player_id and v.has_method("restore_ap"):
 				v.restore_ap()
 				count += 1
@@ -159,8 +161,6 @@ func _is_area_clear(pos: Vector2) -> bool:
 	return true
 
 func _clear_all() -> void:
-	# TRUQUE DE CASTING: Passamos para uma variável sem tipo para evitar que o 
-	# parser tente validar o método estático como método de instância.
 	var v_script: Object = VagabondResource
 	
 	if v_script and v_script.has_method(&"reset_vagabond_registry"):

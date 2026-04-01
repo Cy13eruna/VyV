@@ -1,4 +1,3 @@
-# res://src/Main.gd
 extends Node
 
 # Containers básicos
@@ -130,7 +129,8 @@ func _setup_hud() -> void:
 		if game_hud.has_signal("end_turn_requested"):
 			game_hud.end_turn_requested.connect(_on_end_turn_requested)
 
-func _on_global_turn_started(player_id: int, player_color: Color) -> void:
+## CORRIGIDO: Parâmetros ajustados para 3 argumentos e erro de indentação resolvido
+func _on_global_turn_started(player_id: int, p_color: Color, _round_num: int) -> void:
 	await get_tree().process_frame
 	_update_game_visibility(true)
 	
@@ -139,11 +139,11 @@ func _on_global_turn_started(player_id: int, player_color: Color) -> void:
 	if is_instance_valid(turn_manager) and turn_manager.player_colors.size() > player_id:
 		p_name = turn_manager.player_colors[player_id]
 
-	# Preparamos o dicionário completo para a PlayerTurnScreen
+	# CORREÇÃO: Usando p_color que vem do argumento
 	var data = {
 		"id": player_id,
 		"name": p_name,
-		"color": player_color
+		"color": p_color 
 	}
 	
 	ui_manager.change_screen("res://src/ui/PlayerTurnScreen.gd", data)
@@ -157,7 +157,7 @@ func _on_global_turn_started(player_id: int, player_color: Color) -> void:
 	
 	# O HUD agora se atualiza via Signals, mas chamamos por segurança se necessário
 	if game_hud.has_method("_on_turn_started"):
-		game_hud._on_turn_started(player_id, player_color)
+		game_hud._on_turn_started(player_id, p_color, _round_num)
 
 func _on_unit_moved(_unit: Node2D, _from: Vector2, _to: Vector2) -> void:
 	_update_game_visibility.call_deferred(false)
@@ -178,8 +178,10 @@ func _update_game_visibility(force_instant: bool = false) -> void:
 		
 	var domains = []
 	if is_instance_valid(domain_manager):
-		domains = domain_manager.get("active_domains") if "active_domains" in domain_manager else []
-		if domains.is_empty() and domain_manager.has_method("get_all_domains"):
+		# Tenta pegar o dicionário direto ou via método
+		if "active_domains" in domain_manager:
+			domains = domain_manager.get("active_domains")
+		elif domain_manager.has_method("get_all_domains"):
 			domains = domain_manager.get_all_domains()
 	
 	visibility_manager.update_visibility(

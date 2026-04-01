@@ -1,4 +1,3 @@
-# res://src/ui/GameHUD.gd
 extends Control
 
 signal end_turn_requested
@@ -17,6 +16,7 @@ func _ready() -> void:
 
 func _connect_signals() -> void:
 	if is_instance_valid(Signals):
+		# Garante que não haja conexões duplicadas
 		if Signals.turn_started.is_connected(_on_turn_started):
 			Signals.turn_started.disconnect(_on_turn_started)
 		Signals.turn_started.connect(_on_turn_started)
@@ -34,10 +34,10 @@ func _create_ui_elements() -> void:
 	turn_button.pressed.connect(_on_btn_pressed)
 	add_child(turn_button)
 	
-	# 2. Label de Status (Agora apenas para a cor/ID)
+	# 2. Label de Status
 	status_label = Label.new()
 	status_label.name = "StatusLabel"
-	status_label.text = "" # Começa vazio
+	status_label.text = "" 
 	status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	status_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	status_label.offset_left = -300
@@ -45,15 +45,18 @@ func _create_ui_elements() -> void:
 	add_child(status_label)
 
 func _on_btn_pressed() -> void:
-	if not is_instance_valid(turn_button) or turn_button.disabled: return
+	if not is_instance_valid(turn_button) or turn_button.disabled: 
+		return
 	
 	turn_button.disabled = true
 	turn_button.text = "PROCESSING..."
 	end_turn_requested.emit()
 
-func _on_turn_started(player_id: int, player_color: Color) -> void:
+## ATUALIZADO: Agora aceita 3 argumentos para casar com o Signals.turn_started
+func _on_turn_started(player_id: int, player_color: Color, _round_num: int = 1) -> void:
 	if not _is_initialized:
 		await get_tree().process_frame
+	
 	_update_ui(player_id, player_color)
 
 func _update_ui(player_id: int, player_color: Color) -> void:
@@ -63,13 +66,9 @@ func _update_ui(player_id: int, player_color: Color) -> void:
 	turn_button.disabled = false
 	turn_button.text = "END TURN"
 	
-	# REMOVIDO: "Turno do Jogador %d"
-	# Se quiseres o ID puro: status_label.text = str(player_id + 1)
-	# Se quiseres deixar totalmente vazio conforme pedido:
+	# O label permanece vazio conforme o design atual, mas recebe a cor do jogador
 	status_label.text = "" 
-	
-	# Mantemos a cor de override apenas se decidires colocar um ícone ou 
-	# número futuramente, caso contrário, o label fica invisível.
 	status_label.add_theme_color_override("font_color", player_color)
 	
+	# Garante que o HUD esteja sempre acima de outros elementos de UI quando o turno troca
 	move_to_front()

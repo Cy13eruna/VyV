@@ -39,8 +39,7 @@ func _ready() -> void:
 		if not Signals.turn_started.is_connected(_on_turn_started):
 			Signals.turn_started.connect(_on_turn_started)
 
-func _on_turn_started(_id: int, _col: Color) -> void:
-	clear_highlights()
+func _on_turn_started(player_id: int, p_color: Color, _round_num: int) -> void:	clear_highlights()
 
 # --- REAÇÃO A EVENTOS ---
 

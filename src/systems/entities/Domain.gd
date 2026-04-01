@@ -12,6 +12,7 @@ var high_res_font: SystemFont
 var label_node: Node2D
 
 var domain_name: String = ""
+var power: int = 1 # NOVO: Todo Domínio começa com 1 de Poder
 
 func _ready() -> void:
 	_setup_high_res_font()
@@ -57,14 +58,18 @@ func _apply_visuals() -> void:
 	queue_redraw()
 	if label_node: label_node.queue_redraw()
 
-## NOVO: Gera um nome de 3 caracteres que OBRIGATORIAMENTE inicia com a letra deste domínio
+## NOVO: Função para adicionar poder e atualizar o visual
+func add_power(amount: int) -> void:
+	power += amount
+	if label_node:
+		label_node.queue_redraw() # Força o redesenho do texto
+
 func generate_vagabond_name() -> String:
 	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	# Pegamos o primeiro caractere (seja normal ou acentuado)
 	var initial = domain_name[0] 
 	
 	var rest = ""
-	for i in range(2): # 2 caracteres restantes para completar 3
+	for i in range(2): 
 		rest += standard_alphabet[randi() % standard_alphabet.length()]
 		
 	return initial + rest
@@ -102,7 +107,8 @@ func _draw_label() -> void:
 	var downscale = 1.0 / upscale
 	label_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2(downscale, downscale))
 
-	var text = domain_name
+	# ATUALIZADO: Formato do título conforme solicitado
+	var text = domain_name + " ⭐ " + str(power)
 	var font_size = 56 
 	var text_size = high_res_font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
 	
