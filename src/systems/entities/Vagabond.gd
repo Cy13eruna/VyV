@@ -103,7 +103,7 @@ func _create_visuals() -> void:
 	label.text = vagabond_name
 	var text_settings = LabelSettings.new()
 	text_settings.font = _high_res_font
-	text_settings.font_size = 40 
+	text_settings.font_size = 32
 	text_settings.font_color = entity_color 
 	text_settings.outline_size = 16 
 	text_settings.outline_color = Color.BLACK 

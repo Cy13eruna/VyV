@@ -1,4 +1,3 @@
-# res://src/systems/entities/Domain.gd
 extends "res://src/systems/entities/MapEntity.gd"
 
 # --- CONTROLE DE UNICIDADE (ESTÁTICO) ---
@@ -12,7 +11,8 @@ var high_res_font: SystemFont
 var label_node: Node2D
 
 var domain_name: String = ""
-var power: int = 1 # NOVO: Todo Domínio começa com 1 de Poder
+var power: int = 1     # Todo Domínio começa com 1 de Poder
+var domain_level: int = 1 # NOVO: Nível inicial I
 
 func _ready() -> void:
 	_setup_high_res_font()
@@ -58,11 +58,24 @@ func _apply_visuals() -> void:
 	queue_redraw()
 	if label_node: label_node.queue_redraw()
 
-## NOVO: Função para adicionar poder e atualizar o visual
+## NOVO: Sistema de Nível e Poder
 func add_power(amount: int) -> void:
-	power += amount
+	power = max(0, power + amount)
 	if label_node:
-		label_node.queue_redraw() # Força o redesenho do texto
+		label_node.queue_redraw()
+
+func upgrade_level() -> void:
+	domain_level += 1
+	if label_node:
+		label_node.queue_redraw()
+
+## NOVO: Conversor de Números Romanos (Suporta até X)
+func _get_roman_level(lv: int) -> String:
+	var roman_map = {
+		1: "I", 2: "II", 3: "III", 4: "IV", 5: "V",
+		6: "VI", 7: "VII", 8: "VIII", 9: "IX", 10: "X"
+	}
+	return roman_map.get(lv, str(lv))
 
 func generate_vagabond_name() -> String:
 	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -107,9 +120,11 @@ func _draw_label() -> void:
 	var downscale = 1.0 / upscale
 	label_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2(downscale, downscale))
 
-	# ATUALIZADO: Formato do título conforme solicitado
-	var text = domain_name + " ⭐ " + str(power)
-	var font_size = 56 
+	# ATUALIZADO: {LEVEL} DOMAIN_NAME ⭐ POWER
+	var roman_lv = _get_roman_level(domain_level)
+	var text = "{%s} %s ⭐ %d" % [roman_lv, domain_name.to_upper(), power]
+	
+	var font_size = 48
 	var text_size = high_res_font.get_string_size(text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size)
 	
 	var text_pos = Vector2(-text_size.x / 2.0, (outer_r * upscale) + 20.0)
