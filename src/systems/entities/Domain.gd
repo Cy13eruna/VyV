@@ -71,7 +71,7 @@ func _draw() -> void:
 	# --- SIMULAÇÃO DE OUTLINE (Compatível com todas as versões 4.x) ---
 	# Desenhamos o texto em branco 4 vezes com micro-deslocamentos para criar um contorno grosso
 	var o_dist = 4.0 # Distância do "outline" no espaço upscaled
-	var outline_color = Color.WHITE
+	var outline_color = Color.BLACK
 	
 	draw_string(high_res_font, text_pos + Vector2(o_dist, o_dist), text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, outline_color)
 	draw_string(high_res_font, text_pos + Vector2(-o_dist, o_dist), text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, outline_color)

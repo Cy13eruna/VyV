@@ -90,7 +90,7 @@ func _create_visuals() -> void:
 	# AQUI: Tintura do nome com a cor do jogador
 	text_settings.font_color = entity_color 
 	text_settings.outline_size = 16 
-	text_settings.outline_color = Color.WHITE
+	text_settings.outline_color = Color.BLACK
 	
 	label.label_settings = text_settings
 	label.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
