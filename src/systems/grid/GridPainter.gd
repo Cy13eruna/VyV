@@ -19,6 +19,10 @@ const NODE_RADIUS = 14.0
 const COLOR_OFF = Color.BLACK
 const COLOR_ON = Color.WHITE
 
+# Configurações do novo visual
+const INDICATOR_RADIUS_PCT = 0.5  # Tamanho do círculo em relação ao tile
+const GRADIENT_STEPS = 8          # Quantas camadas para suavizar o degradê
+
 func _ready() -> void:
 	_setup_layers()
 	_connect_signals()
@@ -26,7 +30,6 @@ func _ready() -> void:
 func _setup_layers() -> void:
 	for child in get_children(): child.queue_free()
 	
-	# Camadas de fundo (Z-Index negativo para garantir que fiquem abaixo de entidades)
 	edges_layer = Node2D.new()
 	edges_layer.name = "EdgesLayer"
 	edges_layer.z_index = -5
@@ -78,13 +81,29 @@ func _refresh_all() -> void:
 	if is_instance_valid(indicators_layer): indicators_layer.queue_redraw()
 	if is_instance_valid(nodes_layer): nodes_layer.queue_redraw()
 
+## --- NOVO MÉTODO DE DESENHO COM DEGRADÊ ---
+
 func _draw_indicators() -> void:
-	var color = reachable_color
-	color.a = 0.6 
+	var base_radius = tile_size * INDICATOR_RADIUS_PCT
+	
 	for pos in reachable_nodes:
-		var tris = HexMath.get_hexagram_triangles(pos, tile_size * 0.45, ROTATION_30_DEG)
-		indicators_layer.draw_colored_polygon(tris[0], color)
-		indicators_layer.draw_colored_polygon(tris[1], color)
+		_draw_soft_circle(pos, base_radius, reachable_color)
+
+func _draw_soft_circle(pos: Vector2, max_radius: float, color: Color) -> void:
+	# Desenha várias camadas de círculos com opacidade decrescente
+	# Isso cria um efeito de "Glow" ou degradê radial sem usar shaders pesados
+	for i in range(GRADIENT_STEPS):
+		var t = float(i) / float(GRADIENT_STEPS)
+		var current_radius = lerp(max_radius, max_radius * 0.2, t)
+		
+		# A curva de alpha (t * t) faz com que o centro seja mais denso e a borda mais suave
+		var alpha = lerp(0.0, 0.7, t * t) 
+		var step_color = color
+		step_color.a = alpha
+		
+		indicators_layer.draw_circle(pos, current_radius, step_color)
+
+## ------------------------------------------
 
 func _draw_edges() -> void:
 	if not grid_data or not terrain_ref: return
