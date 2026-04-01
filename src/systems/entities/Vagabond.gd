@@ -21,7 +21,7 @@ static var used_initials: Array[String] = []
 
 @export var move_range: int = 4 
 
-# NOVO: Referência à posição do domínio que criou este Vagabond
+# Referência à posição do domínio que criou este Vagabond
 var home_domain_pos: Vector2 = Vector2.ZERO
 
 var _is_highlighted: bool = false
@@ -33,7 +33,6 @@ var vagabond_name: String = ""
 
 # --- CICLO DE VIDA ---
 
-## Setup atualizado para aceitar o nome e a posição do domínio de origem
 func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int, p_name: String = "") -> void:
 	# Define a casa inicial do Vagabond (usada para cobrar poder)
 	home_domain_pos = p_grid_pos.snapped(Vector2(0.1, 0.1))
@@ -50,7 +49,7 @@ func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_i
 	_create_visuals()
 	_update_visual_state(true)
 
-# ... (Funções visuais _apply_visuals, _setup_font_resource, _create_visuals permanecem iguais) ...
+# ... (Funções visuais preservadas) ...
 
 func _setup_font_resource() -> void:
 	if _high_res_font: return
@@ -116,57 +115,52 @@ func _create_visuals() -> void:
 	label.position = Vector2(-text_size.x / 2.0, 40) 
 	hires_container.add_child(label)
 
-func set_facing_direction(moves_right: bool) -> void:
-	var flip_node = find_child("EmojiFlip", true, false)
-	if flip_node:
-		flip_node.scale.x = -1.0 if moves_right else 1.0
+# --- LÓGICA DE JOGO ATUALIZADA (REVOLTA) ---
 
-# --- FEEDBACKS VISUAIS ---
-
-func _update_visual_state(instant: bool = false) -> void:
-	var view = get_node_or_null("View")
-	if not view: return
-	var target_scale = Vector2(1.25, 1.25) if _is_highlighted else Vector2.ONE
-	var target_alpha = 1.0 if ap > 0 else 0.7
-	var emoji = view.find_child("Emoji", true, false)
-	if emoji and emoji.label_settings:
-		emoji.label_settings.font_color = entity_color
-	var label = view.find_child("IDLabel", true, false)
-	if label and label.label_settings:
-		label.label_settings.font_color = entity_color
-	if instant:
-		view.scale = target_scale
-		view.modulate.a = target_alpha
-	else:
-		var tween = create_tween().set_parallel(true).set_ease(Tween.EASE_OUT)
-		tween.tween_property(view, "scale", target_scale, 0.2).set_trans(Tween.TRANS_QUAD)
-		tween.tween_property(view, "modulate:a", target_alpha, 0.25)
-
-# --- LÓGICA DE JOGO ATUALIZADA ---
-
-## NOVO: Agora o uso de AP é condicionado ao Poder do Domínio de origem
+## Consome AP e verifica se deve cobrar Poder ou entrar em Revolta
 func use_ap() -> bool:
 	if not has_ap():
 		return false
 		
 	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
 	
-	# Se existir um gestor de domínios, tentamos cobrar o custo (1 AP = 1 Poder)
-	if is_instance_valid(domain_mgr) and domain_mgr.has_method("consume_power_at"):
-		var success = domain_mgr.consume_power_at(home_domain_pos, 1)
+	if is_instance_valid(domain_mgr):
+		# REGRA: Se o domínio de origem está ocupado por inimigo, entra em REVOLTA
+		# No estado de revolta, o consumo de poder é ignorado (sucesso automático)
+		var in_revolt = domain_mgr.has_method("is_in_revolt") and domain_mgr.is_in_revolt(home_domain_pos, owner_id)
 		
-		if success:
-			ap -= 1 
+		if in_revolt:
+			print("[Vagabond] %s em REVOLTA! Ação gratuita de Poder." % vagabond_name)
+			ap -= 1
 			_play_action_animation()
+			_apply_revolt_visual_feedback()
 			return true
-		else:
-			print("[Vagabond] Falha ao mover: Domínio de origem em %s não tem Poder!" % str(home_domain_pos))
-			return false
+			
+		# Lógica Normal: Tenta cobrar o custo de Poder do domínio
+		if domain_mgr.has_method("consume_power_at"):
+			var success = domain_mgr.consume_power_at(home_domain_pos, 1)
+			if success:
+				ap -= 1 
+				_play_action_animation()
+				return true
+			else:
+				print("[Vagabond] Domínio %s sem Poder!" % str(home_domain_pos))
+				return false
 	
-	# Fallback: Se não houver domain_manager (ex: teste rápido), gasta AP normalmente
+	# Fallback para testes sem gestor
 	ap -= 1
 	_play_action_animation()
 	return true
+
+func _apply_revolt_visual_feedback() -> void:
+	var view = get_node_or_null("View")
+	if view:
+		# Pequeno tremor e flash vermelho para indicar revolta
+		var tween = create_tween()
+		tween.tween_property(view, "modulate", Color.ORANGE_RED, 0.1)
+		tween.tween_property(view, "modulate", Color.WHITE, 0.1)
+
+# --- RESTANTE DAS FUNÇÕES ---
 
 func restore_ap() -> void:
 	ap = max_ap 
@@ -194,10 +188,27 @@ func update_fow_visibility(lit_nodes: Array, instant: bool = false) -> void:
 		if is_lit: self.visible = true
 		else: tween.finished.connect(func(): if is_instance_valid(self): self.visible = false)
 
+func _update_visual_state(instant: bool = false) -> void:
+	var view = get_node_or_null("View")
+	if not view: return
+	var target_scale = Vector2(1.25, 1.25) if _is_highlighted else Vector2.ONE
+	var target_alpha = 1.0 if ap > 0 else 0.7
+	var emoji = view.find_child("Emoji", true, false)
+	if emoji and emoji.label_settings:
+		emoji.label_settings.font_color = entity_color
+	var label = view.find_child("IDLabel", true, false)
+	if label and label.label_settings:
+		label.label_settings.font_color = entity_color
+	if instant:
+		view.scale = target_scale
+		view.modulate.a = target_alpha
+	else:
+		var tween = create_tween().set_parallel(true).set_ease(Tween.EASE_OUT)
+		tween.tween_property(view, "scale", target_scale, 0.2).set_trans(Tween.TRANS_QUAD)
+		tween.tween_property(view, "modulate:a", target_alpha, 0.25)
+
 func has_ap() -> bool:
 	return ap > 0
-
-# --- LÓGICA DE GERAÇÃO ÚNICA ---
 
 func _generate_unique_initial_name(length: int) -> String:
 	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"

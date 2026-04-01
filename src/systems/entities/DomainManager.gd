@@ -9,7 +9,6 @@ func _ready() -> void:
 	_load_resources.call_deferred()
 	
 	if is_instance_valid(Signals) and Signals.has_signal("turn_started"):
-		# Conecta garantindo que não haja duplicatas
 		if Signals.turn_started.is_connected(_on_turn_started):
 			Signals.turn_started.disconnect(_on_turn_started)
 		Signals.turn_started.connect(_on_turn_started)
@@ -36,19 +35,40 @@ func get_domain_at(world_pos: Vector2) -> Node2D:
 				return inst
 	return null
 
-## --- NOVA API: GESTÃO DE PODER INDIVIDUALIZADA ---
+## --- NOVA REGRA: ESTADO DE REVOLTA E OCUPAÇÃO ---
 
-# Retorna o poder de um domínio específico baseado na sua posição
+# Verifica se um domínio está ocupado por um inimigo (unidade de ID diferente do dono)
+func is_domain_occupied_by_enemy(world_pos: Vector2, owner_id: int) -> bool:
+	var v_mgr = get_tree().get_first_node_in_group("vagabond_manager")
+	if not is_instance_valid(v_mgr): return false
+	
+	var vagabond = v_mgr.get_vagabond_at(world_pos)
+	if is_instance_valid(vagabond):
+		# Está ocupado se houver alguém lá E esse alguém não for o dono do domínio
+		return vagabond.get("owner_id") != owner_id
+	return false
+
+# Retorna se as unidades deste domínio estão em revolta
+func is_in_revolt(home_pos: Vector2, owner_id: int) -> bool:
+	return is_domain_occupied_by_enemy(home_pos, owner_id)
+
+## --- API DE PODER ---
+
 func get_domain_power_at(world_pos: Vector2) -> int:
 	var domain = get_domain_at(world_pos)
 	if is_instance_valid(domain):
 		return domain.get("power") if domain.get("power") != null else 0
 	return 0
 
-# Consome poder de um domínio específico. Retorna true se teve saldo.
 func consume_power_at(world_pos: Vector2, amount: int) -> bool:
+	# Antes de consumir, verificamos se o domínio está em revolta (custo zero)
+	# Nota: A lógica de custo zero pode ser tratada aqui ou no Vagabond.use_ap()
 	var domain = get_domain_at(world_pos)
 	if is_instance_valid(domain):
+		var owner_id = domain.get("owner_id")
+		if is_in_revolt(world_pos, owner_id):
+			return true # Sucesso imediato sem gastar nada
+			
 		var current_power = domain.get("power") if domain.get("power") != null else 0
 		if current_power >= amount:
 			if domain.has_method("add_power"):
@@ -93,7 +113,7 @@ func create_domain(world_pos: Vector2, color: Color, owner_id: int = -1, tile_si
 	
 	return new_domain
 
-## --- LÓGICA DE SPAWN (ESTRATÉGIA DE BORDAS) ---
+## --- LOGICA DE SPAWN ---
 
 func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr: Node):
 	clear_domains()
@@ -152,17 +172,20 @@ func _create_capital(id: int, grid_pos: Vector2, grid: Node2D, v_mgr: Node2D, tu
 		v_name = domain_inst.generate_vagabond_name()
 	
 	if v_mgr and v_mgr.has_method("_create_vagabond"):
-		# No futuro, passaremos o grid_pos do domínio para o Vagabond como 'home_domain'
 		v_mgr._create_vagabond(grid_pos, p_color, id, grid, v_name)
 
-## ATUALIZADO: Produção de Poder
+## ATUALIZADO: Produção Interrompida por Invasão
 func _on_turn_started(player_id: int, _player_color: Color, round_number: int) -> void:
-	# Evita bônus duplo no setup inicial
-	if round_number == 1:
-		return
+	if round_number == 1: return
 		
 	for inst in domain_instances:
 		if is_instance_valid(inst) and inst.get("owner_id") == player_id:
+			var pos = inst.get("grid_pos")
+			
+			# REGRA: Se o centro estiver ocupado por um inimigo, pula produção
+			if is_domain_occupied_by_enemy(pos, player_id):
+				print("[DomainManager] Produção suspensa em %s: Inimigo detectado!" % str(pos))
+				continue
+				
 			if inst.has_method("add_power"):
-				# Cada domínio produz seu próprio poder independentemente
 				inst.add_power(1)
