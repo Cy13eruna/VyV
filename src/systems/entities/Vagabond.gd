@@ -6,6 +6,9 @@ class_name Vagabond
 signal action_points_changed(current_ap: int, max_ap: int)
 signal exhaustion_triggered()
 
+# --- CONTROLE DE UNICIDADE (ESTÁTICO) ---
+static var used_initials: Array[String] = []
+
 # --- PROPRIEDADES DE ATRIBUTOS ---
 
 @export var max_ap: int = 1
@@ -23,9 +26,16 @@ var _is_highlighted: bool = false
 var _high_res_font: SystemFont 
 var _emoji_font: SystemFont # Fonte dedicada para evitar bugs no flip
 
+# Nova variável para o nome de 3 caracteres
+var vagabond_name: String = ""
+
 # --- CICLO DE VIDA ---
 
 func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int) -> void:
+	# Geramos o nome antes do setup visual para que a Label já nasça com o texto certo
+	if vagabond_name.is_empty():
+		vagabond_name = _generate_unique_initial_name(3)
+		
 	super.setup(p_global_pos, p_grid_pos, p_color, p_owner_id)
 	self.z_index = 10 
 	
@@ -41,7 +51,6 @@ func _apply_visuals() -> void:
 func _setup_font_resource() -> void:
 	if _high_res_font: return
 	
-	# Fonte principal para textos (com MSDF ativo para alta resolução)
 	_high_res_font = SystemFont.new()
 	_high_res_font.multichannel_signed_distance_field = true
 	_high_res_font.msdf_pixel_range = 16
@@ -49,7 +58,6 @@ func _setup_font_resource() -> void:
 	_high_res_font.set_antialiasing(1) 
 	_high_res_font.generate_mipmaps = true
 
-	# Fonte para o emoji (SEM MSDF para permitir o flip de eixos sem bugar)
 	_emoji_font = SystemFont.new()
 	_emoji_font.multichannel_signed_distance_field = false
 	_emoji_font.generate_mipmaps = true
@@ -68,12 +76,11 @@ func _create_visuals() -> void:
 	hires_container.scale = Vector2(0.25, 0.25)
 	view.add_child(hires_container)
 
-	# --- CONTAINER DE FLIP ISOLADO PARA O EMOJI ---
 	var emoji_flip = Node2D.new()
 	emoji_flip.name = "EmojiFlip"
 	hires_container.add_child(emoji_flip)
 
-	# 1. EMOJI (Dentro de emoji_flip e usando a fonte dedicada)
+	# 1. EMOJI
 	var emoji = Label.new()
 	emoji.name = "Emoji"
 	emoji.text = "🚶‍♀️" 
@@ -92,17 +99,13 @@ func _create_visuals() -> void:
 	emoji.custom_minimum_size = emoji_size
 	
 	var vertical_offset = 12.0 
-	
-	# Centralização perfeita do emoji no X = 0 para o flip funcionar redondo
 	emoji.position = Vector2(-emoji_size.x / 2.0, -emoji_size.y + vertical_offset) 
-	
-	# Adicionado no container de flip
 	emoji_flip.add_child(emoji)
 	
-	# 2. LABEL DE TEXTO (Fora do emoji_flip para não espelhar as letras)
+	# 2. LABEL DE TEXTO (Agora usando vagabond_name)
 	var label = Label.new()
 	label.name = "IDLabel"
-	label.text = "VAGABOND"
+	label.text = vagabond_name
 	
 	var text_settings = LabelSettings.new()
 	text_settings.font = _high_res_font
@@ -122,13 +125,9 @@ func _create_visuals() -> void:
 	
 	hires_container.add_child(label)
 
-# --- MÉTODO DE FLIP ---
 func set_facing_direction(moves_right: bool) -> void:
-	# O terceiro parâmetro 'false' desliga a exigência de 'owner' no Godot 4
 	var flip_node = find_child("EmojiFlip", true, false)
 	if flip_node:
-		# Como o emoji 🚶‍♀️ por padrão olha para a esquerda,
-		# invertemos a escala (X = -1) quando ele for para a direita.
 		flip_node.scale.x = -1.0 if moves_right else 1.0
 
 # --- FEEDBACKS VISUAIS ---
@@ -194,3 +193,36 @@ func update_fow_visibility(lit_nodes: Array, instant: bool = false) -> void:
 
 func has_ap() -> bool:
 	return ap > 0
+
+# --- LÓGICA DE GERAÇÃO ÚNICA COM ACENTUAÇÃO ---
+
+func _generate_unique_initial_name(length: int) -> String:
+	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	var accented_alphabet = "ÁÀÂÃÉÈÊÍÌÎÓÒÔÕÚÙÛÇÖÜËÏ"
+	
+	var available_initials = ""
+	
+	for char in standard_alphabet:
+		if not char in used_initials:
+			available_initials += char
+			
+	if available_initials.length() == 0:
+		for char in accented_alphabet:
+			if not char in used_initials:
+				available_initials += char
+				
+	if available_initials.length() == 0:
+		used_initials.clear()
+		available_initials = standard_alphabet
+		
+	var initial = available_initials[randi() % available_initials.length()]
+	used_initials.append(initial)
+	
+	var rest = ""
+	for i in range(length - 1):
+		rest += standard_alphabet[randi() % standard_alphabet.length()]
+		
+	return initial + rest
+
+static func reset_vagabond_registry() -> void:
+	used_initials.clear()
