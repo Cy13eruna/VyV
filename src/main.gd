@@ -91,7 +91,7 @@ func _setup_managers() -> void:
 	input_handler = load("res://src/systems/input/InputHandler.gd").new(self)
 	visibility_manager = load("res://src/systems/visibility/VisibilityManager.gd").new()
 
-	# 7. Câmera
+	# 7. Câmera (CameraController agora gerencia a visão individual de cada jogador)
 	camera_controller = Camera2D.new()
 	camera_controller.set_script(load("res://src/systems/camera/CameraController.gd"))
 	camera_controller.name = "RTSCamera"
@@ -116,8 +116,6 @@ func _show_initial_menu() -> void:
 		menu.match_requested.connect(_on_match_requested)
 
 func _on_match_requested(player_count: int) -> void:
-	# Delegamos TUDO ao MatchManager. 
-	# Ele cuidará do setup do TurnManager, Grid, Spawns e o anúncio do Turno 1.
 	if is_instance_valid(match_manager):
 		match_manager.setup_game(player_count)
 
@@ -137,6 +135,16 @@ func _setup_hud() -> void:
 func _on_global_turn_started(player_id: int, p_color: Color, _round_num: int) -> void:
 	_update_game_visibility(true)
 	
+	# --- LÓGICA DE CÂMERA POR JOGADOR ---
+	# Movemos a câmera para a capital do jogador atual
+	if is_instance_valid(camera_controller) and is_instance_valid(turn_manager):
+		var target_pos = turn_manager.get_current_start_pos()
+		if camera_controller.has_method("focus_on_position"):
+			camera_controller.focus_on_position(target_pos)
+		else:
+			camera_controller.global_position = target_pos
+
+	# --- ATUALIZAÇÃO DE UI ---
 	var p_name = "PLAYER " + str(player_id + 1)
 	if is_instance_valid(turn_manager):
 		p_name = turn_manager.get_player_name_by_id(player_id)

@@ -15,15 +15,16 @@ const COLOR_OPTIONS = {
 var total_players: int = 0
 var current_player_index: int = 0
 var turn_number: int = 1
-var player_colors: Array = [] # Armazena os nomes (Strings) das cores escolhidas
+var player_colors: Array = [] 
+# 📸 NOVA VARIÁVEL: Armazena a posição da capital de cada jogador
+var player_starting_positions: Dictionary = {} 
 
 func setup(p_player_count: int) -> void:
 	total_players = clamp(p_player_count, 1, COLOR_OPTIONS.size())
 	current_player_index = 0
 	turn_number = 1
+	player_starting_positions.clear() # Limpa posições de partidas anteriores
 	_assign_random_colors()
-	# CORREÇÃO: Removido o _announce_turn() daqui. 
-	# O MatchManager chamará start_first_turn() quando o mapa estiver pronto.
 
 func _assign_random_colors() -> void:
 	var keys = COLOR_OPTIONS.keys()
@@ -31,7 +32,11 @@ func _assign_random_colors() -> void:
 	player_colors = keys.slice(0, total_players)
 	print("[TurnManager] Jogadores inicializados: ", player_colors)
 
-# Nova função para ser chamada pelo MatchManager ao fim do spawn
+# Chamado pelo DomainManager durante o spawn das capitais
+func register_player_start_position(p_id: int, p_pos: Vector2) -> void:
+	player_starting_positions[p_id] = p_pos
+	print("[TurnManager] Posição inicial registrada para Player ", p_id, ": ", p_pos)
+
 func start_first_turn() -> void:
 	_announce_turn()
 
@@ -48,26 +53,33 @@ func _announce_turn() -> void:
 	var color_name = player_colors[current_player_index]
 	var p_color = COLOR_OPTIONS[color_name]
 	
+	# Buscamos a posição da câmera para este jogador
+	var p_pos = player_starting_positions.get(current_player_index, Vector2.ZERO)
+	
 	var player_data = {
 		"id": current_player_index,
 		"name": color_name,
 		"color": p_color,
-		"round": turn_number
+		"round": turn_number,
+		"camera_pos": p_pos # Injetamos a posição nos dados do turno
 	}
 	
 	print("[TurnManager] Vez de: ", player_data.name, " (ID: ", player_data.id, ")")
 	
-	# Emite localmente
 	turn_started.emit(player_data)
 	
-	# Emite para o barramento global (Signals)
 	if is_instance_valid(Signals):
+		# O sinal global agora também pode passar a posição se você desejar, 
+		# mas manteremos a assinatura para não quebrar outros sistemas.
 		Signals.turn_started.emit(player_data.id, player_data.color, turn_number)
 
 # --- GETTERS ---
 
 func get_current_id() -> int:
 	return current_player_index
+
+func get_current_start_pos() -> Vector2:
+	return player_starting_positions.get(current_player_index, Vector2.ZERO)
 
 func get_player_color_by_id(id: int) -> Color:
 	if id >= 0 and id < player_colors.size():

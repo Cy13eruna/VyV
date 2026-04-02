@@ -9,10 +9,13 @@ func _ready() -> void:
 	add_to_group("domain_manager")
 	_load_resources.call_deferred()
 	
-	if is_instance_valid(Signals) and Signals.has_signal("turn_started"):
-		if Signals.turn_started.is_connected(_on_turn_started):
-			Signals.turn_started.disconnect(_on_turn_started)
-		Signals.turn_started.connect(_on_turn_started)
+	if is_instance_valid(Signals):
+		_reconnect_signal(Signals.turn_started, _on_turn_started)
+
+func _reconnect_signal(sig: Signal, callable: Callable) -> void:
+	if sig.is_connected(callable):
+		sig.disconnect(callable)
+	sig.connect(callable)
 
 func _load_resources() -> void:
 	domain_script = load("res://src/systems/entities/Domain.gd")
@@ -64,7 +67,6 @@ func consume_power_at(world_pos: Vector2, amount: int) -> bool:
 	if is_instance_valid(domain):
 		var owner_id = domain.get("owner_id")
 		
-		# Se estiver em revolta, o custo de "manutenção" é ignorado ou o movimento é livre
 		if is_in_revolt(world_pos, owner_id):
 			return true 
 			
@@ -73,12 +75,9 @@ func consume_power_at(world_pos: Vector2, amount: int) -> bool:
 			if domain.has_method("add_power"):
 				domain.add_power(-amount)
 				
-				# 💡 CORREÇÃO: Verifica se o poder secou após o consumo
-				# Se chegou a zero, avisamos o sistema para exaurir unidades
 				var new_power = domain.get("power")
 				if new_power <= 0 and is_instance_valid(Signals):
 					Signals.domain_power_depleted.emit(owner_id)
-					print("[DomainManager] Poder esgotado para P%d. Enviando sinal de exaustão." % owner_id)
 					
 				return true
 	return false
@@ -122,7 +121,7 @@ func create_domain(world_pos: Vector2, color: Color, owner_id: int = -1, tile_si
 
 ## --- LOGICA DE SPAWN ---
 
-func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr: Node):
+func spawn_domains(player_count: int, grid_mgr: Node2D, _v_mgr: Node2D, turn_mgr: Node):
 	clear_domains()
 	if not grid_mgr or not grid_mgr.data: return
 	
@@ -152,38 +151,42 @@ func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr:
 				best_node = pos
 		edge_positions.append(best_node)
 
-	var selected_indices = range(6)
+	var selected_indices = range(edge_positions.size())
 	selected_indices.shuffle()
 	selected_indices = selected_indices.slice(0, player_count)
 
-	var spawned = 0
-	for idx in selected_indices:
-		_create_capital(spawned, edge_positions[idx], turn_mgr, t_size)
-		spawned += 1
+	for i in range(selected_indices.size()):
+		var idx = selected_indices[i]
+		_create_capital(i, edge_positions[idx], turn_mgr, t_size)
 
 func _create_capital(id: int, grid_pos: Vector2, turn: Node, t_size: float):
-	if not turn: return
-	var color_options = turn.get("COLOR_OPTIONS")
-	var player_colors = turn.get("player_colors")
+	if not is_instance_valid(turn): return
 	
-	if color_options == null or player_colors == null or id >= player_colors.size():
-		return
+	var p_color = turn.get_player_color_by_id(id)
 	
-	var color_name = player_colors[id]
-	var p_color = color_options[color_name]
-	
+	# 1. Cria a entidade
 	create_domain(grid_pos, p_color, id, t_size)
-	print("[DomainManager] Capital P%d criada em %s." % [id, grid_pos])
+	
+	# 💡 CORREÇÃO CRÍTICA: Se grid_pos já está na casa dos centenas (ex: 128, -221), 
+	# ele já é a posição de mundo. Não multiplique novamente por t_size.
+	var final_world_pos = grid_pos 
+	
+	# Caso o seu sistema use coordenadas axiais (ex: 1, 2), aí sim multiplicamos.
+	# Verificação simples: se a distância for maior que 50, assumimos que já é posição de mundo.
+	if grid_pos.length() < 50.0:
+		final_world_pos = grid_pos * t_size
 
-## Produção Interrompida por Invasão
-func _on_turn_started(player_id: int, _player_color: Color, round_number: int) -> void:
+	if turn.has_method("register_player_start_position"):
+		turn.register_player_start_position(id, final_world_pos)
+		
+	print("[DomainManager] P%d: Grid %s -> Câmera em %s" % [id, grid_pos, final_world_pos])
+
+## Produção
+func _on_turn_started(player_id: int, _player_color: Color, _round_number: int) -> void:
 	for inst in domain_instances:
 		if is_instance_valid(inst) and inst.get("owner_id") == player_id:
 			var pos = inst.get("grid_pos")
-			
 			if is_domain_occupied_by_enemy(pos, player_id):
-				print("[DomainManager] Produção suspensa em %s: Inimigo detectado!" % str(pos))
 				continue
-				
 			if inst.has_method("add_power"):
 				inst.add_power(1)
