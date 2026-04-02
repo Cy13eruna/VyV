@@ -22,7 +22,6 @@ func _reconnect_signals() -> void:
 			Signals.turn_started.disconnect(_on_turn_started)
 		Signals.turn_started.connect(_on_turn_started)
 	
-	# 💡 NOVO: Escuta quando o poder de um domínio acaba
 	if Signals.has_signal("domain_power_depleted"):
 		if Signals.domain_power_depleted.is_connected(_on_domain_power_depleted):
 			Signals.domain_power_depleted.disconnect(_on_domain_power_depleted)
@@ -47,26 +46,21 @@ func _on_turn_started(player_id: int, _p_color: Color, _round_num: int) -> void:
 	
 	reset_aps_for_player(player_id)
 
-# 💡 NOVO: Quando o domínio atinge 0, exaurimos todas as unidades daquele jogador
 func _on_domain_power_depleted(p_owner_id: int) -> void:
 	print("[VagabondManager] Poder do domínio P%d esgotado. Exaurindo unidades..." % p_owner_id)
 	
 	for v in active_vagabonds:
 		if is_instance_valid(v) and v.get("owner_id") == p_owner_id:
-			# Forçamos o AP para 0 e chamamos a exaustão visual se existir
 			v.set("ap", 0)
 			if v.has_method("set_exhausted"):
 				v.set_exhausted()
 			
-			# Notifica a UI de que o AP mudou (para atualizar as bolinhas/barra de AP)
 			if Signals.has_signal("unit_ap_changed"):
 				Signals.unit_ap_changed.emit(v, 0, v.get("max_ap") if v.get("max_ap") else 1)
 	
-	# Limpamos os destaques de movimento no mapa
 	if is_instance_valid(_painter) and _painter.has_method("update_reachable"):
 		_painter.update_reachable([], Color.WHITE)
 	
-	# Opcional: Deselecionar a unidade atual se ela pertencer ao jogador esgotado
 	if is_instance_valid(Signals):
 		Signals.unit_deselected.emit()
 
@@ -90,7 +84,6 @@ func select_vagabond(v: Node2D) -> void:
 	
 	if not grid_mgr: return
 
-	# 💡 SEGURANÇA: Se a unidade já está sem AP, não mostra alcance
 	if v.get("ap") <= 0:
 		_painter.update_reachable([], Color.WHITE)
 		return
@@ -138,8 +131,15 @@ func spawn_players(player_count: int, turn_manager: Node, grid_manager: Node2D) 
 			var color_value = turn_manager.COLOR_OPTIONS[color_name]
 			
 			if domain_manager and domain_manager.has_method("create_domain"):
-				domain_manager.create_domain(clean_pos, color_value, spawned, grid_manager.tile_size)
-				print("[VagabondManager] Domínio inicial criado para P%d em %s" % [spawned, clean_pos])
+				var new_domain = domain_manager.create_domain(clean_pos, color_value, spawned, grid_manager.tile_size)
+				
+				# 💡 GARANTIA: Todos nascem com 1. O incremento para 2 deve vir do TurnStarted.
+				if is_instance_valid(new_domain):
+					new_domain.set("power", 1)
+					if new_domain.has_method("_refresh_all"):
+						new_domain.call("_refresh_all")
+				
+				print("[VagabondManager] Capital P%d criada com 1 Poder em %s" % [spawned, clean_pos])
 				spawned += 1
 
 func _create_vagabond(grid_pos: Vector2, color: Color, player_id: int, grid: Node2D, v_name: String = "") -> void:

@@ -1,3 +1,4 @@
+# res://src/Main.gd
 extends Node
 
 # Containers básicos
@@ -75,12 +76,14 @@ func _setup_managers() -> void:
 	domain_manager = Node2D.new()
 	domain_manager.set_script(load("res://src/systems/entities/DomainManager.gd"))
 	domain_manager.name = "DomainManager"
+	domain_manager.add_to_group("domain_manager")
 	world.add_child(domain_manager)
 	
 	# 5. Vagabond Manager
 	vagabond_manager = Node2D.new()
 	vagabond_manager.set_script(load("res://src/systems/entities/VagabondManager.gd"))
 	vagabond_manager.name = "VagabondManager"
+	vagabond_manager.add_to_group("vagabond_manager")
 	world.add_child(vagabond_manager)
 	
 	# 6. Auxiliares
@@ -113,8 +116,19 @@ func _show_initial_menu() -> void:
 		menu.match_requested.connect(_on_match_requested)
 
 func _on_match_requested(player_count: int) -> void:
+	# 1. Primeiro geramos o mapa e as capitais
 	match_manager.setup_game(player_count)
+	
+	# 2. Configuramos o HUD
 	_setup_hud()
+	
+	# 💡 CORREÇÃO: Esperamos um frame para garantir que o DomainManager 
+	# terminou de instanciar as capitais antes do TurnManager anunciar o turno.
+	get_tree().process_frame.connect(func():
+		if is_instance_valid(turn_manager):
+			print("[Main] Mundos e Domínios prontos. Iniciando Turno 1.")
+			turn_manager.setup(player_count)
+	, CONNECT_ONE_SHOT)
 
 func _setup_hud() -> void:
 	if is_instance_valid(game_hud):
@@ -129,17 +143,13 @@ func _setup_hud() -> void:
 		if game_hud.has_signal("end_turn_requested"):
 			game_hud.end_turn_requested.connect(_on_end_turn_requested)
 
-## CORRIGIDO: Parâmetros ajustados para 3 argumentos e erro de indentação resolvido
 func _on_global_turn_started(player_id: int, p_color: Color, _round_num: int) -> void:
-	await get_tree().process_frame
 	_update_game_visibility(true)
 	
-	# BUSCA DO NOME PARA EVITAR "UNKNOWN"
 	var p_name = "PLAYER " + str(player_id + 1)
 	if is_instance_valid(turn_manager) and turn_manager.player_colors.size() > player_id:
 		p_name = turn_manager.player_colors[player_id]
 
-	# CORREÇÃO: Usando p_color que vem do argumento
 	var data = {
 		"id": player_id,
 		"name": p_name,
@@ -148,14 +158,12 @@ func _on_global_turn_started(player_id: int, p_color: Color, _round_num: int) ->
 	
 	ui_manager.change_screen("res://src/ui/PlayerTurnScreen.gd", data)
 	
-	# Verificação e Reordenamento do HUD
 	if not is_instance_valid(game_hud) or game_hud.get_parent() == null:
 		_setup_hud()
 	
 	if game_hud.get_parent() == ui_screen_container:
 		ui_screen_container.move_child(game_hud, -1)
 	
-	# O HUD agora se atualiza via Signals, mas chamamos por segurança se necessário
 	if game_hud.has_method("_on_turn_started"):
 		game_hud._on_turn_started(player_id, p_color, _round_num)
 
@@ -164,7 +172,6 @@ func _on_unit_moved(_unit: Node2D, _from: Vector2, _to: Vector2) -> void:
 
 func _on_end_turn_requested() -> void:
 	if is_instance_valid(turn_manager):
-		print("[Main] Finalizando turno via HUD.")
 		if input_handler and input_handler.has_method("_deselect_current"):
 			input_handler._deselect_current()
 		
@@ -178,7 +185,6 @@ func _update_game_visibility(force_instant: bool = false) -> void:
 		
 	var domains = []
 	if is_instance_valid(domain_manager):
-		# Tenta pegar o dicionário direto ou via método
 		if "active_domains" in domain_manager:
 			domains = domain_manager.get("active_domains")
 		elif domain_manager.has_method("get_all_domains"):
