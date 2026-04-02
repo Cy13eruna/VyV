@@ -102,38 +102,56 @@ func _create_popup_system() -> void:
 func _on_open_upgrade_popup(domain: Node2D) -> void:
 	var options = [
 		{
-			"emoji": "🚶‍♀️", # Ícone de passos para representar o novo Vagabond
-			"callback": func(): _execute_upgrade(domain)
+			"emoji": "🚶‍♀️", 
+			"callback": func(): _open_confirmation_popup(domain)
 		}
 	]
-	# Título atualizado para refletir a nova função
-	open_popup("RECRUIT VAGABOND", "~ cost: ⭐%d ~" % domain.domain_level, options)
+	open_popup("UPGRADE DOMAIN", "~ cost: ⭐%d ~" % domain.domain_level, options)
+
+func _open_confirmation_popup(domain: Node2D) -> void:
+	var confirm_options = [
+		{
+			"emoji": "Do It",
+			"callback": func(): _execute_upgrade(domain),
+			"is_text_button": true
+		}
+	]
+	
+	var sub_text = "Creates a new basic unit to wander the world.\nCost: ⭐ %d" % domain.domain_level
+	open_popup("New Vagabond", sub_text, confirm_options)
 
 func _execute_upgrade(domain: Node2D) -> void:
-	# A função upgrade_level() agora herda a lógica de spawnar o vagabundo
 	if domain.has_method("upgrade_level"):
 		domain.upgrade_level()
 	else:
-		# Fallback de segurança caso o script do domínio ainda seja o antigo
 		domain.add_power(-domain.domain_level)
 		domain.set("domain_level", domain.get("domain_level") + 1)
+	_close_popup()
 
 # --- FUNÇÕES CORE DO POP-UP ---
 
 func open_popup(title: String, subtitle: String, options: Array) -> void:
 	if not is_inside_tree(): return
 	
+	# CORREÇÃO: Usar queue_free() em vez de free() para evitar o erro de "Object locked"
 	for child in popup_options_hbox.get_children():
-		child.free()
+		popup_options_hbox.remove_child(child)
+		child.queue_free()
 	
 	title_label.text = title
 	subtitle_label.text = subtitle
 	
 	for opt in options:
-		var btn = _create_circle_button(opt.emoji, opt.callback)
+		var btn: Button
+		if opt.get("is_text_button", false):
+			btn = _create_rect_button(opt.emoji, opt.callback)
+		else:
+			btn = _create_circle_button(opt.emoji, opt.callback)
 		popup_options_hbox.add_child(btn)
 	
 	popup_layer.visible = true
+	
+	# Forçar atualização de layout
 	popup_vbox.reset_size()
 	popup_balloon.reset_size()
 	
@@ -152,7 +170,8 @@ func _create_circle_button(emoji: String, callback: Callable) -> Button:
 	var btn_style = StyleBoxFlat.new()
 	btn_style.bg_color = Color.WHITE
 	btn_style.set_corner_radius_all(32) 
-	btn_style.set_border_width_all(0) 
+	btn_style.set_border_width_all(2)
+	btn_style.border_color = Color.GHOST_WHITE
 	
 	btn.add_theme_stylebox_override("normal", btn_style)
 	btn.add_theme_stylebox_override("hover", btn_style)
@@ -162,7 +181,25 @@ func _create_circle_button(emoji: String, callback: Callable) -> Button:
 	
 	btn.pressed.connect(func():
 		callback.call()
-		_close_popup()
+	)
+	return btn
+
+func _create_rect_button(text: String, callback: Callable) -> Button:
+	var btn = Button.new()
+	btn.text = text
+	btn.custom_minimum_size = Vector2(120, 45)
+	btn.focus_mode = Control.FOCUS_NONE
+	
+	var btn_style = StyleBoxFlat.new()
+	btn_style.bg_color = Color.BLACK
+	btn_style.set_corner_radius_all(4)
+	
+	btn.add_theme_stylebox_override("normal", btn_style)
+	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_font_size_override("font_size", 16)
+	
+	btn.pressed.connect(func():
+		callback.call()
 	)
 	return btn
 
