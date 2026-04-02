@@ -116,19 +116,10 @@ func _show_initial_menu() -> void:
 		menu.match_requested.connect(_on_match_requested)
 
 func _on_match_requested(player_count: int) -> void:
-	# 1. Primeiro geramos o mapa e as capitais
-	match_manager.setup_game(player_count)
-	
-	# 2. Configuramos o HUD
-	_setup_hud()
-	
-	# 💡 CORREÇÃO: Esperamos um frame para garantir que o DomainManager 
-	# terminou de instanciar as capitais antes do TurnManager anunciar o turno.
-	get_tree().process_frame.connect(func():
-		if is_instance_valid(turn_manager):
-			print("[Main] Mundos e Domínios prontos. Iniciando Turno 1.")
-			turn_manager.setup(player_count)
-	, CONNECT_ONE_SHOT)
+	# Delegamos TUDO ao MatchManager. 
+	# Ele cuidará do setup do TurnManager, Grid, Spawns e o anúncio do Turno 1.
+	if is_instance_valid(match_manager):
+		match_manager.setup_game(player_count)
 
 func _setup_hud() -> void:
 	if is_instance_valid(game_hud):
@@ -147,8 +138,8 @@ func _on_global_turn_started(player_id: int, p_color: Color, _round_num: int) ->
 	_update_game_visibility(true)
 	
 	var p_name = "PLAYER " + str(player_id + 1)
-	if is_instance_valid(turn_manager) and turn_manager.player_colors.size() > player_id:
-		p_name = turn_manager.player_colors[player_id]
+	if is_instance_valid(turn_manager):
+		p_name = turn_manager.get_player_name_by_id(player_id)
 
 	var data = {
 		"id": player_id,
@@ -162,7 +153,7 @@ func _on_global_turn_started(player_id: int, p_color: Color, _round_num: int) ->
 		_setup_hud()
 	
 	if game_hud.get_parent() == ui_screen_container:
-		ui_screen_container.move_child(game_hud, -1)
+		ui_screen_container.move_child(game_hud, 0) 
 	
 	if game_hud.has_method("_on_turn_started"):
 		game_hud._on_turn_started(player_id, p_color, _round_num)
@@ -193,7 +184,7 @@ func _update_game_visibility(force_instant: bool = false) -> void:
 	visibility_manager.update_visibility(
 		vagabond_manager.active_vagabonds,
 		grid_manager,
-		turn_manager.current_player_index,
+		turn_manager.get_current_id(),
 		terrain_manager,
 		domains,
 		force_instant
