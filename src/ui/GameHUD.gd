@@ -36,6 +36,7 @@ func _connect_signals() -> void:
 			Signals.turn_started.disconnect(_on_turn_started)
 		Signals.turn_started.connect(_on_turn_started)
 		
+		# Conecta o sinal passando a referência do domínio e a posição do clique
 		if not Signals.request_upgrade_menu.is_connected(_on_open_upgrade_popup):
 			Signals.request_upgrade_menu.connect(_on_open_upgrade_popup)
 
@@ -99,7 +100,14 @@ func _create_popup_system() -> void:
 
 # --- LÓGICA DE UPGRADE (RECRUTAMENTO) ---
 
-func _on_open_upgrade_popup(domain: Node2D) -> void:
+## Chamado quando o jogador clica em um domínio amigável.
+func _on_open_upgrade_popup(domain: Node2D, click_position: Vector2) -> void:
+	# 1. Centraliza a câmera no domínio antes de abrir a UI
+	var camera = get_viewport().get_camera_2d()
+	if camera and camera.has_method("focus_on_position"):
+		camera.focus_on_position(click_position)
+	
+	# 2. Prepara as opções iniciais
 	var options = [
 		{
 			"emoji": "🚶‍♀️", 
@@ -108,6 +116,7 @@ func _on_open_upgrade_popup(domain: Node2D) -> void:
 	]
 	open_popup("UPGRADE DOMAIN", "~ cost: ⭐%d ~" % domain.domain_level, options)
 
+## Abre a segunda camada do pop-up para confirmar a criação da unidade.
 func _open_confirmation_popup(domain: Node2D) -> void:
 	var confirm_options = [
 		{
@@ -133,7 +142,7 @@ func _execute_upgrade(domain: Node2D) -> void:
 func open_popup(title: String, subtitle: String, options: Array) -> void:
 	if not is_inside_tree(): return
 	
-	# CORREÇÃO: Usar queue_free() em vez de free() para evitar o erro de "Object locked"
+	# Limpa botões antigos de forma segura (evita "Object locked")
 	for child in popup_options_hbox.get_children():
 		popup_options_hbox.remove_child(child)
 		child.queue_free()
@@ -151,12 +160,13 @@ func open_popup(title: String, subtitle: String, options: Array) -> void:
 	
 	popup_layer.visible = true
 	
-	# Forçar atualização de layout
+	# Forçar atualização de layout para cálculo de tamanho correto
 	popup_vbox.reset_size()
 	popup_balloon.reset_size()
 	
 	await get_tree().process_frame
 	
+	# Posiciona o balão no centro da tela (onde o domínio agora está centralizado pela câmera)
 	var center = get_viewport_rect().size / 2.0
 	popup_balloon.global_position = center - Vector2(popup_balloon.size.x / 2.0, popup_balloon.size.y + 10)
 	triangle_pointer.global_position = center - Vector2(0, 10)

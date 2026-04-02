@@ -78,7 +78,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 			if _can_open_upgrade_menu():
 				if is_instance_valid(Signals):
-					Signals.request_upgrade_menu.emit(self)
+					# ATUALIZADO: Agora envia self e a posição global para foco da câmera
+					Signals.request_upgrade_menu.emit(self, self.global_position)
 				get_viewport().set_input_as_handled()
 
 func _is_movement_active() -> bool:
@@ -89,12 +90,15 @@ func _is_movement_active() -> bool:
 	return false
 
 func _can_open_upgrade_menu() -> bool:
+	# Verifica se é o turno do dono deste domínio (opcional, mas recomendado)
+	# var turn_mgr = get_tree().get_first_node_in_group("turn_manager")
+	# if turn_mgr and turn_mgr.current_player_id != owner_id: return false
+	
 	return power >= domain_level and not _is_occupied()
 
 func _is_occupied() -> bool:
 	var v_manager = get_tree().get_first_node_in_group("vagabond_manager")
 	if is_instance_valid(v_manager) and v_manager.has_method("get_vagabond_at"):
-		# Uso da posição global para checagem precisa
 		if v_manager.get_vagabond_at(self.global_position) != null:
 			return true
 	return false
@@ -133,7 +137,6 @@ func _generate_vagabond_name_3_letters() -> String:
 func add_power(amount: int) -> void:
 	power = max(0, power + amount)
 	
-	# 💡 GATILHO DE EXAUSTÃO: Se o poder zerar (por upgrade ou consumo), sinaliza o sistema
 	if power <= 0 and is_instance_valid(Signals):
 		Signals.domain_power_depleted.emit(owner_id)
 	
