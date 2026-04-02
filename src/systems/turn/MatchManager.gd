@@ -4,7 +4,7 @@ extends RefCounted
 var main_ref: Node
 
 # Regra de Negócio: Poder com que cada capital começa a partida
-const STARTING_POWER: int = 1 
+const STARTING_POWER: int = 2
 
 func _init(p_main: Node) -> void:
 	main_ref = p_main
