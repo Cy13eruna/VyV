@@ -22,6 +22,12 @@ func _reconnect_signals() -> void:
 			Signals.turn_started.disconnect(_on_turn_started)
 		Signals.turn_started.connect(_on_turn_started)
 	
+	# NOVO: Conexão com o fim do turno para recarga de APs
+	if Signals.has_signal("turn_ended"):
+		if Signals.turn_ended.is_connected(_on_turn_ended):
+			Signals.turn_ended.disconnect(_on_turn_ended)
+		Signals.turn_ended.connect(_on_turn_ended)
+	
 	if Signals.has_signal("domain_power_depleted"):
 		if Signals.domain_power_depleted.is_connected(_on_domain_power_depleted):
 			Signals.domain_power_depleted.disconnect(_on_domain_power_depleted)
@@ -40,10 +46,13 @@ func get_occupied_nodes(exclude_unit: Node2D = null) -> Array:
 
 # --- REAÇÃO A EVENTOS ---
 
-func _on_turn_started(player_id: int, _p_color: Color, _round_num: int) -> void:
+func _on_turn_started(_player_id: int, _p_color: Color, _round_num: int) -> void:
+	# Limpa as células de alcance visual ao iniciar o turno de qualquer um
 	if is_instance_valid(_painter) and _painter.has_method("update_reachable"):
 		_painter.update_reachable([], Color.WHITE)
-	
+
+# NOVO: Agora a recarga acontece ao clicar em End Turn (no jogador que está saindo)
+func _on_turn_ended(player_id: int) -> void:
 	reset_aps_for_player(player_id)
 
 func _on_domain_power_depleted(p_owner_id: int) -> void:
@@ -68,10 +77,11 @@ func reset_aps_for_player(player_id: int) -> void:
 	var count = 0
 	for v in active_vagabonds:
 		if is_instance_valid(v):
+			# Verifica se pertence ao jogador que acabou de encerrar o turno
 			if v.get("owner_id") == player_id and v.has_method("restore_ap"):
 				v.restore_ap()
 				count += 1
-	print("[VagabondManager] Turno do Jogador %d: %d unidades restauradas." % [player_id, count])
+	print("[VagabondManager] Turno encerrado para P%d: %d unidades recarregadas." % [player_id, count])
 
 # --- LÓGICA DE INTERAÇÃO ---
 
@@ -133,13 +143,11 @@ func spawn_players(player_count: int, turn_manager: Node, grid_manager: Node2D) 
 			if domain_manager and domain_manager.has_method("create_domain"):
 				var new_domain = domain_manager.create_domain(clean_pos, color_value, spawned, grid_manager.tile_size)
 				
-				# 💡 GARANTIA: Todos nascem com 1. O incremento para 2 deve vir do TurnStarted.
 				if is_instance_valid(new_domain):
 					new_domain.set("power", 1)
 					if new_domain.has_method("_refresh_all"):
 						new_domain.call("_refresh_all")
 				
-				print("[VagabondManager] Capital P%d criada com 1 Poder em %s" % [spawned, clean_pos])
 				spawned += 1
 
 func _create_vagabond(grid_pos: Vector2, color: Color, player_id: int, grid: Node2D, v_name: String = "") -> void:

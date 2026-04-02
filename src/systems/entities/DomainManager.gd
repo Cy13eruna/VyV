@@ -10,7 +10,8 @@ func _ready() -> void:
 	_load_resources.call_deferred()
 	
 	if is_instance_valid(Signals):
-		_reconnect_signal(Signals.turn_started, _on_turn_started)
+		# Agora escutamos o FIM do turno para processar a produção
+		_reconnect_signal(Signals.turn_ended, _on_turn_ended)
 
 func _reconnect_signal(sig: Signal, callable: Callable) -> void:
 	if sig.is_connected(callable):
@@ -163,16 +164,9 @@ func _create_capital(id: int, grid_pos: Vector2, turn: Node, t_size: float):
 	if not is_instance_valid(turn): return
 	
 	var p_color = turn.get_player_color_by_id(id)
-	
-	# 1. Cria a entidade
 	create_domain(grid_pos, p_color, id, t_size)
 	
-	# 💡 CORREÇÃO CRÍTICA: Se grid_pos já está na casa dos centenas (ex: 128, -221), 
-	# ele já é a posição de mundo. Não multiplique novamente por t_size.
 	var final_world_pos = grid_pos 
-	
-	# Caso o seu sistema use coordenadas axiais (ex: 1, 2), aí sim multiplicamos.
-	# Verificação simples: se a distância for maior que 50, assumimos que já é posição de mundo.
 	if grid_pos.length() < 50.0:
 		final_world_pos = grid_pos * t_size
 
@@ -181,12 +175,18 @@ func _create_capital(id: int, grid_pos: Vector2, turn: Node, t_size: float):
 		
 	print("[DomainManager] P%d: Grid %s -> Câmera em %s" % [id, grid_pos, final_world_pos])
 
-## Produção
-func _on_turn_started(player_id: int, _player_color: Color, _round_number: int) -> void:
+## --- PRODUÇÃO AO FINAL DO TURNO ---
+# Mudamos de turn_started para turn_ended para o jogador receber os recursos no clique do botão.
+func _on_turn_ended(player_id: int) -> void:
+	print("[DomainManager] Processando produção de fim de turno para P%d" % player_id)
 	for inst in domain_instances:
 		if is_instance_valid(inst) and inst.get("owner_id") == player_id:
 			var pos = inst.get("grid_pos")
+			# Se o domínio estiver ocupado por um inimigo, ele não produz poder
 			if is_domain_occupied_by_enemy(pos, player_id):
+				print("[DomainManager] Domínio em %s ocupado! Produção cancelada." % pos)
 				continue
+				
 			if inst.has_method("add_power"):
 				inst.add_power(1)
+				print("[DomainManager] +1 Poder concedido ao domínio em %s" % pos)
