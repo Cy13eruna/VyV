@@ -1,9 +1,0 @@
-to-do:
-- nível
-- upgrade
-- spawn vagabond
-
-observações:
-- ações gastam poder
-- treinamentos gastam ações
-- sailor e climber são globais
