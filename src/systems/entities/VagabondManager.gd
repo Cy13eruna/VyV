@@ -1,10 +1,9 @@
+# res://src/systems/entities/VagabondManager.gd
 extends Node2D
 
 const VAGABOND_SCRIPT_PATH = "res://src/systems/entities/Vagabond.gd"
 const VAGABOND_SCENE_PATH = "res://src/systems/entities/Vagabond.tscn"
 const Pathfinder = preload("res://src/systems/movement/Pathfinder.gd")
-
-# Usamos preload para garantir que o recurso esteja disponível
 const VagabondResource = preload(VAGABOND_SCRIPT_PATH)
 
 var active_vagabonds: Array[Node2D] = []
@@ -36,7 +35,6 @@ func get_occupied_nodes(exclude_unit: Node2D = null) -> Array:
 
 # --- REAÇÃO A EVENTOS ---
 
-## CORRIGIDO: Indentação e assinatura do sinal (3 argumentos)
 func _on_turn_started(player_id: int, _p_color: Color, _round_num: int) -> void:
 	if is_instance_valid(_painter) and _painter.has_method("update_reachable"):
 		_painter.update_reachable([], Color.WHITE)
@@ -47,7 +45,6 @@ func reset_aps_for_player(player_id: int) -> void:
 	var count = 0
 	for v in active_vagabonds:
 		if is_instance_valid(v):
-			# Verifica o dono da unidade e restaura pontos de ação (AP)
 			if v.get("owner_id") == player_id and v.has_method("restore_ap"):
 				v.restore_ap()
 				count += 1
@@ -88,6 +85,7 @@ func select_vagabond(v: Node2D) -> void:
 
 # --- CRIAÇÃO E SPAWN ---
 
+## Agora apenas cria os Domínios iniciais. Os Vagabonds base foram removidos.
 func spawn_players(player_count: int, turn_manager: Node, grid_manager: Node2D) -> void:
 	_clear_all()
 	var domain_manager = get_tree().get_first_node_in_group("domain_manager")
@@ -102,21 +100,16 @@ func spawn_players(player_count: int, turn_manager: Node, grid_manager: Node2D) 
 		if spawned >= player_count: break
 		var clean_pos = node_pos.snapped(Vector2(0.1, 0.1))
 		
-		if grid_manager.data.nodes[clean_pos].neighbors.size() == 6 and _is_area_clear(clean_pos):
+		# Procura uma área centralizada (6 vizinhos) para começar
+		if grid_manager.data.nodes[clean_pos].neighbors.size() == 6:
 			var color_name = turn_manager.player_colors[spawned]
 			var color_value = turn_manager.COLOR_OPTIONS[color_name]
 			
-			var target_name = ""
-			
 			if domain_manager and domain_manager.has_method("create_domain"):
-				var domain = domain_manager.create_domain(clean_pos, color_value, spawned, grid_manager.tile_size)
-				
-				if is_instance_valid(domain) and domain.has_method("generate_vagabond_name"):
-					target_name = domain.generate_vagabond_name()
-					print("[VagabondManager] Nome capturado do Domínio: ", target_name)
-			
-			_create_vagabond(clean_pos, color_value, spawned, grid_manager, target_name)
-			spawned += 1
+				# Criamos o domínio, mas NÃO chamamos _create_vagabond aqui.
+				domain_manager.create_domain(clean_pos, color_value, spawned, grid_manager.tile_size)
+				print("[VagabondManager] Domínio inicial criado para P%d em %s" % [spawned, clean_pos])
+				spawned += 1
 
 func _create_vagabond(grid_pos: Vector2, color: Color, player_id: int, grid: Node2D, v_name: String = "") -> void:
 	var vagabond: Node2D 
@@ -134,14 +127,21 @@ func _create_vagabond(grid_pos: Vector2, color: Color, player_id: int, grid: Nod
 	add_child(vagabond)
 	
 	if vagabond.has_method("setup"):
-		vagabond.setup(grid_pos, grid_pos, color, player_id, v_name)
+		# setup(world_pos, grid_pos, color, owner_id, name)
+		# Convertemos grid para world usando o grid_manager
+		var world_pos = grid.grid_to_world(grid_pos) if grid.has_method("grid_to_world") else grid_pos
+		vagabond.setup(world_pos, grid_pos, color, player_id, v_name)
 	
 	active_vagabonds.append(vagabond)
+	print("[VagabondManager] Spawned: %s na posição %s" % [vagabond.name, grid_pos])
 
-func spawn_vagabond(grid_pos: Vector2, player_id: int, color: Color, custom_name: String = "") -> void:
+## Função pública para ser chamada via Upgrade de Domínio
+func spawn_vagabond(grid_pos: Vector2, color: Color, player_id: int, custom_name: String = "") -> void:
 	var grid_mgr = get_tree().get_first_node_in_group("grid_manager")
 	if grid_mgr:
 		_create_vagabond(grid_pos, color, player_id, grid_mgr, custom_name)
+
+# --- UTILITÁRIOS ---
 
 func get_vagabond_at(grid_pos: Vector2) -> Node2D:
 	var target = grid_pos.snapped(Vector2(0.1, 0.1))
@@ -152,17 +152,8 @@ func get_vagabond_at(grid_pos: Vector2) -> Node2D:
 				return v
 	return null
 
-func _is_area_clear(pos: Vector2) -> bool:
-	for v in active_vagabonds:
-		if is_instance_valid(v):
-			var v_grid_pos = v.get("grid_pos")
-			if v_grid_pos is Vector2 and v_grid_pos.distance_to(pos) < 10.0: 
-				return false
-	return true
-
 func _clear_all() -> void:
 	var v_script: Object = VagabondResource
-	
 	if v_script and v_script.has_method(&"reset_vagabond_registry"):
 		v_script.call(&"reset_vagabond_registry")
 		

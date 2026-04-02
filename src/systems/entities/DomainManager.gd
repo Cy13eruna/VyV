@@ -1,3 +1,4 @@
+# res://src/systems/entities/DomainManager.gd
 extends Node2D
 
 var domain_script: GDScript = null
@@ -35,20 +36,17 @@ func get_domain_at(world_pos: Vector2) -> Node2D:
 				return inst
 	return null
 
-## --- NOVA REGRA: ESTADO DE REVOLTA E OCUPAÇÃO ---
+## --- REGRA: ESTADO DE REVOLTA E OCUPAÇÃO ---
 
-# Verifica se um domínio está ocupado por um inimigo (unidade de ID diferente do dono)
 func is_domain_occupied_by_enemy(world_pos: Vector2, owner_id: int) -> bool:
 	var v_mgr = get_tree().get_first_node_in_group("vagabond_manager")
 	if not is_instance_valid(v_mgr): return false
 	
 	var vagabond = v_mgr.get_vagabond_at(world_pos)
 	if is_instance_valid(vagabond):
-		# Está ocupado se houver alguém lá E esse alguém não for o dono do domínio
 		return vagabond.get("owner_id") != owner_id
 	return false
 
-# Retorna se as unidades deste domínio estão em revolta
 func is_in_revolt(home_pos: Vector2, owner_id: int) -> bool:
 	return is_domain_occupied_by_enemy(home_pos, owner_id)
 
@@ -57,17 +55,16 @@ func is_in_revolt(home_pos: Vector2, owner_id: int) -> bool:
 func get_domain_power_at(world_pos: Vector2) -> int:
 	var domain = get_domain_at(world_pos)
 	if is_instance_valid(domain):
-		return domain.get("power") if domain.get("power") != null else 0
+		var p = domain.get("power")
+		return p if p != null else 0
 	return 0
 
 func consume_power_at(world_pos: Vector2, amount: int) -> bool:
-	# Antes de consumir, verificamos se o domínio está em revolta (custo zero)
-	# Nota: A lógica de custo zero pode ser tratada aqui ou no Vagabond.use_ap()
 	var domain = get_domain_at(world_pos)
 	if is_instance_valid(domain):
 		var owner_id = domain.get("owner_id")
 		if is_in_revolt(world_pos, owner_id):
-			return true # Sucesso imediato sem gastar nada
+			return true 
 			
 		var current_power = domain.get("power") if domain.get("power") != null else 0
 		if current_power >= amount:
@@ -151,10 +148,12 @@ func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr:
 
 	var spawned = 0
 	for idx in selected_indices:
-		_create_capital(spawned, edge_positions[idx], grid_mgr, v_mgr, turn_mgr, t_size)
+		# Passamos apenas as referências necessárias
+		_create_capital(spawned, edge_positions[idx], turn_mgr, t_size)
 		spawned += 1
 
-func _create_capital(id: int, grid_pos: Vector2, grid: Node2D, v_mgr: Node2D, turn: Node, t_size: float):
+## REMOVIDO: O VagabondManager não é mais chamado aqui.
+func _create_capital(id: int, grid_pos: Vector2, turn: Node, t_size: float):
 	if not turn: return
 	var color_options = turn.get("COLOR_OPTIONS")
 	var player_colors = turn.get("player_colors")
@@ -165,24 +164,17 @@ func _create_capital(id: int, grid_pos: Vector2, grid: Node2D, v_mgr: Node2D, tu
 	var color_name = player_colors[id]
 	var p_color = color_options[color_name]
 	
-	var domain_inst = create_domain(grid_pos, p_color, id, t_size)
-	
-	var v_name = ""
-	if is_instance_valid(domain_inst) and domain_inst.has_method("generate_vagabond_name"):
-		v_name = domain_inst.generate_vagabond_name()
-	
-	if v_mgr and v_mgr.has_method("_create_vagabond"):
-		v_mgr._create_vagabond(grid_pos, p_color, id, grid, v_name)
+	# Criamos apenas o Domínio. O Vagabond só nascerá via upgrade.
+	create_domain(grid_pos, p_color, id, t_size)
+	print("[DomainManager] Capital P%d criada em %s. Vagabond inicial: REMOVIDO." % [id, grid_pos])
 
-## ATUALIZADO: Produção Interrompida por Invasão
+## Produção Interrompida por Invasão
 func _on_turn_started(player_id: int, _player_color: Color, round_number: int) -> void:
-	if round_number == 1: return
-		
+	# O round_number == 1 costuma ser o setup, mas se quiser poder imediato, pode remover
 	for inst in domain_instances:
 		if is_instance_valid(inst) and inst.get("owner_id") == player_id:
 			var pos = inst.get("grid_pos")
 			
-			# REGRA: Se o centro estiver ocupado por um inimigo, pula produção
 			if is_domain_occupied_by_enemy(pos, player_id):
 				print("[DomainManager] Produção suspensa em %s: Inimigo detectado!" % str(pos))
 				continue

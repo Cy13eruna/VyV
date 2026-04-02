@@ -1,5 +1,4 @@
 # res://src/systems/entities/Vagabond.gd
-
 extends "res://src/systems/entities/MapEntity.gd"
 
 class_name Vagabond
@@ -30,22 +29,24 @@ var _is_highlighted: bool = false
 var _high_res_font: SystemFont 
 var _emoji_font: SystemFont 
 
-# Variável para o nome de 3 caracteres
+# Nome de 3 caracteres
 var vagabond_name: String = ""
 
 # --- CICLO DE VIDA ---
 
 func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int, p_name: String = "") -> void:
+	# Define o domínio de origem (essencial para consumo de poder)
 	home_domain_pos = p_grid_pos.snapped(Vector2(0.1, 0.1))
 	
 	if not p_name.is_empty():
 		vagabond_name = p_name
 	elif vagabond_name.is_empty():
+		# Fallback: Caso não venha nome do Domain, gera um aqui
 		vagabond_name = _generate_unique_initial_name(3)
 		
 	super.setup(p_global_pos, p_grid_pos, p_color, p_owner_id)
 	
-	# Z-index alto para ficar visualmente acima
+	# Z-index alto para ficar acima dos Domínios
 	self.z_index = 10 
 	
 	_setup_font_resource()
@@ -56,31 +57,26 @@ func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_i
 	add_to_group("Units")
 
 func _setup_collision() -> void:
-	# Remove se já existir para evitar duplicatas em re-setups
 	var old = get_node_or_null("ClickBlocker")
 	if old: old.queue_free()
 
 	var area = Area2D.new()
 	area.name = "ClickBlocker"
 	area.input_pickable = true
-	# Garante que a colisão processa o clique
 	area.input_event.connect(_on_area_input_event)
 	add_child(area)
 	
 	var shape = CollisionShape2D.new()
 	var circle = CircleShape2D.new()
-	# Aumentado para 35.0 para garantir cobertura sobre o centro do Domain
 	circle.radius = 35.0 
 	shape.shape = circle
 	area.add_child(shape)
 
-# Callback disparado quando o mouse interage com a colisão do Vagabond
 func _on_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		# Se clicamos no Vagabond, "comemos" o evento para que o Domain abaixo não o receba
 		get_viewport().set_input_as_handled()
-		# Aqui você pode chamar a lógica de seleção do Vagabond se necessário
-		print("[Vagabond] Clique detectado e bloqueado para camadas inferiores: ", vagabond_name)
+		# O VagabondManager deve capturar a seleção via Raycast ou sinal
+		print("[Vagabond] %s selecionado. Home: %s" % [vagabond_name, str(home_domain_pos)])
 
 func _setup_font_resource() -> void:
 	if _high_res_font: return
@@ -97,9 +93,7 @@ func _setup_font_resource() -> void:
 
 func _create_visuals() -> void:
 	var old_view = get_node_or_null("View")
-	if old_view:
-		old_view.name = "OldView"
-		old_view.queue_free()
+	if old_view: old_view.queue_free()
 
 	var view = Marker2D.new()
 	view.name = "View"
@@ -135,18 +129,18 @@ func _create_visuals() -> void:
 	label.text = vagabond_name
 	var text_settings = LabelSettings.new()
 	text_settings.font = _high_res_font
-	text_settings.font_size = 32
+	text_settings.font_size = 42 # Aumentado para melhor leitura
 	text_settings.font_color = entity_color 
-	text_settings.outline_size = 16 
+	text_settings.outline_size = 18 
 	text_settings.outline_color = Color.BLACK 
 	label.label_settings = text_settings
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	label.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	
-	var text_size = _high_res_font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 40)
+	var text_size = _high_res_font.get_string_size(label.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 42)
 	label.custom_minimum_size = text_size
-	label.position = Vector2(-text_size.x / 2.0, 40) 
+	label.position = Vector2(-text_size.x / 2.0, 30) 
 	hires_container.add_child(label)
 
 # --- LÓGICA DE JOGO (REVOLTA E CONSUMO) ---
@@ -158,15 +152,17 @@ func use_ap() -> bool:
 	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
 	
 	if is_instance_valid(domain_mgr):
+		# REGRA 1: Checar se o Domínio de origem está ocupado por inimigo (REVOLTA)
 		var in_revolt = domain_mgr.has_method("is_in_revolt") and domain_mgr.is_in_revolt(home_domain_pos, owner_id)
 		
 		if in_revolt:
-			print("[Vagabond] %s em REVOLTA!" % vagabond_name)
+			print("[Vagabond] %s em REVOLTA! AP usado sem custo de Poder." % vagabond_name)
 			ap -= 1
 			_play_action_animation()
 			_apply_revolt_visual_feedback()
 			return true
 			
+		# REGRA 2: Consumo normal de Poder do Domínio
 		if domain_mgr.has_method("consume_power_at"):
 			var success = domain_mgr.consume_power_at(home_domain_pos, 1)
 			if success:
@@ -174,9 +170,10 @@ func use_ap() -> bool:
 				_play_action_animation()
 				return true
 			else:
-				print("[Vagabond] Domínio %s sem Poder!" % str(home_domain_pos))
+				print("[Vagabond] %s falhou: Domínio de origem sem Poder!" % vagabond_name)
 				return false
 	
+	# Fallback caso não haja DomainManager na cena
 	ap -= 1
 	_play_action_animation()
 	return true
@@ -185,7 +182,7 @@ func _apply_revolt_visual_feedback() -> void:
 	var view = get_node_or_null("View")
 	if view:
 		var tween = create_tween()
-		tween.tween_property(view, "modulate", Color.ORANGE_RED, 0.1)
+		tween.tween_property(view, "modulate", Color.RED, 0.1)
 		tween.tween_property(view, "modulate", Color.WHITE, 0.1)
 
 # --- AUXILIARES E VISUAIS ---
@@ -201,35 +198,15 @@ func _play_action_animation() -> void:
 	var view = get_node_or_null("View")
 	if view:
 		var jump = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
-		jump.tween_property(view, "position:y", -15, 0.1)
+		jump.tween_property(view, "position:y", -20, 0.1)
 		jump.chain().tween_property(view, "position:y", 0, 0.1)
-
-func update_fow_visibility(lit_nodes: Array, instant: bool = false) -> void:
-	var is_lit = self.grid_pos in lit_nodes
-	var target_alpha = 1.0 if is_lit else 0.0
-	if instant:
-		self.modulate.a = target_alpha
-		self.visible = is_lit
-	else:
-		var tween = create_tween()
-		tween.tween_property(self, "modulate:a", target_alpha, 0.3)
-		if is_lit: self.visible = true
-		else: tween.finished.connect(func(): if is_instance_valid(self): self.visible = false)
 
 func _update_visual_state(instant: bool = false) -> void:
 	var view = get_node_or_null("View")
 	if not view: return
-	var target_scale = Vector2(1.25, 1.25) if _is_highlighted else Vector2.ONE
-	var target_alpha = 1.0 if ap > 0 else 0.7
+	var target_scale = Vector2(1.3, 1.3) if _is_highlighted else Vector2.ONE
+	var target_alpha = 1.0 if ap > 0 else 0.5 # Mais transparente quando exausto
 	
-	var emoji = view.find_child("Emoji", true, false)
-	if emoji and emoji.label_settings:
-		emoji.label_settings.font_color = entity_color
-		
-	var label = view.find_child("IDLabel", true, false)
-	if label and label.label_settings:
-		label.label_settings.font_color = entity_color
-		
 	if instant:
 		view.scale = target_scale
 		view.modulate.a = target_alpha
@@ -241,7 +218,7 @@ func _update_visual_state(instant: bool = false) -> void:
 func has_ap() -> bool:
 	return ap > 0
 
-# --- GERAÇÃO DE NOMES ---
+# --- GERAÇÃO DE NOMES (FALLBACK) ---
 
 func _generate_unique_initial_name(length: int) -> String:
 	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"

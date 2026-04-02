@@ -1,5 +1,4 @@
 # res://src/ui/GameHUD.gd
-
 extends Control
 
 signal end_turn_requested
@@ -66,7 +65,6 @@ func _create_popup_system() -> void:
 	popup_layer.add_child(popup_balloon)
 	
 	popup_vbox = VBoxContainer.new()
-	# Importante: Permitir que o container cresça conforme o conteúdo
 	popup_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	popup_vbox.add_theme_constant_override("separation", 12)
 	popup_balloon.add_child(popup_vbox)
@@ -76,7 +74,6 @@ func _create_popup_system() -> void:
 	title_label.add_theme_color_override("font_color", Color.BLACK)
 	title_label.add_theme_font_size_override("font_size", 20)
 	title_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	# Forçar um tamanho mínimo para o título não colapsar
 	title_label.custom_minimum_size = Vector2(200, 0)
 	popup_vbox.add_child(title_label)
 	
@@ -100,27 +97,32 @@ func _create_popup_system() -> void:
 	
 	popup_layer.visible = false
 
-# --- LÓGICA DE UPGRADE ---
+# --- LÓGICA DE UPGRADE (RECRUTAMENTO) ---
 
 func _on_open_upgrade_popup(domain: Node2D) -> void:
 	var options = [
 		{
-			"emoji": "🆙", 
+			"emoji": "🚶‍♀️", # Ícone de passos para representar o novo Vagabond
 			"callback": func(): _execute_upgrade(domain)
 		}
 	]
-	open_popup("UPGRADE DOMAIN", "~ cost: ⭐%d ~" % domain.domain_level, options)
+	# Título atualizado para refletir a nova função
+	open_popup("RECRUIT VAGABOND", "~ cost: ⭐%d ~" % domain.domain_level, options)
 
 func _execute_upgrade(domain: Node2D) -> void:
-	domain.add_power(-domain.domain_level)
-	domain.upgrade_level()
+	# A função upgrade_level() agora herda a lógica de spawnar o vagabundo
+	if domain.has_method("upgrade_level"):
+		domain.upgrade_level()
+	else:
+		# Fallback de segurança caso o script do domínio ainda seja o antigo
+		domain.add_power(-domain.domain_level)
+		domain.set("domain_level", domain.get("domain_level") + 1)
 
 # --- FUNÇÕES CORE DO POP-UP ---
 
 func open_popup(title: String, subtitle: String, options: Array) -> void:
 	if not is_inside_tree(): return
 	
-	# Limpeza imediata
 	for child in popup_options_hbox.get_children():
 		child.free()
 	
@@ -131,19 +133,13 @@ func open_popup(title: String, subtitle: String, options: Array) -> void:
 		var btn = _create_circle_button(opt.emoji, opt.callback)
 		popup_options_hbox.add_child(btn)
 	
-	# PASSO CRÍTICO: Tornar visível ANTES de calcular a posição
 	popup_layer.visible = true
-	
-	# Forçar o motor de UI a processar os tamanhos novos
 	popup_vbox.reset_size()
 	popup_balloon.reset_size()
 	
-	# Se o reset_size não for suficiente, process_frame garante a atualização
 	await get_tree().process_frame
 	
 	var center = get_viewport_rect().size / 2.0
-	
-	# Reposicionar após o frame de cálculo
 	popup_balloon.global_position = center - Vector2(popup_balloon.size.x / 2.0, popup_balloon.size.y + 10)
 	triangle_pointer.global_position = center - Vector2(0, 10)
 

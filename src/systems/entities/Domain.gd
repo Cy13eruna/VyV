@@ -1,5 +1,4 @@
 # res://src/systems/entities/Domain.gd
-
 extends "res://src/systems/entities/MapEntity.gd"
 
 class_name Domain
@@ -30,6 +29,8 @@ func _ready() -> void:
 	if Signals.has_signal("domains_visibility_updated"):
 		if not Signals.domains_visibility_updated.is_connected(_on_visibility_updated):
 			Signals.domains_visibility_updated.connect(_on_visibility_updated)
+	
+	add_to_group("domains")
 
 func _setup_high_res_font() -> void:
 	if high_res_font: return
@@ -52,6 +53,7 @@ func setup_domain(p_world_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_o
 	if domain_name.is_empty():
 		domain_name = _generate_unique_initial_name(6)
 	super.setup(p_world_pos, p_grid_pos, p_color, p_owner_id)
+	_apply_visuals()
 
 func _apply_visuals() -> void:
 	self.outer_r = tile_size * 0.92
@@ -63,75 +65,76 @@ func _apply_visuals() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		
-		# 1. PRIORIDADE ABSOLUTA: Se o clique já foi tratado (movimento/UI), pare aqui.
 		if get_viewport().is_input_handled():
 			return
 
-		# 2. Se houver uma unidade em cima, ignore (o clique é para a unidade)
 		if _is_occupied():
 			return
 
 		var mouse_pos = get_global_mouse_position()
-		
-		# 3. Verifica clique no centro (inner_r)
 		if mouse_pos.distance_to(self.global_position) < inner_r:
-			
-			# 4. Checagem de segurança: Se o VagabondManager estiver em modo de movimento,
-			# não devemos abrir o menu de upgrade.
 			if _is_movement_active():
 				return
 
 			if _can_open_upgrade_menu():
 				if is_instance_valid(Signals):
 					Signals.request_upgrade_menu.emit(self)
-				# Marca como resolvido para que ninguém abaixo (como a câmera) use o clique
 				get_viewport().set_input_as_handled()
 
 func _is_movement_active() -> bool:
-	# Tenta detectar se existe um vagabundo selecionado pronto para mover
-	var v_manager = get_tree().get_first_node_in_group("VagabondManager")
+	var v_manager = get_tree().get_first_node_in_group("vagabond_manager")
 	if is_instance_valid(v_manager):
-		# Checa se existe a propriedade ou método que indica unidade selecionada
+		# Checa se há uma unidade selecionada no manager
 		if v_manager.get("selected_vagabond") != null:
 			return true
 	return false
 
 func _can_open_upgrade_menu() -> bool:
+	# Agora o custo é explicitamente o nível atual
 	return power >= domain_level and not _is_occupied()
 
 func _is_occupied() -> bool:
-	var v_manager = get_tree().get_first_node_in_group("VagabondManager")
-	if is_instance_valid(v_manager) and v_manager.has_method("is_cell_occupied"):
-		if v_manager.is_cell_occupied(self.grid_pos):
+	var v_manager = get_tree().get_first_node_in_group("vagabond_manager")
+	if is_instance_valid(v_manager) and v_manager.has_method("get_vagabond_at"):
+		if v_manager.get_vagabond_at(self.grid_pos) != null:
 			return true
-	
-	var space_state = get_world_2d().direct_space_state
-	var query = PhysicsPointQueryParameters2D.new()
-	query.position = self.global_position
-	query.collide_with_areas = true
-	var results = space_state.intersect_point(query)
-	
-	for res in results:
-		var collider = res.collider
-		if collider.is_in_group("Units") or collider.get_parent().is_in_group("Units"):
-			return true
-		if collider.get_parent().get("vagabond_name") != null:
-			return true
-			
 	return false
 
-# --- SISTEMA DE NÍVEL E PODER ---
+# --- SISTEMA DE RECRUTAMENTO (UPGRADE) ---
+
+func upgrade_level() -> void:
+	# 1. Consome o poder (Custo = Nível Atual)
+	add_power(-domain_level)
+	
+	# 2. Aumenta o nível
+	domain_level += 1
+	
+	# 3. Recruta o Vagabond
+	_spawn_vagabond_on_upgrade()
+	
+	_refresh_all()
+	
+	if is_instance_valid(Signals):
+		Signals.domain_upgraded.emit(self, domain_level)
+
+func _spawn_vagabond_on_upgrade() -> void:
+	var v_manager = get_tree().get_first_node_in_group("vagabond_manager")
+	if is_instance_valid(v_manager) and v_manager.has_method("spawn_vagabond"):
+		var v_name = _generate_vagabond_name_3_letters()
+		# O Manager cuida da criação física na nossa posição
+		v_manager.spawn_vagabond(self.grid_pos, self.entity_color, self.owner_id, v_name)
+		print("[Domain] %s recrutou o Vagabond: %s" % [domain_name, v_name])
+
+func _generate_vagabond_name_3_letters() -> String:
+	var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	var initial = domain_name.left(1).to_upper()
+	var n2 = alphabet[randi() % alphabet.length()]
+	var n3 = alphabet[randi() % alphabet.length()]
+	return initial + n2 + n3
 
 func add_power(amount: int) -> void:
 	power = max(0, power + amount)
 	_refresh_all()
-
-func upgrade_level() -> void:
-	domain_level += 1
-	_refresh_all()
-	if is_instance_valid(Signals):
-		Signals.domain_upgraded.emit(self, domain_level)
 
 func _refresh_all() -> void:
 	queue_redraw()
@@ -146,9 +149,10 @@ func _get_roman_level(lv: int) -> String:
 func _on_visibility_updated(visible_domains: Array) -> void:
 	var is_visible_to_player = false
 	for d_data in visible_domains:
-		if d_data.has("pos") and d_data.pos.distance_to(self.global_position) < 5.0:
-			is_visible_to_player = true
-			break
+		if d_data is Dictionary and d_data.has("pos"):
+			if d_data.pos.distance_to(self.global_position) < 5.0:
+				is_visible_to_player = true
+				break
 	self.visible = is_visible_to_player
 
 func _draw() -> void:
@@ -172,9 +176,6 @@ func _draw() -> void:
 	
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-func _process(_delta: float) -> void:
-	queue_redraw()
-
 func _draw_label() -> void:
 	if not high_res_font: return
 	var upscale = 4.0
@@ -192,7 +193,7 @@ func _draw_label() -> void:
 	label_node.draw_string(high_res_font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, entity_color)
 	label_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-# --- GERAÇÃO DE NOMES ---
+# --- GERAÇÃO DE NOMES DO DOMÍNIO ---
 
 func _generate_unique_initial_name(length: int) -> String:
 	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
