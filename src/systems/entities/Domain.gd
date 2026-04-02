@@ -12,6 +12,7 @@ var inner_r: float
 var tile_size: float = 64.0
 var high_res_font: SystemFont
 var label_node: Node2D
+var core_symbol_node: Node2D 
 
 var domain_name: String = ""
 var power: int = 1 
@@ -24,6 +25,7 @@ func _ready() -> void:
 	self.z_as_relative = false 
 	self.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	
+	_create_core_symbol_node() 
 	_create_text_node()
 	
 	if Signals.has_signal("domains_visibility_updated"):
@@ -39,6 +41,14 @@ func _setup_high_res_font() -> void:
 	high_res_font.msdf_pixel_range = 16
 	high_res_font.msdf_size = 128 
 	high_res_font.generate_mipmaps = true
+
+func _create_core_symbol_node() -> void:
+	core_symbol_node = Node2D.new()
+	core_symbol_node.name = "CoreSymbol"
+	core_symbol_node.z_index = 0 
+	core_symbol_node.z_as_relative = false
+	add_child(core_symbol_node)
+	core_symbol_node.draw.connect(_draw_hexagram)
 
 func _create_text_node() -> void:
 	label_node = Node2D.new()
@@ -59,6 +69,7 @@ func _apply_visuals() -> void:
 	self.outer_r = tile_size * 0.92
 	self.inner_r = tile_size * 0.55
 	queue_redraw()
+	if core_symbol_node: core_symbol_node.queue_redraw()
 	if label_node: label_node.queue_redraw()
 
 # --- INPUT E INTERAÇÃO ---
@@ -78,7 +89,6 @@ func _unhandled_input(event: InputEvent) -> void:
 
 			if _can_open_upgrade_menu():
 				if is_instance_valid(Signals):
-					# ATUALIZADO: Agora envia self e a posição global para foco da câmera
 					Signals.request_upgrade_menu.emit(self, self.global_position)
 				get_viewport().set_input_as_handled()
 
@@ -90,10 +100,6 @@ func _is_movement_active() -> bool:
 	return false
 
 func _can_open_upgrade_menu() -> bool:
-	# Verifica se é o turno do dono deste domínio (opcional, mas recomendado)
-	# var turn_mgr = get_tree().get_first_node_in_group("turn_manager")
-	# if turn_mgr and turn_mgr.current_player_id != owner_id: return false
-	
 	return power >= domain_level and not _is_occupied()
 
 func _is_occupied() -> bool:
@@ -106,15 +112,9 @@ func _is_occupied() -> bool:
 # --- SISTEMA DE RECRUTAMENTO (UPGRADE) ---
 
 func upgrade_level() -> void:
-	# 1. Consome o poder (Custo = Nível Atual)
 	add_power(-domain_level)
-	
-	# 2. Aumenta o nível
 	domain_level += 1
-	
-	# 3. Recruta o Vagabond
 	_spawn_vagabond_on_upgrade()
-	
 	_refresh_all()
 	
 	if is_instance_valid(Signals):
@@ -125,7 +125,6 @@ func _spawn_vagabond_on_upgrade() -> void:
 	if is_instance_valid(v_manager) and v_manager.has_method("spawn_vagabond"):
 		var v_name = _generate_vagabond_name_3_letters()
 		v_manager.spawn_vagabond(self.grid_pos, self.entity_color, self.owner_id, v_name)
-		print("[Domain] %s recrutou o Vagabond: %s" % [domain_name, v_name])
 
 func _generate_vagabond_name_3_letters() -> String:
 	var alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -136,14 +135,13 @@ func _generate_vagabond_name_3_letters() -> String:
 
 func add_power(amount: int) -> void:
 	power = max(0, power + amount)
-	
 	if power <= 0 and is_instance_valid(Signals):
 		Signals.domain_power_depleted.emit(owner_id)
-	
 	_refresh_all()
 
 func _refresh_all() -> void:
 	queue_redraw()
+	if core_symbol_node: core_symbol_node.queue_redraw()
 	if label_node: label_node.queue_redraw()
 
 func _get_roman_level(lv: int) -> String:
@@ -176,11 +174,36 @@ func _draw() -> void:
 	draw_polyline(pts, Color(1, 1, 1, 0.7), 6.0 * upscale, true)
 	draw_polyline(pts, entity_color, 4.0 * upscale, true)
 	
-	if not _is_occupied():
-		var center_color = entity_color if power >= domain_level else Color(0.2, 0.2, 0.2, 0.8)
-		draw_circle(Vector2.ZERO, 12.0 * upscale, center_color)
-	
 	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+func _draw_hexagram() -> void:
+	if _is_occupied(): return 
+	
+	var upscale = 4.0
+	var downscale = 1.0 / upscale
+	core_symbol_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2(downscale, downscale))
+	
+	var radius = 10.0 * upscale 
+	var symbol_color = entity_color if power >= domain_level else Color.WHITE
+	# Garante que a cor de preenchimento seja totalmente opaca
+	var opaque_fill = Color(symbol_color.r, symbol_color.g, symbol_color.b, 1.0)
+	
+	# Rotação de 30 graus convertida para radianos
+	var rotation_offset = deg_to_rad(30)
+	
+	for orientation in [1, -1]:
+		var tri_pts = PackedVector2Array()
+		for i in range(4):
+			# Base 90/-90 + 30 graus de rotação solicitada
+			var angle = deg_to_rad(i * 120 + (90 if orientation > 0 else -90)) + rotation_offset
+			tri_pts.append(Vector2(cos(angle), sin(angle)) * radius)
+		
+		# Preenchimento opaco
+		core_symbol_node.draw_colored_polygon(tri_pts, opaque_fill)
+		# Borda
+		core_symbol_node.draw_polyline(tri_pts, symbol_color, 2.5 * upscale, true)
+
+	core_symbol_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
 func _draw_label() -> void:
 	if not high_res_font: return
@@ -202,7 +225,7 @@ func _draw_label() -> void:
 # --- GERAÇÃO DE NOMES DO DOMÍNIO ---
 
 func _generate_unique_initial_name(length: int) -> String:
-	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZÇ"
 	var available_initials = ""
 	for char in standard_alphabet:
 		if not char in used_initials: available_initials += char
