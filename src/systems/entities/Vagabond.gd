@@ -35,7 +35,6 @@ var vagabond_name: String = ""
 # --- CICLO DE VIDA ---
 
 func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int, p_name: String = "") -> void:
-	# Define o domínio de origem
 	home_domain_pos = p_grid_pos.snapped(Vector2(0.1, 0.1))
 	
 	if not p_name.is_empty():
@@ -51,8 +50,6 @@ func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_i
 	_create_visuals()
 	_setup_collision() 
 	
-	# 💡 CORREÇÃO: Verifica se o domínio já nasceu sem poder
-	# Se não houver poder no domínio de origem, a unidade já nasce exausta
 	if not _check_domain_has_power():
 		ap = 0
 		print("[Vagabond] %s nasceu em domínio seco. Iniciando exausto." % vagabond_name)
@@ -78,16 +75,22 @@ func _setup_collision() -> void:
 
 func _on_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		# 💡 CORREÇÃO: Bloqueia interação se o domínio estiver sem poder
+		get_viewport().set_input_as_handled()
+
+		# 1. Check de Poder do Domínio (Bloqueio crítico)
 		if not _check_domain_has_power():
-			ap = 0 # Garante exaustão
+			ap = 0 
 			_apply_fail_visual_feedback()
-			print("[Vagabond] %s: Ação bloqueada (Domínio sem Poder)." % vagabond_name)
-			get_viewport().set_input_as_handled()
+			print("[Vagabond] %s: Bloqueado (Domínio sem Poder)." % vagabond_name)
 			return
 
-		get_viewport().set_input_as_handled()
-		# Notifica o Manager de que esta unidade foi clicada
+		# 2. Check de Pontos de Ação (Unidade cansada)
+		if not has_ap():
+			_apply_fail_visual_feedback()
+			print("[Vagabond] %s: Bloqueado (Sem AP)." % vagabond_name)
+			return
+
+		# Sucesso: Notifica seleção
 		if is_instance_valid(Signals) and Signals.has_signal("unit_selected"):
 			Signals.unit_selected.emit(self)
 		
@@ -158,13 +161,13 @@ func _create_visuals() -> void:
 	label.position = Vector2(-text_size.x / 2.0, 30) 
 	hires_container.add_child(label)
 
-# --- LÓGICA DE JOGO (REVOLTA E CONSUMO) ---
+# --- LÓGICA DE JOGO ---
 
 func _check_domain_has_power() -> bool:
 	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
 	if is_instance_valid(domain_mgr) and domain_mgr.has_method("get_domain_power_at"):
 		return domain_mgr.get_domain_power_at(home_domain_pos) > 0
-	return true # Default true se manager não existir
+	return true 
 
 func use_ap() -> bool:
 	if not has_ap():
@@ -173,7 +176,6 @@ func use_ap() -> bool:
 	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
 	
 	if is_instance_valid(domain_mgr):
-		# REGRA 1: Revolta (Inimigo no Domínio de origem)
 		var in_revolt = domain_mgr.has_method("is_in_revolt") and domain_mgr.is_in_revolt(home_domain_pos, owner_id)
 		
 		if in_revolt:
@@ -182,7 +184,6 @@ func use_ap() -> bool:
 			_apply_revolt_visual_feedback()
 			return true
 			
-		# REGRA 2: Consumo normal
 		if domain_mgr.has_method("consume_power_at"):
 			var success = domain_mgr.consume_power_at(home_domain_pos, 1)
 			if success:
@@ -190,7 +191,7 @@ func use_ap() -> bool:
 				_play_action_animation()
 				return true
 			else:
-				ap = 0 # Força exaustão se o consumo falhou
+				ap = 0 
 				_apply_fail_visual_feedback()
 				return false
 	
@@ -210,12 +211,12 @@ func _apply_fail_visual_feedback() -> void:
 	var view = get_node_or_null("View")
 	if view:
 		var tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		# Shake horizontal
 		tween.tween_property(view, "position:x", 5, 0.05)
 		tween.tween_property(view, "position:x", -5, 0.05)
 		tween.tween_property(view, "position:x", 0, 0.05)
 
 func restore_ap() -> void:
-	# Só restaura se o domínio tiver poder disponível
 	if _check_domain_has_power():
 		ap = max_ap 
 	else:
