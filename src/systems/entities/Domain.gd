@@ -84,19 +84,18 @@ func _unhandled_input(event: InputEvent) -> void:
 func _is_movement_active() -> bool:
 	var v_manager = get_tree().get_first_node_in_group("vagabond_manager")
 	if is_instance_valid(v_manager):
-		# Checa se há uma unidade selecionada no manager
 		if v_manager.get("selected_vagabond") != null:
 			return true
 	return false
 
 func _can_open_upgrade_menu() -> bool:
-	# Agora o custo é explicitamente o nível atual
 	return power >= domain_level and not _is_occupied()
 
 func _is_occupied() -> bool:
 	var v_manager = get_tree().get_first_node_in_group("vagabond_manager")
 	if is_instance_valid(v_manager) and v_manager.has_method("get_vagabond_at"):
-		if v_manager.get_vagabond_at(self.grid_pos) != null:
+		# Uso da posição global para checagem precisa
+		if v_manager.get_vagabond_at(self.global_position) != null:
 			return true
 	return false
 
@@ -121,7 +120,6 @@ func _spawn_vagabond_on_upgrade() -> void:
 	var v_manager = get_tree().get_first_node_in_group("vagabond_manager")
 	if is_instance_valid(v_manager) and v_manager.has_method("spawn_vagabond"):
 		var v_name = _generate_vagabond_name_3_letters()
-		# O Manager cuida da criação física na nossa posição
 		v_manager.spawn_vagabond(self.grid_pos, self.entity_color, self.owner_id, v_name)
 		print("[Domain] %s recrutou o Vagabond: %s" % [domain_name, v_name])
 
@@ -134,6 +132,11 @@ func _generate_vagabond_name_3_letters() -> String:
 
 func add_power(amount: int) -> void:
 	power = max(0, power + amount)
+	
+	# 💡 GATILHO DE EXAUSTÃO: Se o poder zerar (por upgrade ou consumo), sinaliza o sistema
+	if power <= 0 and is_instance_valid(Signals):
+		Signals.domain_power_depleted.emit(owner_id)
+	
 	_refresh_all()
 
 func _refresh_all() -> void:

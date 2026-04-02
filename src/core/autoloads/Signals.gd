@@ -22,6 +22,10 @@ signal request_upgrade_menu(domain_ref: Node2D)
 # Emitido após o nível do domínio ser alterado com sucesso
 signal domain_upgraded(domain_ref: Node2D, new_level: int)
 
+# 💡 NOVO SINAL: Notifica que o jogador ficou sem recursos no domínio
+# Isso deve ser usado para exaurir unidades e impedir movimentos extras
+signal domain_power_depleted(owner_id: int)
+
 # --- MUNDO E VISIBILIDADE ---
 # Notifica que a visibilidade do jogador atual mudou
 signal visibility_changed(player_id: int, lit_nodes: Array, revealed_edges: Array)

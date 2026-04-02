@@ -26,3 +26,6 @@ Então vamos criar o pop up. Será um pop up de fundo branco e não será transp
 
 o Upgrade de VAGABOND. Ele substituirá o placeholder UPGRADE DOMAIN herdando TODAS as funções do mesmo. Além de realizar todas as funções do UPGRADE DOMAIN, o Upgrade VAGABOND irá spawnar um novo Vagabond no centro do domínio.
 Esse novo Vagabond deverá ter todas as funções de um Vagabond normal. Lembre-se que ele deverá ter sistema de AP, consumo de poder do domínio de origem, um nome de tres letras cuja inicial será igual a inicial do nome de seu domínio de origem e demais funções comuns a um Vagabond
+
+Resetei para a última versão estavel e descobri exatamente onde que o bug ocorre:
+Quando um vagabond ainda tem pa, mas o domínio tem 0 poder. O que ocorre é que nessa situação o vagabond é liberado para percorrer quantos nodulos quiser (não de uma vez só, um de cada vez). Precisamos fazer com que quando o domínio de origem atingir zero poder, todas suas unidades entram no estado exausto.

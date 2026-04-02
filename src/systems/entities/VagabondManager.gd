@@ -21,6 +21,12 @@ func _reconnect_signals() -> void:
 		if Signals.turn_started.is_connected(_on_turn_started):
 			Signals.turn_started.disconnect(_on_turn_started)
 		Signals.turn_started.connect(_on_turn_started)
+	
+	# 💡 NOVO: Escuta quando o poder de um domínio acaba
+	if Signals.has_signal("domain_power_depleted"):
+		if Signals.domain_power_depleted.is_connected(_on_domain_power_depleted):
+			Signals.domain_power_depleted.disconnect(_on_domain_power_depleted)
+		Signals.domain_power_depleted.connect(_on_domain_power_depleted)
 
 # --- CONSULTAS DE OCUPAÇÃO ---
 
@@ -41,6 +47,29 @@ func _on_turn_started(player_id: int, _p_color: Color, _round_num: int) -> void:
 	
 	reset_aps_for_player(player_id)
 
+# 💡 NOVO: Quando o domínio atinge 0, exaurimos todas as unidades daquele jogador
+func _on_domain_power_depleted(p_owner_id: int) -> void:
+	print("[VagabondManager] Poder do domínio P%d esgotado. Exaurindo unidades..." % p_owner_id)
+	
+	for v in active_vagabonds:
+		if is_instance_valid(v) and v.get("owner_id") == p_owner_id:
+			# Forçamos o AP para 0 e chamamos a exaustão visual se existir
+			v.set("ap", 0)
+			if v.has_method("set_exhausted"):
+				v.set_exhausted()
+			
+			# Notifica a UI de que o AP mudou (para atualizar as bolinhas/barra de AP)
+			if Signals.has_signal("unit_ap_changed"):
+				Signals.unit_ap_changed.emit(v, 0, v.get("max_ap") if v.get("max_ap") else 1)
+	
+	# Limpamos os destaques de movimento no mapa
+	if is_instance_valid(_painter) and _painter.has_method("update_reachable"):
+		_painter.update_reachable([], Color.WHITE)
+	
+	# Opcional: Deselecionar a unidade atual se ela pertencer ao jogador esgotado
+	if is_instance_valid(Signals):
+		Signals.unit_deselected.emit()
+
 func reset_aps_for_player(player_id: int) -> void:
 	var count = 0
 	for v in active_vagabonds:
@@ -60,6 +89,11 @@ func select_vagabond(v: Node2D) -> void:
 	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
 	
 	if not grid_mgr: return
+
+	# 💡 SEGURANÇA: Se a unidade já está sem AP, não mostra alcance
+	if v.get("ap") <= 0:
+		_painter.update_reachable([], Color.WHITE)
+		return
 
 	var pos = v.get("grid_pos")
 	var m_range = v.get("move_range") if v.get("move_range") != null else 3
@@ -85,7 +119,6 @@ func select_vagabond(v: Node2D) -> void:
 
 # --- CRIAÇÃO E SPAWN ---
 
-## Agora apenas cria os Domínios iniciais. Os Vagabonds base foram removidos.
 func spawn_players(player_count: int, turn_manager: Node, grid_manager: Node2D) -> void:
 	_clear_all()
 	var domain_manager = get_tree().get_first_node_in_group("domain_manager")
@@ -100,13 +133,11 @@ func spawn_players(player_count: int, turn_manager: Node, grid_manager: Node2D) 
 		if spawned >= player_count: break
 		var clean_pos = node_pos.snapped(Vector2(0.1, 0.1))
 		
-		# Procura uma área centralizada (6 vizinhos) para começar
 		if grid_manager.data.nodes[clean_pos].neighbors.size() == 6:
 			var color_name = turn_manager.player_colors[spawned]
 			var color_value = turn_manager.COLOR_OPTIONS[color_name]
 			
 			if domain_manager and domain_manager.has_method("create_domain"):
-				# Criamos o domínio, mas NÃO chamamos _create_vagabond aqui.
 				domain_manager.create_domain(clean_pos, color_value, spawned, grid_manager.tile_size)
 				print("[VagabondManager] Domínio inicial criado para P%d em %s" % [spawned, clean_pos])
 				spawned += 1
@@ -127,15 +158,12 @@ func _create_vagabond(grid_pos: Vector2, color: Color, player_id: int, grid: Nod
 	add_child(vagabond)
 	
 	if vagabond.has_method("setup"):
-		# setup(world_pos, grid_pos, color, owner_id, name)
-		# Convertemos grid para world usando o grid_manager
 		var world_pos = grid.grid_to_world(grid_pos) if grid.has_method("grid_to_world") else grid_pos
 		vagabond.setup(world_pos, grid_pos, color, player_id, v_name)
 	
 	active_vagabonds.append(vagabond)
 	print("[VagabondManager] Spawned: %s na posição %s" % [vagabond.name, grid_pos])
 
-## Função pública para ser chamada via Upgrade de Domínio
 func spawn_vagabond(grid_pos: Vector2, color: Color, player_id: int, custom_name: String = "") -> void:
 	var grid_mgr = get_tree().get_first_node_in_group("grid_manager")
 	if grid_mgr:

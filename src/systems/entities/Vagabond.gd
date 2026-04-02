@@ -35,25 +35,29 @@ var vagabond_name: String = ""
 # --- CICLO DE VIDA ---
 
 func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int, p_name: String = "") -> void:
-	# Define o domínio de origem (essencial para consumo de poder)
+	# Define o domínio de origem
 	home_domain_pos = p_grid_pos.snapped(Vector2(0.1, 0.1))
 	
 	if not p_name.is_empty():
 		vagabond_name = p_name
 	elif vagabond_name.is_empty():
-		# Fallback: Caso não venha nome do Domain, gera um aqui
 		vagabond_name = _generate_unique_initial_name(3)
 		
 	super.setup(p_global_pos, p_grid_pos, p_color, p_owner_id)
 	
-	# Z-index alto para ficar acima dos Domínios
 	self.z_index = 10 
 	
 	_setup_font_resource()
 	_create_visuals()
 	_setup_collision() 
-	_update_visual_state(true)
+	
+	# 💡 CORREÇÃO: Verifica se o domínio já nasceu sem poder
+	# Se não houver poder no domínio de origem, a unidade já nasce exausta
+	if not _check_domain_has_power():
+		ap = 0
+		print("[Vagabond] %s nasceu em domínio seco. Iniciando exausto." % vagabond_name)
 
+	_update_visual_state(true)
 	add_to_group("Units")
 
 func _setup_collision() -> void:
@@ -74,8 +78,19 @@ func _setup_collision() -> void:
 
 func _on_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -> void:
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		# 💡 CORREÇÃO: Bloqueia interação se o domínio estiver sem poder
+		if not _check_domain_has_power():
+			ap = 0 # Garante exaustão
+			_apply_fail_visual_feedback()
+			print("[Vagabond] %s: Ação bloqueada (Domínio sem Poder)." % vagabond_name)
+			get_viewport().set_input_as_handled()
+			return
+
 		get_viewport().set_input_as_handled()
-		# O VagabondManager deve capturar a seleção via Raycast ou sinal
+		# Notifica o Manager de que esta unidade foi clicada
+		if is_instance_valid(Signals) and Signals.has_signal("unit_selected"):
+			Signals.unit_selected.emit(self)
+		
 		print("[Vagabond] %s selecionado. Home: %s" % [vagabond_name, str(home_domain_pos)])
 
 func _setup_font_resource() -> void:
@@ -129,7 +144,7 @@ func _create_visuals() -> void:
 	label.text = vagabond_name
 	var text_settings = LabelSettings.new()
 	text_settings.font = _high_res_font
-	text_settings.font_size = 42 # Aumentado para melhor leitura
+	text_settings.font_size = 42 
 	text_settings.font_color = entity_color 
 	text_settings.outline_size = 18 
 	text_settings.outline_color = Color.BLACK 
@@ -145,6 +160,12 @@ func _create_visuals() -> void:
 
 # --- LÓGICA DE JOGO (REVOLTA E CONSUMO) ---
 
+func _check_domain_has_power() -> bool:
+	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
+	if is_instance_valid(domain_mgr) and domain_mgr.has_method("get_domain_power_at"):
+		return domain_mgr.get_domain_power_at(home_domain_pos) > 0
+	return true # Default true se manager não existir
+
 func use_ap() -> bool:
 	if not has_ap():
 		return false
@@ -152,17 +173,16 @@ func use_ap() -> bool:
 	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
 	
 	if is_instance_valid(domain_mgr):
-		# REGRA 1: Checar se o Domínio de origem está ocupado por inimigo (REVOLTA)
+		# REGRA 1: Revolta (Inimigo no Domínio de origem)
 		var in_revolt = domain_mgr.has_method("is_in_revolt") and domain_mgr.is_in_revolt(home_domain_pos, owner_id)
 		
 		if in_revolt:
-			print("[Vagabond] %s em REVOLTA! AP usado sem custo de Poder." % vagabond_name)
 			ap -= 1
 			_play_action_animation()
 			_apply_revolt_visual_feedback()
 			return true
 			
-		# REGRA 2: Consumo normal de Poder do Domínio
+		# REGRA 2: Consumo normal
 		if domain_mgr.has_method("consume_power_at"):
 			var success = domain_mgr.consume_power_at(home_domain_pos, 1)
 			if success:
@@ -170,13 +190,14 @@ func use_ap() -> bool:
 				_play_action_animation()
 				return true
 			else:
-				print("[Vagabond] %s falhou: Domínio de origem sem Poder!" % vagabond_name)
+				ap = 0 # Força exaustão se o consumo falhou
+				_apply_fail_visual_feedback()
 				return false
 	
-	# Fallback caso não haja DomainManager na cena
 	ap -= 1
-	_play_action_animation()
 	return true
+
+# --- AUXILIARES E VISUAIS ---
 
 func _apply_revolt_visual_feedback() -> void:
 	var view = get_node_or_null("View")
@@ -185,10 +206,20 @@ func _apply_revolt_visual_feedback() -> void:
 		tween.tween_property(view, "modulate", Color.RED, 0.1)
 		tween.tween_property(view, "modulate", Color.WHITE, 0.1)
 
-# --- AUXILIARES E VISUAIS ---
+func _apply_fail_visual_feedback() -> void:
+	var view = get_node_or_null("View")
+	if view:
+		var tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		tween.tween_property(view, "position:x", 5, 0.05)
+		tween.tween_property(view, "position:x", -5, 0.05)
+		tween.tween_property(view, "position:x", 0, 0.05)
 
 func restore_ap() -> void:
-	ap = max_ap 
+	# Só restaura se o domínio tiver poder disponível
+	if _check_domain_has_power():
+		ap = max_ap 
+	else:
+		ap = 0
 
 func set_highlight(active: bool) -> void:
 	_is_highlighted = active
@@ -205,7 +236,7 @@ func _update_visual_state(instant: bool = false) -> void:
 	var view = get_node_or_null("View")
 	if not view: return
 	var target_scale = Vector2(1.3, 1.3) if _is_highlighted else Vector2.ONE
-	var target_alpha = 1.0 if ap > 0 else 0.5 # Mais transparente quando exausto
+	var target_alpha = 1.0 if ap > 0 else 0.4
 	
 	if instant:
 		view.scale = target_scale
@@ -218,14 +249,13 @@ func _update_visual_state(instant: bool = false) -> void:
 func has_ap() -> bool:
 	return ap > 0
 
-# --- GERAÇÃO DE NOMES (FALLBACK) ---
+# --- GERAÇÃO DE NOMES ---
 
 func _generate_unique_initial_name(length: int) -> String:
 	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	var available_initials = ""
 	for char in standard_alphabet:
-		if not char in used_initials:
-			available_initials += char
+		if not char in used_initials: available_initials += char
 	if available_initials.length() == 0:
 		used_initials.clear()
 		available_initials = standard_alphabet
@@ -233,8 +263,7 @@ func _generate_unique_initial_name(length: int) -> String:
 	var initial = available_initials[randi() % available_initials.length()]
 	used_initials.append(initial)
 	var rest = ""
-	for i in range(length - 1):
-		rest += standard_alphabet[randi() % standard_alphabet.length()]
+	for i in range(length - 1): rest += standard_alphabet[randi() % standard_alphabet.length()]
 	return initial + rest
 
 static func reset_vagabond_registry() -> void:

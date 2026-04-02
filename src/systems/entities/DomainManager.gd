@@ -63,6 +63,8 @@ func consume_power_at(world_pos: Vector2, amount: int) -> bool:
 	var domain = get_domain_at(world_pos)
 	if is_instance_valid(domain):
 		var owner_id = domain.get("owner_id")
+		
+		# Se estiver em revolta, o custo de "manutenção" é ignorado ou o movimento é livre
 		if is_in_revolt(world_pos, owner_id):
 			return true 
 			
@@ -70,6 +72,14 @@ func consume_power_at(world_pos: Vector2, amount: int) -> bool:
 		if current_power >= amount:
 			if domain.has_method("add_power"):
 				domain.add_power(-amount)
+				
+				# 💡 CORREÇÃO: Verifica se o poder secou após o consumo
+				# Se chegou a zero, avisamos o sistema para exaurir unidades
+				var new_power = domain.get("power")
+				if new_power <= 0 and is_instance_valid(Signals):
+					Signals.domain_power_depleted.emit(owner_id)
+					print("[DomainManager] Poder esgotado para P%d. Enviando sinal de exaustão." % owner_id)
+					
 				return true
 	return false
 
@@ -148,11 +158,9 @@ func spawn_domains(player_count: int, grid_mgr: Node2D, v_mgr: Node2D, turn_mgr:
 
 	var spawned = 0
 	for idx in selected_indices:
-		# Passamos apenas as referências necessárias
 		_create_capital(spawned, edge_positions[idx], turn_mgr, t_size)
 		spawned += 1
 
-## REMOVIDO: O VagabondManager não é mais chamado aqui.
 func _create_capital(id: int, grid_pos: Vector2, turn: Node, t_size: float):
 	if not turn: return
 	var color_options = turn.get("COLOR_OPTIONS")
@@ -164,13 +172,11 @@ func _create_capital(id: int, grid_pos: Vector2, turn: Node, t_size: float):
 	var color_name = player_colors[id]
 	var p_color = color_options[color_name]
 	
-	# Criamos apenas o Domínio. O Vagabond só nascerá via upgrade.
 	create_domain(grid_pos, p_color, id, t_size)
-	print("[DomainManager] Capital P%d criada em %s. Vagabond inicial: REMOVIDO." % [id, grid_pos])
+	print("[DomainManager] Capital P%d criada em %s." % [id, grid_pos])
 
 ## Produção Interrompida por Invasão
 func _on_turn_started(player_id: int, _player_color: Color, round_number: int) -> void:
-	# O round_number == 1 costuma ser o setup, mas se quiser poder imediato, pode remover
 	for inst in domain_instances:
 		if is_instance_valid(inst) and inst.get("owner_id") == player_id:
 			var pos = inst.get("grid_pos")
