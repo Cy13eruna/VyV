@@ -21,36 +21,45 @@ func generate_random_terrain(grid_resource: Object) -> void:
 	if "edges" in grid_resource:
 		grid_resource.edges.clear()
 	else:
-		# Caso o grid_resource não tenha a variável definida, tentamos injetar se for Object genérico
 		grid_resource.set("edges", {})
 
 	var nodes_dict = grid_resource.nodes
-	var types = Type.values()
 	
+	# Distribuição alvo: 1/2 Plains, 1/6 Woods, 1/6 Hills, 1/6 Waters
+	# Limiares acumulados: 0.5 -> 0.666 -> 0.833 -> 1.0
 	for pos in nodes_dict.keys():
 		for n_pos in nodes_dict[pos].neighbors:
 			var id = get_edge_id(pos, n_pos)
 			
 			if not edges.has(id):
-				# 1. Define o tipo de terreno aleatório para lógica interna
-				var random_type = types[randi() % types.size()]
+				var roll = randf()
+				var random_type: Type
+				
+				if roll < 0.5:
+					random_type = Type.PLAINS   # 50% (1/2)
+				elif roll < 0.666:
+					random_type = Type.WOODS    # ~16.6% (1/6)
+				elif roll < 0.833:
+					random_type = Type.HILLS    # ~16.6% (1/6)
+				else:
+					random_type = Type.WATERS   # Restante (1/6)
+				
 				edges[id] = random_type
 				
-				# 2. CRÍTICO: Registra a existência desta aresta no grid_resource
-				# Isso permite que o GridPainter veja que existe algo para desenhar (o fundo preto)
+				# Registra a existência da aresta para o GridPainter
 				grid_resource.edges[id] = true
+				
+	print("[Terrain] Geração concluída. Distribuição: 1/2 Plains, 1/6 Woods, 1/6 Hills, 1/6 Waters.")
 
 func get_edge_id(a: Vector2, b: Vector2) -> String:
 	var p1 = a.snapped(Vector2(0.1, 0.1))
 	var p2 = b.snapped(Vector2(0.1, 0.1))
-	# Ordenação consistente para que (A,B) e (B,A) resultem no mesmo ID
 	if p1.x < p2.x or (p1.x == p2.x and p1.y < p2.y):
 		return "%.1f,%.1f_%.1f,%.1f" % [p1.x, p1.y, p2.x, p2.y]
 	return "%.1f,%.1f_%.1f,%.1f" % [p2.x, p2.y, p1.x, p1.y]
 
 func get_edge_color(a: Vector2, b: Vector2) -> Color:
 	var id = get_edge_id(a, b)
-	# Se a aresta não existir no dicionário (ex: fora do mapa), retorna Plains por padrão
 	var type = edges.get(id, Type.PLAINS)
 	return DATA[type].color
 
@@ -60,7 +69,6 @@ func blocks_vision(a: Vector2, b: Vector2) -> bool:
 	return not DATA[type].vis
 
 func blocks_movement(a: Vector2, b: Vector2, allied_nodes: Array = []) -> bool:
-	# Lógica de Domains (Caminho livre entre aliados)
 	for pos in allied_nodes:
 		if a.distance_to(pos) < 0.1 and b.distance_to(pos) < 0.1:
 			return false 
