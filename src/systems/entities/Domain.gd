@@ -100,6 +100,7 @@ func _is_movement_active() -> bool:
 	return false
 
 func _can_open_upgrade_menu() -> bool:
+	# Verificação básica para saber se o menu pode abrir
 	return power >= domain_level and not _is_occupied()
 
 func _is_occupied() -> bool:
@@ -112,7 +113,8 @@ func _is_occupied() -> bool:
 # --- SISTEMA DE RECRUTAMENTO (UPGRADE) ---
 
 func upgrade_level() -> void:
-	add_power(-domain_level)
+	# CORREÇÃO: Removida a linha add_power(-domain_level).
+	# Agora o pagamento é processado exclusivamente pelo Upgrade.gd
 	domain_level += 1
 	_spawn_vagabond_on_upgrade()
 	_refresh_all()
@@ -185,22 +187,17 @@ func _draw_hexagram() -> void:
 	
 	var radius = 10.0 * upscale 
 	var symbol_color = entity_color if power >= domain_level else Color.WHITE
-	# Garante que a cor de preenchimento seja totalmente opaca
 	var opaque_fill = Color(symbol_color.r, symbol_color.g, symbol_color.b, 1.0)
 	
-	# Rotação de 30 graus convertida para radianos
 	var rotation_offset = deg_to_rad(30)
 	
 	for orientation in [1, -1]:
 		var tri_pts = PackedVector2Array()
 		for i in range(4):
-			# Base 90/-90 + 30 graus de rotação solicitada
 			var angle = deg_to_rad(i * 120 + (90 if orientation > 0 else -90)) + rotation_offset
 			tri_pts.append(Vector2(cos(angle), sin(angle)) * radius)
 		
-		# Preenchimento opaco
 		core_symbol_node.draw_colored_polygon(tri_pts, opaque_fill)
-		# Borda
 		core_symbol_node.draw_polyline(tri_pts, symbol_color, 2.5 * upscale, true)
 
 	core_symbol_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
@@ -222,7 +219,7 @@ func _draw_label() -> void:
 	label_node.draw_string(high_res_font, text_pos, text, HORIZONTAL_ALIGNMENT_CENTER, -1, font_size, entity_color)
 	label_node.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-# --- GERAÇÃO DE NOMES DO DOMÍNIO ---
+# --- GERAÇÃO DE NOMES ---
 
 func _generate_unique_initial_name(length: int) -> String:
 	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZÇ"

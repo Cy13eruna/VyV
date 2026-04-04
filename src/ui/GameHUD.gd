@@ -31,12 +31,14 @@ func _ready() -> void:
 
 func _connect_signals() -> void:
 	if is_instance_valid(Signals):
+		# Limpeza preventiva de sinais para evitar conexões duplicadas
 		if Signals.turn_started.is_connected(_on_turn_started):
 			Signals.turn_started.disconnect(_on_turn_started)
 		Signals.turn_started.connect(_on_turn_started)
 		
-		if not Signals.request_upgrade_menu.is_connected(_on_open_upgrade_popup):
-			Signals.request_upgrade_menu.connect(_on_open_upgrade_popup)
+		if Signals.request_upgrade_menu.is_connected(_on_open_upgrade_popup):
+			Signals.request_upgrade_menu.disconnect(_on_open_upgrade_popup)
+		Signals.request_upgrade_menu.connect(_on_open_upgrade_popup)
 
 # --- LÓGICA DE UPGRADE (GENÉRICA) ---
 
@@ -62,6 +64,8 @@ func _open_confirmation_popup(domain: Node2D, upgrade: RefCounted) -> void:
 		{
 			"emoji": "DO IT",
 			"callback": func(): 
+				# Desabilita o container de opções para evitar cliques fantasmas/duplos
+				popup_options_hbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 				upgrade.execute(domain)
 				_close_popup(),
 			"is_text_button": true
@@ -76,6 +80,7 @@ func open_popup(title: String, subtitle: String, options: Array) -> void:
 	if not is_inside_tree(): return
 	
 	_clear_popup_options()
+	popup_options_hbox.mouse_filter = Control.MOUSE_FILTER_PASS
 	
 	title_label.text = title
 	subtitle_label.text = subtitle
@@ -109,6 +114,8 @@ func _reposition_popup() -> void:
 func _clear_popup_options() -> void:
 	if popup_options_hbox:
 		for child in popup_options_hbox.get_children():
+			# Removemos da árvore imediatamente antes de deletar
+			popup_options_hbox.remove_child(child)
 			child.queue_free()
 
 func _close_popup() -> void:
@@ -132,7 +139,6 @@ func _create_popup_system() -> void:
 	style.bg_color = Color.WHITE
 	style.shadow_size = 8
 	style.shadow_offset = Vector2(4, 4)
-	# CORREÇÃO: StyleBoxFlat não tem content_margin_all em código
 	style.content_margin_left = 20
 	style.content_margin_top = 20
 	style.content_margin_right = 20
