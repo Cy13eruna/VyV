@@ -79,8 +79,11 @@ class TechTreeUI extends Control:
 
 	func _create_tech_list() -> void:
 		var techs = [
-			["🗡", "Fighter"], ["🎣", "Fish"], ["🚩", "Settlers"],
-			["🍎", "Harvest"], ["❤", "Healer"]
+			["🚩", "Settlers"],
+			["🍎", "Harvest"],
+			["❤", "Healer"],
+			["🗡", "Fighter"],
+			["🎣", "Fish"]
 		]
 		var unlocked = current_domain.get_meta("unlocked_techs")
 		
