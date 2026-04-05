@@ -26,6 +26,13 @@ signal domain_upgraded(domain_ref: Node2D, new_level: int)
 ## Notifica que o jogador ficou sem recursos no domínio.
 signal domain_power_depleted(owner_id: int)
 
+# --- SISTEMA DE TECNOLOGIA (NOVO) ---
+## Solicita a abertura da Árvore de Tecnologias para um domínio específico.
+signal request_tech_tree(domain_ref: Node2D)
+
+## Notifica que uma tecnologia específica foi desbloqueada.
+signal tech_unlocked(tech_id: String, domain_ref: Node2D)
+
 # --- MUNDO E VISIBILIDADE ---
 ## Notifica que a visibilidade do jogador atual mudou.
 signal visibility_changed(player_id: int, lit_nodes: Array, revealed_edges: Array)
