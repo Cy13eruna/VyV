@@ -32,10 +32,14 @@ var _emoji_font: SystemFont
 # Nome de 3 caracteres
 var vagabond_name: String = ""
 
+# Guarda a última posição X para detectar a direção do movimento
+var _last_grid_x: float = 0.0
+
 # --- CICLO DE VIDA ---
 
 func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_id: int, p_name: String = "") -> void:
 	home_domain_pos = p_grid_pos.snapped(Vector2(0.1, 0.1))
+	_last_grid_x = p_grid_pos.x
 	
 	if not p_name.is_empty():
 		vagabond_name = p_name
@@ -56,6 +60,21 @@ func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_i
 
 	_update_visual_state(true)
 	add_to_group("Units")
+
+# Monitora o movimento continuamente para inverter o emoji
+func _process(_delta: float) -> void:
+	# Verificação de segurança contra floats imprecisos
+	if abs(grid_pos.x - _last_grid_x) > 0.01:
+		var emoji_flip = get_node_or_null("View/HiresContainer/EmojiFlip")
+		if emoji_flip:
+			if grid_pos.x > _last_grid_x:
+				# Movendo para a direita: Inverte o container
+				emoji_flip.scale.x = -1.0
+			elif grid_pos.x < _last_grid_x:
+				# Movendo para a esquerda: Restaura o container
+				emoji_flip.scale.x = 1.0
+				
+		_last_grid_x = grid_pos.x
 
 func _setup_collision() -> void:
 	var old = get_node_or_null("ClickBlocker")
@@ -118,6 +137,7 @@ func _create_visuals() -> void:
 	add_child(view)
 
 	var hires_container = Node2D.new()
+	hires_container.name = "HiresContainer"
 	hires_container.scale = Vector2(0.25, 0.25)
 	view.add_child(hires_container)
 
@@ -211,7 +231,6 @@ func _apply_fail_visual_feedback() -> void:
 	var view = get_node_or_null("View")
 	if view:
 		var tween = create_tween().set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
-		# Shake horizontal
 		tween.tween_property(view, "position:x", 5, 0.05)
 		tween.tween_property(view, "position:x", -5, 0.05)
 		tween.tween_property(view, "position:x", 0, 0.05)
