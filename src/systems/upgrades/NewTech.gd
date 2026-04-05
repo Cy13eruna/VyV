@@ -1,3 +1,5 @@
+# res://src/systems/upgrades/NewTech.gd
+
 extends "res://src/systems/upgrades/Upgrade.gd"
 
 func _init() -> void:
@@ -11,6 +13,10 @@ func get_description(domain: Node2D) -> String:
 
 func execute(domain: Node2D) -> void:
 	if not is_instance_valid(domain): return
+	
+	if not domain.has_meta("unlocked_techs"):
+		domain.set_meta("unlocked_techs", [])
+		
 	var layer = CanvasLayer.new()
 	layer.name = "TechTreeLayer"
 	layer.layer = 125 
@@ -25,9 +31,8 @@ func execute(domain: Node2D) -> void:
 class TechTreeUI extends Control:
 	var current_domain: Node2D
 	var balloon: PanelContainer
-	var circle_area: Control # Referência direta para evitar erros de 'null instance'
+	var circle_area: Control 
 	var tech_folder = "res://src/systems/upgrades/techs/"
-	
 	var circle_radius: float = 75.0 
 	var tech_buttons: Array[Button] = []
 
@@ -70,53 +75,62 @@ class TechTreeUI extends Control:
 		content_vbox.add_child(circle_area)
 
 		_create_tech_list()
-
 		call_deferred("_reposition")
 
 	func _create_tech_list() -> void:
 		var techs = [
-			["🗡", "Fighter"],
-			["🎣", "Fish"],
-			["🚩", "Settlers"],
-			["🍎", "Harvest"],
-			["❤", "Healer"]
+			["🗡", "Fighter"], ["🎣", "Fish"], ["🚩", "Settlers"],
+			["🍎", "Harvest"], ["❤", "Healer"]
 		]
+		var unlocked = current_domain.get_meta("unlocked_techs")
+		
 		for i in range(techs.size()):
-			var btn = _add_tech_option(techs[i][0], techs[i][1])
+			var tech_id = techs[i][1]
+			var is_already_bought = tech_id in unlocked
+			var btn = _add_tech_option(techs[i][0], tech_id, is_already_bought)
 			tech_buttons.append(btn)
 
-	func _add_tech_option(emoji: String, tech_id: String) -> Button:
+	func _add_tech_option(emoji: String, tech_id: String, is_bought: bool) -> Button:
 		var btn = Button.new()
 		btn.text = emoji
 		btn.custom_minimum_size = Vector2(55, 55)
-		btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		
 		var sb = StyleBoxFlat.new()
-		sb.bg_color = Color.WHITE
-		sb.set_border_width_all(2)
-		sb.border_color = Color(0.9, 0.9, 0.9)
 		sb.set_corner_radius_all(15)
+		sb.set_border_width_all(2)
 		
-		btn.add_theme_stylebox_override("normal", sb)
-		btn.add_theme_color_override("font_color", Color.BLACK)
+		if is_bought:
+			# CORRIGIDO: Garantir cor sólida do jogador mesmo desabilitado
+			var p_color = current_domain.modulate
+			sb.bg_color = Color(p_color.r, p_color.g, p_color.b, 1.0)
+			sb.border_color = sb.bg_color.lightened(0.2)
+			
+			btn.disabled = true
+			# Override obrigatório para o estado DISABLED
+			btn.add_theme_stylebox_override("disabled", sb)
+			btn.add_theme_color_override("font_disabled_color", Color.WHITE)
+		else:
+			sb.bg_color = Color.WHITE
+			sb.border_color = Color(0.9, 0.9, 0.9)
+			btn.add_theme_stylebox_override("normal", sb)
+			btn.add_theme_color_override("font_color", Color.BLACK)
+			btn.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+			btn.pressed.connect(func(): _open_confirm_dialog(tech_id))
+		
+		# Estilos de interação (Hover/Focus)
+		btn.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 		btn.add_theme_font_size_override("font_size", 26)
 		
-		btn.pressed.connect(func(): _open_confirm_dialog(tech_id))
 		add_child(btn) 
 		return btn
 
 	func _reposition() -> void:
-		if not is_instance_valid(circle_area) or not is_instance_valid(balloon):
-			return
-
+		if not is_instance_valid(circle_area) or not is_instance_valid(balloon): return
 		var center = get_viewport_rect().size / 2.0
 		balloon.size = Vector2.ZERO
 		await get_tree().process_frame
-		
 		balloon.global_position = center - (balloon.size / 2.0)
-		
 		var circle_center = circle_area.global_position + (circle_area.size / 2.0)
-		
 		for i in range(tech_buttons.size()):
 			var angle = (float(i) / tech_buttons.size()) * TAU - PI/2
 			var pos = Vector2(cos(angle), sin(angle)) * circle_radius
@@ -126,8 +140,8 @@ class TechTreeUI extends Control:
 	func _open_confirm_dialog(tech_id: String) -> void:
 		var path = tech_folder + tech_id + ".gd"
 		if not FileAccess.file_exists(path): return
-		
 		var tech_script = load(path).new()
+		
 		balloon.visible = false
 		for b in tech_buttons: b.visible = false
 		
@@ -154,7 +168,7 @@ class TechTreeUI extends Control:
 		var btn_doit = Button.new()
 		btn_doit.text = "RESEARCH (⭐ %d)" % cost
 		btn_doit.custom_minimum_size.y = 45
-		btn_doit.pressed.connect(func(): _purchase_tech(tech_script, cost))
+		btn_doit.pressed.connect(func(): _purchase_tech(tech_script, tech_id, cost))
 		cvbox.add_child(btn_doit)
 		
 		var btn_back = Button.new()
@@ -171,12 +185,18 @@ class TechTreeUI extends Control:
 		await get_tree().process_frame
 		confirm_balloon.global_position = (get_viewport_rect().size / 2.0) - (confirm_balloon.size / 2.0)
 
-	func _purchase_tech(tech_instance: RefCounted, cost: int) -> void:
+	func _purchase_tech(tech_instance: RefCounted, tech_id: String, cost: int) -> void:
 		if current_domain.power >= cost:
 			if current_domain.has_method("add_power"): current_domain.add_power(-cost)
 			else: current_domain.power -= cost
+			
+			var unlocked = current_domain.get_meta("unlocked_techs")
+			unlocked.append(tech_id)
+			current_domain.set_meta("unlocked_techs", unlocked)
+			
 			current_domain.domain_level += 1
 			tech_instance.execute(current_domain)
+			
 			_close()
 
 	func _create_label(txt: String, size: int, color: Color) -> Label:
