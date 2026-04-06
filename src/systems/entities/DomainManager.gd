@@ -7,10 +7,12 @@ var domain_instances: Array = []
 
 func _ready() -> void:
 	add_to_group("domain_manager")
+	# Inicializa a tecnologia como bloqueada por padrão
+	set_meta("tech_settlers_unlocked", false)
+	
 	_load_resources.call_deferred()
 	
 	if is_instance_valid(Signals):
-		# Agora escutamos o FIM do turno para processar a produção
 		_reconnect_signal(Signals.turn_ended, _on_turn_ended)
 
 func _reconnect_signal(sig: Signal, callable: Callable) -> void:
@@ -175,14 +177,21 @@ func _create_capital(id: int, grid_pos: Vector2, turn: Node, t_size: float):
 		
 	print("[DomainManager] P%d: Grid %s -> Câmera em %s" % [id, grid_pos, final_world_pos])
 
+## --- API DE TECNOLOGIA (SETTLERS) ---
+
+func unlock_settlers_tech() -> void:
+	set_meta("tech_settlers_unlocked", true)
+	print("[DomainManager] Tecnologia SETTLERS desbloqueada!")
+	# Notifica todos os Vagabonds para atualizarem seus emojis de bandeira
+	get_tree().call_group("Units", "update_settler_status")
+
 ## --- PRODUÇÃO AO FINAL DO TURNO ---
-# Mudamos de turn_started para turn_ended para o jogador receber os recursos no clique do botão.
+
 func _on_turn_ended(player_id: int) -> void:
 	print("[DomainManager] Processando produção de fim de turno para P%d" % player_id)
 	for inst in domain_instances:
 		if is_instance_valid(inst) and inst.get("owner_id") == player_id:
 			var pos = inst.get("grid_pos")
-			# Se o domínio estiver ocupado por um inimigo, ele não produz poder
 			if is_domain_occupied_by_enemy(pos, player_id):
 				print("[DomainManager] Domínio em %s ocupado! Produção cancelada." % pos)
 				continue

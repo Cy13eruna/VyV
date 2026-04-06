@@ -32,8 +32,9 @@ var _emoji_font: SystemFont
 # Nome de 3 caracteres
 var vagabond_name: String = ""
 
-# Guarda a última posição X para detectar a direção do movimento
+# Cache para controle de movimento e lógica
 var _last_grid_x: float = 0.0
+var _last_grid_pos_checked: Vector2 = Vector2.INF
 
 # --- CICLO DE VIDA ---
 
@@ -61,20 +62,20 @@ func setup(p_global_pos: Vector2, p_grid_pos: Vector2, p_color: Color, p_owner_i
 	_update_visual_state(true)
 	add_to_group("Units")
 
-# Monitora o movimento continuamente para inverter o emoji
+# Monitora o movimento para inverter emoji e atualizar status de colonização
 func _process(_delta: float) -> void:
-	# Verificação de segurança contra floats imprecisos
+	# 1. Lógica de Flip (Direção)
 	if abs(grid_pos.x - _last_grid_x) > 0.01:
 		var emoji_flip = get_node_or_null("View/HiresContainer/EmojiFlip")
 		if emoji_flip:
-			if grid_pos.x > _last_grid_x:
-				# Movendo para a direita: Inverte o container
-				emoji_flip.scale.x = -1.0
-			elif grid_pos.x < _last_grid_x:
-				# Movendo para a esquerda: Restaura o container
-				emoji_flip.scale.x = 1.0
-				
+			emoji_flip.scale.x = -1.0 if grid_pos.x > _last_grid_x else 1.0
 		_last_grid_x = grid_pos.x
+	
+	# 2. Lógica de Colonização (Validação de Nó)
+	var current_snapped = grid_pos.snapped(Vector2(0.1, 0.1))
+	if current_snapped != _last_grid_pos_checked:
+		update_settler_status()
+		_last_grid_pos_checked = current_snapped
 
 func _setup_collision() -> void:
 	var old = get_node_or_null("ClickBlocker")
@@ -96,24 +97,17 @@ func _on_area_input_event(_viewport: Node, event: InputEvent, _shape_idx: int) -
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 		get_viewport().set_input_as_handled()
 
-		# 1. Check de Poder do Domínio (Bloqueio crítico)
 		if not _check_domain_has_power():
 			ap = 0 
 			_apply_fail_visual_feedback()
-			print("[Vagabond] %s: Bloqueado (Domínio sem Poder)." % vagabond_name)
 			return
 
-		# 2. Check de Pontos de Ação (Unidade cansada)
 		if not has_ap():
 			_apply_fail_visual_feedback()
-			print("[Vagabond] %s: Bloqueado (Sem AP)." % vagabond_name)
 			return
 
-		# Sucesso: Notifica seleção
 		if is_instance_valid(Signals) and Signals.has_signal("unit_selected"):
 			Signals.unit_selected.emit(self)
-		
-		print("[Vagabond] %s selecionado. Home: %s" % [vagabond_name, str(home_domain_pos)])
 
 func _setup_font_resource() -> void:
 	if _high_res_font: return
@@ -161,6 +155,24 @@ func _create_visuals() -> void:
 	emoji.custom_minimum_size = emoji_size
 	emoji.position = Vector2(-emoji_size.x / 2.0, -emoji_size.y + 12.0) 
 	emoji_flip.add_child(emoji)
+
+	# --- IMPLEMENTAÇÃO DA BANDEIRA DE COLONIZADOR ---
+	var flag = Label.new()
+	flag.name = "SettlerFlag"
+	flag.text = "🚩"
+	flag.visible = false 
+	var flag_settings = LabelSettings.new()
+	flag_settings.font = _emoji_font
+	flag_settings.font_size = 70 
+	flag.label_settings = flag_settings
+	flag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	flag.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	
+	var flag_size = _emoji_font.get_string_size(flag.text, HORIZONTAL_ALIGNMENT_CENTER, -1, 70)
+	flag.custom_minimum_size = flag_size
+	# Posicionada levemente acima e à direita do Vagabond
+	flag.position = Vector2(10, -emoji_size.y - 10.0) 
+	emoji_flip.add_child(flag)
 	
 	var label = Label.new()
 	label.name = "IDLabel"
@@ -190,42 +202,63 @@ func _check_domain_has_power() -> bool:
 	return true 
 
 func use_ap() -> bool:
-	if not has_ap():
-		return false
-		
+	if not has_ap(): return false
 	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
-	
 	if is_instance_valid(domain_mgr):
-		var in_revolt = domain_mgr.has_method("is_in_revolt") and domain_mgr.is_in_revolt(home_domain_pos, owner_id)
-		
-		if in_revolt:
-			ap -= 1
-			_play_action_animation()
-			_apply_revolt_visual_feedback()
-			return true
-			
 		if domain_mgr.has_method("consume_power_at"):
 			var success = domain_mgr.consume_power_at(home_domain_pos, 1)
 			if success:
 				ap -= 1 
 				_play_action_animation()
 				return true
-			else:
-				ap = 0 
-				_apply_fail_visual_feedback()
-				return false
-	
 	ap -= 1
 	return true
 
-# --- AUXILIARES E VISUAIS ---
+# --- LÓGICA DE COLONIZAÇÃO (SETTLERS) ---
 
-func _apply_revolt_visual_feedback() -> void:
-	var view = get_node_or_null("View")
-	if view:
-		var tween = create_tween()
-		tween.tween_property(view, "modulate", Color.RED, 0.1)
-		tween.tween_property(view, "modulate", Color.WHITE, 0.1)
+func update_settler_status() -> void:
+	var flag_node = get_node_or_null("View/HiresContainer/EmojiFlip/SettlerFlag")
+	if not flag_node: return
+
+	var domain_mgr = get_tree().get_first_node_in_group("domain_manager")
+	var grid_mgr = get_tree().get_first_node_in_group("grid_manager")
+	
+	if not is_instance_valid(domain_mgr) or not is_instance_valid(grid_mgr): 
+		flag_node.visible = false
+		return
+	
+	# 1. Tech Check
+	if not domain_mgr.get_meta("tech_settlers_unlocked", false):
+		flag_node.visible = false
+		return
+
+	# 2. Borda Check
+	var my_pos = grid_pos.snapped(Vector2(0.1, 0.1))
+	var node_data = grid_mgr.data.nodes.get(my_pos)
+	
+	if not node_data or node_data.neighbors.size() < 6:
+		flag_node.visible = false
+		return
+
+	# 3. Adjacência Check (CORRIGIDO)
+	# Primeiro: Não pode colonizar em cima de um domínio existente
+	if is_instance_valid(domain_mgr.get_domain_at(my_pos)):
+		flag_node.visible = false
+		return
+		
+	# Segundo: Verifica os vizinhos REAIS vindos do GridManager
+	# node_data.neighbors contém as chaves (Vector2) de todos os nós adjacentes
+	for neighbor_pos in node_data.neighbors:
+		var clean_neighbor = neighbor_pos.snapped(Vector2(0.1, 0.1))
+		if is_instance_valid(domain_mgr.get_domain_at(clean_neighbor)):
+			# Encontrou um domínio vizinho!
+			flag_node.visible = false
+			return
+
+	# Se passou por todos os vizinhos e nenhum era domínio
+	flag_node.visible = true
+
+# --- AUXILIARES E VISUAIS ---
 
 func _apply_fail_visual_feedback() -> void:
 	var view = get_node_or_null("View")
@@ -236,10 +269,8 @@ func _apply_fail_visual_feedback() -> void:
 		tween.tween_property(view, "position:x", 0, 0.05)
 
 func restore_ap() -> void:
-	if _check_domain_has_power():
-		ap = max_ap 
-	else:
-		ap = 0
+	ap = max_ap if _check_domain_has_power() else 0
+	update_settler_status()
 
 func set_highlight(active: bool) -> void:
 	_is_highlighted = active
@@ -269,8 +300,6 @@ func _update_visual_state(instant: bool = false) -> void:
 func has_ap() -> bool:
 	return ap > 0
 
-# --- GERAÇÃO DE NOMES ---
-
 func _generate_unique_initial_name(length: int) -> String:
 	var standard_alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	var available_initials = ""
@@ -279,7 +308,6 @@ func _generate_unique_initial_name(length: int) -> String:
 	if available_initials.length() == 0:
 		used_initials.clear()
 		available_initials = standard_alphabet
-		
 	var initial = available_initials[randi() % available_initials.length()]
 	used_initials.append(initial)
 	var rest = ""
