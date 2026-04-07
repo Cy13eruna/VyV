@@ -3,7 +3,7 @@ extends Node2D
 
 const VAGABOND_SCRIPT_PATH = "res://src/systems/entities/Vagabond.gd"
 const VAGABOND_SCENE_PATH = "res://src/systems/entities/Vagabond.tscn"
-const Pathfinder = preload("res://src/systems/movement/Pathfinder.gd")
+const Pathfinder = preload("res://src/systems/actions/Pathfinder.gd")
 const VagabondResource = preload(VAGABOND_SCRIPT_PATH)
 
 var active_vagabonds: Array[Node2D] = []

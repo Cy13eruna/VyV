@@ -21,11 +21,17 @@ Compreendido ou tem perguntas?
 
 
 
+Funcionou! Agora iremos criar uma coisa meio difícil...
+O Vagabond está acumulando habilidades. Por enquanto ele pode andar apenas, mas logo poderá fundar domínios, atacar, curar e muito mais...
+Para isso precisamos de um MENU de FUNÇÕES. Como é agora:
+- clico no vagabond
+- aparecem os indicadores de movimentos validos
+- clico em um indicador
+Como deve ser:
+- clico no vagabond
+- o sistema verifica se o vagabond tem habilidades além do movimento
+- se movimento for a única habilidade, prossegue normalmente com os indicadores de movimento
+- se houver outras habilidades disponíveis, abre-se um actionPopUp mostrando todas as habilidades disponíveis
+- ao selecionar a habilidade disponível, abre-se a ui da habilidade (indicador de movimentos ou confirmação de criação do domínio ou alvos válidos, etc)
 
-Então vamos criar o pop up. Será um pop up de fundo branco e não será transparente. Ao ser aberto, deve bloquear cliques em coisas fora dele. Ele terá formato de balão de fala quadrado com a ponta do balão na entidade clicada (ou seja, no centro da tela). Ele terá título, subtítulo e opções embaixo. Essas opções serão círculos com emojis dentro que quando clicadas fecharão o pop up atual e abrirão outro pop up de mesma classe, porém com conteúdo diferente. Por fim, ao clicar fora do pop-up o dialogo é cancelado. Entendeu ou precisa de explicação?
-
-o Upgrade de VAGABOND. Ele substituirá o placeholder UPGRADE DOMAIN herdando TODAS as funções do mesmo. Além de realizar todas as funções do UPGRADE DOMAIN, o Upgrade VAGABOND irá spawnar um novo Vagabond no centro do domínio.
-Esse novo Vagabond deverá ter todas as funções de um Vagabond normal. Lembre-se que ele deverá ter sistema de AP, consumo de poder do domínio de origem, um nome de tres letras cuja inicial será igual a inicial do nome de seu domínio de origem e demais funções comuns a um Vagabond
-
-Resetei para a última versão estavel e descobri exatamente onde que o bug ocorre:
-Quando um vagabond ainda tem pa, mas o domínio tem 0 poder. O que ocorre é que nessa situação o vagabond é liberado para percorrer quantos nodulos quiser (não de uma vez só, um de cada vez). Precisamos fazer com que quando o domínio de origem atingir zero poder, todas suas unidades entram no estado exausto.
+Compreendido ou tem perguntas?

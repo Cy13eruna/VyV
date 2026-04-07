@@ -1,27 +1,29 @@
 # res://src/Main.gd
 extends Node
 
-# Containers básicos
+# --- CONTAINERS ---
 var world: Node2D
 var ui: CanvasLayer
 var ui_screen_container: Control 
 
-# Gerentes (Nós)
+# --- GERENTES (NÓS) ---
 var ui_manager: Node
 var grid_manager: Node2D
 var domain_manager: Node2D 
 var vagabond_manager: Node2D
 var turn_manager: Node
+var action_controller: Node
 
-# Objetos de Lógica (RefCounted)
+# --- UI ESPECÍFICA ---
+var action_popup: CanvasLayer
+var game_hud: Control = null
+
+# --- OBJETOS DE LÓGICA (REFCOUNTED) ---
 var terrain_manager: Object 
 var visibility_manager: Object 
 var match_manager: Object 
 var input_handler: Object 
 var camera_controller: Camera2D
-
-# UI Específica
-var game_hud: Control = null
 
 func _ready() -> void:
 	randomize()
@@ -52,56 +54,79 @@ func _create_hierarchy() -> void:
 	ui.add_child(ui_screen_container)
 
 func _setup_managers() -> void:
-	# 1. UI Manager
+	# 1. Base UI e Turnos
 	ui_manager = Node.new()
 	ui_manager.set_script(load("res://src/ui/UIManager.gd"))
 	ui_manager.name = "UIManager"
 	add_child(ui_manager)
 	ui_manager.setup(ui_screen_container)
 	
-	# 2. Turn Manager
 	turn_manager = Node.new()
 	turn_manager.set_script(load("res://src/systems/turn/TurnManager.gd"))
 	turn_manager.name = "TurnManager"
 	add_child(turn_manager)
 	
+	# 2. SISTEMA DE AÇÕES (Crítico: Inicializar antes de criar unidades ou inputs)
+	_setup_action_system()
+	
 	# 3. Grid e Terreno
 	grid_manager = load("res://src/systems/grid/GridManager.gd").new()
 	grid_manager.name = "GridManager"
+	grid_manager.add_to_group("grid_manager")
 	world.add_child(grid_manager)
-	
 	terrain_manager = load("res://src/systems/terrain/Terrain.gd").new()
 	
-	# 4. Domain Manager
+	# 4. Entidades
 	domain_manager = Node2D.new()
 	domain_manager.set_script(load("res://src/systems/entities/DomainManager.gd"))
 	domain_manager.name = "DomainManager"
 	domain_manager.add_to_group("domain_manager")
 	world.add_child(domain_manager)
 	
-	# 5. Vagabond Manager
 	vagabond_manager = Node2D.new()
 	vagabond_manager.set_script(load("res://src/systems/entities/VagabondManager.gd"))
 	vagabond_manager.name = "VagabondManager"
 	vagabond_manager.add_to_group("vagabond_manager")
 	world.add_child(vagabond_manager)
 	
-	# 6. Auxiliares
+	# 5. Lógica e Input (Últimos a serem criados)
 	match_manager = load("res://src/systems/turn/MatchManager.gd").new(self)
 	input_handler = load("res://src/systems/input/InputHandler.gd").new(self)
 	visibility_manager = load("res://src/systems/visibility/VisibilityManager.gd").new()
 
-	# 7. Câmera (CameraController agora gerencia a visão individual de cada jogador)
+	# 6. Câmera
 	camera_controller = Camera2D.new()
 	camera_controller.set_script(load("res://src/systems/camera/CameraController.gd"))
 	camera_controller.name = "RTSCamera"
 	world.add_child(camera_controller)
 	camera_controller.make_current()
-	
-	# 8. Sinais Globais
+
 	if is_instance_valid(Signals):
 		_reconnect_signal(Signals.turn_started, _on_global_turn_started)
 		_reconnect_signal(Signals.unit_moved, _on_unit_moved)
+
+func _setup_action_system() -> void:
+	# Instancia o PopUp
+	var popup_script = load("res://src/ui/ActionPopUp.gd")
+	if popup_script:
+		action_popup = popup_script.new()
+		action_popup.name = "ActionPopUp"
+		ui.add_child(action_popup)
+		action_popup.cancelled.connect(_on_action_popup_closed)
+		if action_popup.has_signal("option_selected"):
+			action_popup.option_selected.connect(func(_id): _on_action_popup_closed())
+
+	# Instancia o Controller
+	var controller_script = load("res://src/systems/actions/ActionController.gd")
+	if controller_script:
+		action_controller = Node.new()
+		action_controller.set_script(controller_script)
+		action_controller.name = "ActionController"
+		add_child(action_controller)
+		
+		# Inicialização FORÇADA: Conecta sinais imediatamente antes do primeiro frame
+		if action_controller.has_method("initialize"):
+			action_controller.initialize(action_popup)
 
 func _reconnect_signal(sig: Signal, callable: Callable) -> void:
 	if sig.is_connected(callable):
@@ -121,6 +146,7 @@ func _on_match_requested(player_count: int) -> void:
 
 func _setup_hud() -> void:
 	if is_instance_valid(game_hud):
+		if game_hud.is_inside_tree(): return 
 		game_hud.queue_free()
 	
 	var hud_script = load("res://src/ui/GameHUD.gd")
@@ -128,66 +154,50 @@ func _setup_hud() -> void:
 		game_hud = hud_script.new()
 		game_hud.name = "GameHUD"
 		ui_screen_container.add_child(game_hud)
-		
 		if game_hud.has_signal("end_turn_requested"):
-			game_hud.end_turn_requested.connect(_on_end_turn_requested)
+			_reconnect_signal(game_hud.end_turn_requested, _on_end_turn_requested)
 
 func _on_global_turn_started(player_id: int, p_color: Color, _round_num: int) -> void:
 	_update_game_visibility(true)
 	
-	# --- LÓGICA DE CÂMERA POR JOGADOR ---
-	# Movemos a câmera para a capital do jogador atual
 	if is_instance_valid(camera_controller) and is_instance_valid(turn_manager):
 		var target_pos = turn_manager.get_current_start_pos()
-		if camera_controller.has_method("focus_on_position"):
-			camera_controller.focus_on_position(target_pos)
-		else:
-			camera_controller.global_position = target_pos
+		camera_controller.global_position = target_pos
 
-	# --- ATUALIZAÇÃO DE UI ---
-	var p_name = "PLAYER " + str(player_id + 1)
-	if is_instance_valid(turn_manager):
-		p_name = turn_manager.get_player_name_by_id(player_id)
-
-	var data = {
-		"id": player_id,
-		"name": p_name,
-		"color": p_color 
-	}
-	
+	var p_name = turn_manager.get_player_name_by_id(player_id) if is_instance_valid(turn_manager) else "PLAYER " + str(player_id + 1)
+	var data = { "id": player_id, "name": p_name, "color": p_color }
 	ui_manager.change_screen("res://src/ui/PlayerTurnScreen.gd", data)
 	
-	if not is_instance_valid(game_hud) or game_hud.get_parent() == null:
-		_setup_hud()
+	_setup_hud()
 	
-	if game_hud.get_parent() == ui_screen_container:
+	if is_instance_valid(game_hud) and game_hud.get_parent() == ui_screen_container:
 		ui_screen_container.move_child(game_hud, 0) 
-	
-	if game_hud.has_method("_on_turn_started"):
-		game_hud._on_turn_started(player_id, p_color, _round_num)
+		if game_hud.has_method("_on_turn_started"):
+			game_hud._on_turn_started(player_id, p_color, _round_num)
 
 func _on_unit_moved(_unit: Node2D, _from: Vector2, _to: Vector2) -> void:
 	_update_game_visibility.call_deferred(false)
 
 func _on_end_turn_requested() -> void:
 	if is_instance_valid(turn_manager):
-		if input_handler and input_handler.has_method("_deselect_current"):
-			input_handler._deselect_current()
-		
+		if input_handler and input_handler.has_method("_deselect_all"):
+			input_handler._deselect_all()
+		if is_instance_valid(action_popup):
+			action_popup.close()
 		turn_manager.next_turn()
+
+func _on_action_popup_closed() -> void:
+	if input_handler and "is_disabled" in input_handler:
+		input_handler.set("is_disabled", false)
 
 # --- VISIBILIDADE ---
 
 func _update_game_visibility(force_instant: bool = false) -> void:
-	if not visibility_manager or not turn_manager or not vagabond_manager: 
-		return
-		
+	if not (visibility_manager and turn_manager and vagabond_manager): return
+	
 	var domains = []
 	if is_instance_valid(domain_manager):
-		if "active_domains" in domain_manager:
-			domains = domain_manager.get("active_domains")
-		elif domain_manager.has_method("get_all_domains"):
-			domains = domain_manager.get_all_domains()
+		domains = domain_manager.get("active_domains") if "active_domains" in domain_manager else []
 	
 	visibility_manager.update_visibility(
 		vagabond_manager.active_vagabonds,
@@ -201,9 +211,16 @@ func _update_game_visibility(force_instant: bool = false) -> void:
 # --- ENTRADA ---
 
 func _input(event: InputEvent) -> void:
+	# CORREÇÃO: Só bloqueamos o input se o popup já estiver visível.
+	# No primeiro clique, o popup ainda está INVISÍVEL, então deixamos o evento passar
+	# para que o InputHandler selecione a unidade e dispare o sinal de abertura.
+	if is_instance_valid(action_popup) and action_popup.visible:
+		# Se for um clique de mouse para fechar, podemos tratar aqui, 
+		# mas não enviamos para o mapa.
+		return
+
 	if input_handler:
 		input_handler.handle_input(event)
 
 func _on_focus_changed(control: Control) -> void:
-	if control: 
-		control.release_focus()
+	if control: control.release_focus()

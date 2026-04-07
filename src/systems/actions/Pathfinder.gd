@@ -1,4 +1,4 @@
-# res://src/systems/movement/Pathfinder.gd
+# res://src/systems/actions/Pathfinder.gd
 
 extends RefCounted
 

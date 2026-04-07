@@ -1,4 +1,4 @@
-# res://src/systems/movement/UnitMover.gd
+# res://src/systems/actions/UnitMover.gd
 extends RefCounted
 
 static func move_unit(unit: Node2D, target_grid_pos: Vector2, grid_manager: Node2D, occupied_nodes: Array = []) -> bool:
